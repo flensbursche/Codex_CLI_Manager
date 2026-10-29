@@ -1,0 +1,28 @@
+Codex Session Manager
+=====================
+
+Installation ohne Administratorrechte
+--------------------------------------
+1. ZIP vollständig entpacken.
+2. CodexSessionManager.exe doppelklicken.
+
+Die App kopiert sich automatisch nach:
+%LOCALAPPDATA%\CodexSessionManager
+
+Anschließend startet sie von dort und öffnet die Browseroberfläche unter:
+http://127.0.0.1:4180/
+
+Die App wird für den aktuell angemeldeten Benutzer in den Autostart eingetragen.
+Dafür sind weder Administratorrechte noch ein Windows-Dienst erforderlich.
+Der Autostart kann in der Browseroberfläche jederzeit deaktiviert werden.
+
+Voraussetzungen
+---------------
+- Windows 10 oder Windows 11 (x64)
+- Installierte Codex CLI und bestehende Codex-Anmeldung
+
+Hinweis
+-------
+Unternehmensrichtlinien wie AppLocker, WDAC oder Defender können auch
+Benutzeranwendungen blockieren. Für eine breite interne Verteilung ist eine
+Codesignatur empfehlenswert.

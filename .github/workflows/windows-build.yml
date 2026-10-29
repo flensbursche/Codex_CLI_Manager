@@ -1,0 +1,31 @@
+name: Windows companion
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Check browser companion
+        run: node scripts/check-web-app.mjs
+      - name: Publish self-contained Windows companion
+        run: dotnet publish agent/CodexSessionManager.Agent.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
+      - name: Package
+        shell: pwsh
+        run: Compress-Archive -Path publish/* -DestinationPath CodexSessionManager-Setup-win-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CodexSessionManager-Setup-win-x64
+          path: CodexSessionManager-Setup-win-x64.zip
+          if-no-files-found: error
