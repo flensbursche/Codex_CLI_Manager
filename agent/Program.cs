@@ -1495,6 +1495,7 @@ internal static class TerminalHost
             startInfo.ArgumentList.Add("--startingDirectory");
             startInfo.ArgumentList.Add(workingDirectory);
             startInfo.ArgumentList.Add("--appendCommandLine");
+            startInfo.ArgumentList.Add("--");
         }
 
         startInfo.ArgumentList.Add("-NoLogo");
