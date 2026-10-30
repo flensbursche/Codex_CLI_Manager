@@ -1164,6 +1164,31 @@ summary {
     0 0 16px rgba(79, 134, 173, 0.22);
 }
 
+.session-row.health-healthy {
+  animation: session-active-border-pulse 3.8s ease-in-out infinite;
+}
+
+@keyframes session-active-border-pulse {
+  0%, 100% {
+    border-color: #4f86ad;
+    box-shadow:
+      0 0 0 1px rgba(79, 134, 173, 0.2),
+      0 0 14px rgba(79, 134, 173, 0.18);
+  }
+  50% {
+    border-color: #6697b9;
+    box-shadow:
+      0 0 0 1px rgba(102, 151, 185, 0.28),
+      0 0 16px rgba(79, 134, 173, 0.23);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .session-row.health-healthy {
+    animation: none;
+  }
+}
+
 .session-row.health-uncertain {
   border-color: color-mix(in srgb, var(--warning) 72%, var(--line));
   box-shadow: 0 0 14px color-mix(in srgb, var(--warning) 18%, transparent);

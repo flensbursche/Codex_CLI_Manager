@@ -6,6 +6,7 @@ var tests = new (string Name, Func<Task> Run)[]
 {
     ("Windows Terminal arguments", TestWindowsTerminalArgumentsAsync),
     ("Windows Terminal process launch", TestWindowsTerminalLaunchAsync),
+    ("PowerShell package resolution", TestPowerShellPackageResolutionAsync),
     ("PowerShell process launch", TestPowerShellLaunchAsync),
     ("Session mutex and file lock", TestSessionLocksAsync),
     ("Session health state matrix", TestSessionHealthAsync),
@@ -49,7 +50,7 @@ static Task TestWindowsTerminalArgumentsAsync()
     var expected = new[]
     {
         "-w", "new", "new-tab", "--profile", "{test-profile}", "--startingDirectory", @"C:\DEV\Project With Spaces",
-        shell.Path, "-NoLogo", "-NoExit", "-EncodedCommand"
+        "--", shell.Path, "-NoLogo", "-NoExit", "-EncodedCommand"
     };
     Assert(arguments.Length == expected.Length + 1, "Unexpected Windows Terminal argument count.");
     Assert(arguments.Take(expected.Length).SequenceEqual(expected), $"Windows Terminal arguments differ: {string.Join(" | ", arguments)}");
@@ -77,15 +78,14 @@ static async Task TestWindowsTerminalLaunchAsync()
     try
     {
         var marker = Path.Combine(root, "windows-terminal-started.txt");
-        var escapedMarker = marker.Replace("'", "''", StringComparison.Ordinal);
-        var shell = PowerShellHost.Resolve("auto");
-        var startInfo = TerminalHost.CreateStartInfo(
-            true,
-            TerminalHost.ExecutablePath,
-            shell,
-            AppContext.BaseDirectory,
-            $"[IO.File]::WriteAllText('{escapedMarker}', 'ok'); exit");
-        using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Windows Terminal process was not started.");
+        var managerExecutable = Path.Combine(AppContext.BaseDirectory, "CodexSessionManager.exe");
+        Assert(File.Exists(managerExecutable), "Built CodexSessionManager.exe was not copied beside the integration tests.");
+        var startInfo = new ProcessStartInfo(managerExecutable) { UseShellExecute = false };
+        startInfo.Environment["CODEX_MANAGER_TERMINAL_SMOKE_MARKER"] = marker;
+        using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("CodexSessionManager smoke process was not started.");
+        using (var managerTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
+            await process.WaitForExitAsync(managerTimeout.Token);
+        Assert(process.ExitCode == 0, $"CodexSessionManager smoke process exited with {process.ExitCode}.");
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
         while (!File.Exists(marker))
@@ -98,6 +98,23 @@ static async Task TestWindowsTerminalLaunchAsync()
     {
         DeleteTestRoot(root);
     }
+}
+
+static Task TestPowerShellPackageResolutionAsync()
+{
+    var packagedExecutable = PowerShellHost.ResolvePackagedPowerShell7();
+    if (packagedExecutable is null)
+    {
+        Console.WriteLine("      SKIP: Packaged PowerShell 7 is not installed on this runner.");
+        return Task.CompletedTask;
+    }
+
+    Assert(File.Exists(packagedExecutable), "Resolved PowerShell package executable does not exist.");
+    Assert(string.Equals(PowerShellHost.PowerShell7Path, packagedExecutable, StringComparison.OrdinalIgnoreCase),
+        "PowerShell resolution did not prefer the real package executable over the WindowsApps alias.");
+    Assert(!packagedExecutable.Contains(@"Microsoft\WindowsApps\Microsoft.PowerShell_8wekyb3d8bbwe", StringComparison.OrdinalIgnoreCase),
+        "PowerShell resolution still returned the WindowsApps execution alias.");
+    return Task.CompletedTask;
 }
 
 static async Task TestPowerShellLaunchAsync()

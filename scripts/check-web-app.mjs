@@ -30,7 +30,8 @@ if (!agent.includes("TerminalHost.OpenPowerShell(cwd, command)")) throw new Erro
 if (!agent.includes('"Microsoft.WindowsTerminal_8wekyb3d8bbwe"')) throw new Error("Windows Terminal wird nicht über seinen App-Alias gestartet.");
 if (!agent.includes('"{574e775e-4f2a-5b96-ac1e-a2962a402336}"')) throw new Error("Das normale PowerShell-Profil von Windows Terminal wird nicht explizit verwendet.");
 if (!agent.includes('startInfo.ArgumentList.Add("new");') || agent.includes('startInfo.ArgumentList.Add("0");')) throw new Error("Session-Resume öffnet nicht immer ein neues Windows-Terminal-Fenster.");
-if (!agent.includes('startInfo.ArgumentList.Add(shell.Path);') || agent.includes('startInfo.ArgumentList.Add("--appendCommandLine");') || agent.includes('startInfo.ArgumentList.Add("--");')) throw new Error("Windows Terminal erhält PowerShell nicht als eigenständiges ausführbares Argument.");
+if (!agent.includes('startInfo.ArgumentList.Add("--");') || !agent.includes('startInfo.ArgumentList.Add(shell.Path);') || agent.includes('startInfo.ArgumentList.Add("--appendCommandLine");')) throw new Error("Windows Terminal erhält den Trenner und PowerShell nicht als eigenständige Argumente.");
+if (!agent.includes("ResolvePackagedPowerShell7()") || !agent.includes('GetValue("PackageRootFolder")')) throw new Error("Die echte PowerShell-Paketdatei wird nicht vor dem WindowsApps-Alias aufgelöst.");
 if (!agent.includes('"Microsoft.PowerShell_8wekyb3d8bbwe"')) throw new Error("Die installierte PowerShell-7-App wird nicht bevorzugt.");
 if (!agent.includes('Convert.ToBase64String(Encoding.Unicode.GetBytes(initialization))')) throw new Error("Der Resume-Befehl wird für Windows Terminal nicht sicher kodiert.");
 if (!agent.includes('$env:NO_COLOR=$null; $env:TERM=$null; $env:COLORTERM=$null')) throw new Error("Geerbte Automations-Farbvariablen werden vor dem Terminal-Start nicht entfernt.");
@@ -82,13 +83,14 @@ const roadmap = JSON.parse(await readFile(new URL("../web/roadmap.json", import.
 if (roadmap.version !== "1.0" || !Array.isArray(roadmap.items) || roadmap.items.length < 5) throw new Error("Die erweiterbare 1.0-Roadmap fehlt.");
 const appIcon = await readFile(new URL("../web/app-icon.svg", import.meta.url), "utf8");
 if (!appIcon.includes('fill="#ff6537"') || !appIcon.includes('stroke="#fff"')) throw new Error("Das gemeinsame orange-weiße App-Icon fehlt.");
-if (!script.includes('class="mark"><img src="/app-icon.svg?v=11"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
+if (!script.includes('class="mark"><img src="/app-icon.svg?v=12"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
 const shareMenuIndex = script.indexOf('id="share-repository"');
 const aboutMenuIndex = script.indexOf('href="/about"', shareMenuIndex);
 const updateMenuIndex = script.indexOf('id="menu-update"', aboutMenuIndex);
 if (shareMenuIndex < 0 || aboutMenuIndex < shareMenuIndex || updateMenuIndex < aboutMenuIndex || script.includes('t("aboutAndHistory",')) throw new Error("Über & Historie steht nicht ohne redundante Version direkt über dem Versionsstatus.");
 if (!script.includes('id="header-update"') || !script.includes('headerUpdate.hidden = result.status !== "available"')) throw new Error("Der sichtbare Update-Hinweis neben Live fehlt.");
 if (!script.includes("git: brandIcon(") || !styles.includes("color: #f05032")) throw new Error("Das echte Git-Markenlogo fehlt.");
+if (!styles.includes("@keyframes session-active-border-pulse") || !styles.includes(".session-row.health-healthy") || !styles.includes("prefers-reduced-motion: reduce")) throw new Error("Das dezente, barrierearme Pulsieren aktiver Sessions fehlt.");
 if (!script.includes("github: brandIcon(") || !script.includes("gitlab: brandIcon(") || !script.includes("providerIcon")) throw new Error("Die Anbieterlogos für GitHub- und GitLab-Remotes fehlen.");
 if (!script.includes('mark class="search-match"') || !styles.includes("mark.search-match")) throw new Error("Die Hervorhebung sichtbarer Suchtreffer fehlt.");
 if (!script.includes('navigator.clipboard.writeText(url)') || script.includes('navigator.share')) throw new Error("Copy Link kopiert den Repository-Link nicht direkt.");

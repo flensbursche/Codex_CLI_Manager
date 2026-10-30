@@ -8,6 +8,7 @@ using System.Text.Json.Nodes;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Win32;
 
+if (TerminalHost.TryRunIntegrationSmokeTest()) return;
 if (UpdateService.TryApplyStagedUpdate(args)) return;
 if (!args.Contains("--portable", StringComparer.OrdinalIgnoreCase) && !UserInstallation.IsInstalledLocation())
 {
@@ -1048,7 +1049,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.9.11";
+    public const string Version = "0.9.12";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);
@@ -1449,17 +1450,55 @@ internal static class PowerShellHost
 
     private static string? ResolvePowerShell7()
     {
+        var packagedExecutable = ResolvePackagedPowerShell7();
         var candidates = new[]
         {
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Microsoft", "WindowsApps", "Microsoft.PowerShell_8wekyb3d8bbwe", "pwsh.exe"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "PowerShell", "7", "pwsh.exe")
+            packagedExecutable,
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "PowerShell", "7", "pwsh.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Microsoft", "WindowsApps", "Microsoft.PowerShell_8wekyb3d8bbwe", "pwsh.exe")
         };
-        return candidates.FirstOrDefault(File.Exists);
+        return candidates.FirstOrDefault(path => path is not null && File.Exists(path));
+    }
+
+    internal static string? ResolvePackagedPowerShell7()
+    {
+        const string packagePrefix = "Microsoft.PowerShell_";
+        const string packagesKey = @"Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages";
+        try
+        {
+            using var packages = Registry.CurrentUser.OpenSubKey(packagesKey);
+            var packageNames = packages?.GetSubKeyNames()
+                .Where(name => name.StartsWith(packagePrefix, StringComparison.OrdinalIgnoreCase))
+                .Select(name => new { Name = name, Version = PackageVersion(name, packagePrefix) })
+                .OrderByDescending(package => package.Version)
+                .ToArray() ?? [];
+            foreach (var packageName in packageNames)
+            {
+                using var package = packages!.OpenSubKey(packageName.Name);
+                if (package?.GetValue("PackageRootFolder") is not string root) continue;
+                var executable = Path.Combine(root, "pwsh.exe");
+                if (File.Exists(executable)) return executable;
+            }
+        }
+        catch
+        {
+        }
+        return null;
+    }
+
+    private static Version PackageVersion(string packageName, string prefix)
+    {
+        var remainder = packageName[prefix.Length..];
+        var separator = remainder.IndexOf('_');
+        var value = separator >= 0 ? remainder[..separator] : remainder;
+        return System.Version.TryParse(value, out var version) ? version : new Version(0, 0);
     }
 }
 
 internal static class TerminalHost
 {
+    private const string IntegrationSmokeMarkerVariable = "CODEX_MANAGER_TERMINAL_SMOKE_MARKER";
+
     public static string ExecutablePath { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "Microsoft",
@@ -1488,6 +1527,28 @@ internal static class TerminalHost
         Process.Start(CreateStartInfo(terminal == "windows-terminal", executable, shell, workingDirectory, command));
     }
 
+    internal static bool TryRunIntegrationSmokeTest()
+    {
+        var marker = Environment.GetEnvironmentVariable(IntegrationSmokeMarkerVariable);
+        if (string.IsNullOrWhiteSpace(marker)) return false;
+
+        var fullMarker = Path.GetFullPath(marker);
+        var allowedRoot = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "CodexSessionManager.IntegrationTests"))
+            .TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        if (!fullMarker.StartsWith(allowedRoot, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Terminal smoke marker must stay inside the integration-test temp directory.");
+
+        Directory.CreateDirectory(Path.GetDirectoryName(fullMarker)!);
+        var escapedMarker = fullMarker.Replace("'", "''", StringComparison.Ordinal);
+        var mutexName = $"Local\\CodexSessionManager.IntegrationTest.{Guid.NewGuid():N}";
+        var command = $"$sessionMutex = [System.Threading.Mutex]::new($true, '{mutexName}'); " +
+            $"try {{ [IO.File]::WriteAllText('{escapedMarker}', 'ok') }} " +
+            "finally { $sessionMutex.ReleaseMutex(); $sessionMutex.Dispose() }; exit";
+        var shell = PowerShellHost.Resolve("auto");
+        Process.Start(CreateStartInfo(true, ExecutablePath, shell, AppContext.BaseDirectory, command));
+        return true;
+    }
+
     internal static ProcessStartInfo CreateStartInfo(bool windowsTerminal, string executable, ShellResolution shell, string workingDirectory, string? command = null)
     {
         var startInfo = new ProcessStartInfo
@@ -1506,6 +1567,7 @@ internal static class TerminalHost
             startInfo.ArgumentList.Add(shell.ProfileId);
             startInfo.ArgumentList.Add("--startingDirectory");
             startInfo.ArgumentList.Add(workingDirectory);
+            startInfo.ArgumentList.Add("--");
             startInfo.ArgumentList.Add(shell.Path);
         }
 
