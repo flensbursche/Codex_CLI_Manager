@@ -74,5 +74,6 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
-        run: gh release create $env:RELEASE_TAG release/CodexSessionManager-Setup-win-x64.zip release/CodexSessionManager-Setup-win-x64.zip.sha256 --verify-tag --generate-notes --title "Codex CLI Manager $env:RELEASE_TAG"
+        run: gh release create $env:RELEASE_TAG release/CodexSessionManager-Setup-win-x64.zip release/CodexSessionManager-Setup-win-x64.zip.sha256 --repo $env:GH_REPO --verify-tag --generate-notes --title "Codex CLI Manager $env:RELEASE_TAG"
