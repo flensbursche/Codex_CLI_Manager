@@ -230,6 +230,12 @@ summary {
   font-size: 12px;
 }
 
+.menu-row small {
+  margin-left: auto;
+  color: var(--faint);
+  font-size: 10px;
+}
+
 .menu-row svg,
 .menu-label svg {
   width: 17px;
@@ -1255,18 +1261,22 @@ summary {
   opacity: 1;
 }
 
-.session-context time {
+.session-time {
   flex: 0 0 auto;
   color: var(--faint);
   font-size: 12px;
+  font-weight: 600;
   white-space: nowrap;
 }
 
-.session-meta {
+.session-utility {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
+  margin-right: 2px;
+  padding-right: 8px;
+  border-right: 1px solid var(--line);
 }
 
 .session-favorite,
@@ -1447,6 +1457,51 @@ mark.search-match {
 
 .session-git.conflict::after {
   background: var(--danger);
+}
+
+.git-tooltip {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 9px);
+  left: 50%;
+  width: max-content;
+  max-width: min(340px, calc(100vw - 36px));
+  padding: 9px 11px;
+  visibility: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel);
+  box-shadow: 0 12px 32px rgba(22, 42, 56, 0.2);
+  font-family: Inter, ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.55;
+  opacity: 0;
+  pointer-events: none;
+  white-space: pre-line;
+  transform: translate(-50%, -4px);
+  transition: opacity 120ms ease, transform 120ms ease, visibility 120ms ease;
+}
+
+.git-tooltip::before {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+  content: "";
+  transform: translate(-50%, 5px) rotate(45deg);
+}
+
+.session-git:hover .git-tooltip,
+.session-git:focus-visible .git-tooltip {
+  visibility: visible;
+  opacity: 1;
+  transform: translate(-50%, 0);
 }
 
 .pin {
@@ -1886,20 +1941,161 @@ mark.search-match {
   padding: 34px 28px 64px;
 }
 
-.history-heading {
+.about-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
   margin: 26px 0 30px;
 }
 
-.history-heading h1 {
+.about-heading h1 {
   margin: 6px 0 8px;
   font-size: clamp(27px, 4vw, 38px);
 }
 
-.history-heading p {
+.about-heading p,
+.history-section > header p,
+.roadmap-section > header p {
   max-width: 680px;
   margin: 0;
   color: var(--muted);
   line-height: 1.6;
+}
+
+.about-version {
+  flex: 0 0 auto;
+  padding: 10px 13px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel);
+  text-align: right;
+}
+
+.about-version span {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--faint);
+  font-size: 10px;
+}
+
+.about-version strong {
+  font-size: 17px;
+}
+
+.about-links {
+  display: flex;
+  gap: 9px;
+  margin: -14px 0 34px;
+}
+
+.about-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel);
+  font-size: 12px;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.about-links a:hover {
+  border-color: var(--accent);
+}
+
+.about-links svg {
+  width: 17px;
+  height: 17px;
+}
+
+.roadmap-section,
+.history-section {
+  margin-top: 38px;
+}
+
+.roadmap-section > header,
+.history-section > header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+
+.roadmap-section h2,
+.history-section h2 {
+  margin: 3px 0 0;
+  font-size: 22px;
+}
+
+.roadmap-section > header p,
+.history-section > header p {
+  max-width: 520px;
+  font-size: 13px;
+}
+
+.roadmap-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.roadmap-item {
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--panel);
+  box-shadow: 0 7px 22px rgba(36, 62, 78, 0.05);
+}
+
+.roadmap-item > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.roadmap-item > header span {
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--soft);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.roadmap-item.done > header span {
+  color: var(--success);
+}
+
+.roadmap-item.next > header span {
+  color: var(--accent);
+}
+
+.roadmap-item > header code {
+  overflow: hidden;
+  color: var(--faint);
+  font-size: 9px;
+  text-overflow: ellipsis;
+}
+
+.roadmap-item h3 {
+  margin: 13px 0 6px;
+  font-size: 15px;
+}
+
+.roadmap-item p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .history-list {
@@ -2215,10 +2411,24 @@ mark.search-match {
     gap: 3px;
   }
 
-  .session-meta {
+  .session-time {
     order: -1;
+    align-self: flex-end;
+  }
+
+  .session-actions {
     align-self: stretch;
     justify-content: flex-end;
+    gap: 6px;
+  }
+
+  .session-body {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .session-utility {
+    padding-right: 5px;
   }
 
   .launch-source,
@@ -2233,5 +2443,20 @@ mark.search-match {
 
   .actions button {
     width: 100%;
+  }
+
+  .about-heading,
+  .roadmap-section > header,
+  .history-section > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .about-version {
+    text-align: left;
+  }
+
+  .roadmap-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

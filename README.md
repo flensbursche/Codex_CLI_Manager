@@ -17,12 +17,13 @@ Codex CLI Manager ist ein lokales Windows-Cockpit zum Finden, Sortieren, Öffnen
 
 - liest echte Sessions direkt aus der lokalen Codex-State-Datenbank
 - gruppiert Sessions nach Aktivität und filtert nach Projekt, Zeitraum, Quelle und Archivstatus
+- durchsucht Titel, Vorschau, Projekt, Git-Daten und Pfade und hebt sichtbare Treffer hervor
 - blendet interne Guardian- und Memory-Sessions standardmäßig aus
 - erkennt offene Threads über Codex-Prozess und Writer-Lock, kennzeichnet unklare Zustände und verhindert Doppelstarts
 - verwaltet Favoriten in app-eigenen Metadaten und frei angelegte Projekte mit Drag-and-drop-Zuordnung
 - löst Projektzuordnungen direkt wieder an der jeweiligen Session
 - erkennt Git-Repositories, Branch, Arbeitsbaumstatus, Konflikte und den letzten Commit ohne Schreibzugriff
-- zeigt eine aus Release-Tags und Git-Commits erzeugte Versionshistorie in der App
+- bündelt About, die aus Release-Tags und Git-Commits erzeugte Versionshistorie und eine erweiterbare 1.0-Roadmap
 - bündelt von Connectoren erzeugte Schatten-Sessions unter ihrer Hauptsession
 - setzt CLI-Sessions in einem neuen Windows-Terminal-Fenster mit PowerShell fort
 - erkennt Windows Terminal und installierte PowerShell-Versionen pro Benutzer
@@ -49,7 +50,7 @@ Beim ersten Start installiert sich die Anwendung nach:
 
 Sie trägt sich für den aktuellen Benutzer in `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` ein, öffnet die Browseroberfläche bevorzugt unter `http://127.0.0.1:4180/` und läuft anschließend im Tray. Ist Port 4180 belegt, wählt sie automatisch den nächsten freien Port bis 4199. Es werden weder Administratorrechte noch ein Windows-Dienst benötigt.
 
-Im Tray-Menü prüft `Nach Updates suchen` das neueste GitHub Release. Verfügbare Updates werden heruntergeladen, per SHA-256 geprüft, in der lokalen Installation ersetzt und anschließend neu gestartet. Projekte, eigene Session-Titel, Sprache und Terminal-Einstellungen bleiben erhalten.
+Im Tray-Menü prüft `Nach Updates suchen` das neueste GitHub Release. Verfügbare Updates werden heruntergeladen, per SHA-256 geprüft, in der lokalen Installation ersetzt und anschließend neu gestartet. Ein sichtbares Fortschrittsfenster zeigt Download, Prüfung, Installation und Neustart. Projekte, eigene Session-Titel, Sprache und Terminal-Einstellungen bleiben erhalten.
 
 Voraussetzungen auf dem Zielrechner:
 

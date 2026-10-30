@@ -1,0 +1,42 @@
+{
+  "version": "1.0",
+  "updatedAt": "2026-10-30",
+  "items": [
+    {
+      "id": "reliable-updates",
+      "status": "done",
+      "title": { "de": "Zuverlässige Updates", "en": "Reliable updates", "da": "Pålidelige opdateringer" },
+      "description": { "de": "Geprüfte Downloads, sichtbarer Fortschritt und sicherer Neustart.", "en": "Verified downloads, visible progress, and safe restarts.", "da": "Kontrollerede downloads, synlig fremdrift og sikker genstart." }
+    },
+    {
+      "id": "git-integration",
+      "status": "done",
+      "title": { "de": "Git-Integration", "en": "Git integration", "da": "Git-integration" },
+      "description": { "de": "Branch, Änderungen, Konflikte, letzter Commit und Anbietererkennung.", "en": "Branch, changes, conflicts, latest commit, and provider detection.", "da": "Branch, ændringer, konflikter, seneste commit og udbydergenkendelse." }
+    },
+    {
+      "id": "session-health",
+      "status": "next",
+      "title": { "de": "Session Health Check", "en": "Session health check", "da": "Session-sundhedstjek" },
+      "description": { "de": "Aktive, unklare, hängende und verwaiste Sessions zuverlässig unterscheiden.", "en": "Reliably distinguish active, uncertain, stuck, and orphaned sessions.", "da": "Skeln pålideligt mellem aktive, uklare, fastlåste og forældreløse sessioner." }
+    },
+    {
+      "id": "safe-recovery",
+      "status": "next",
+      "title": { "de": "Sichere Wiederherstellung", "en": "Safe recovery", "da": "Sikker gendannelse" },
+      "description": { "de": "Hängende Sessions diagnostizieren und kontrolliert wieder öffnen, ohne Locks blind zu löschen.", "en": "Diagnose stuck sessions and reopen them safely without blindly deleting locks.", "da": "Diagnosticér fastlåste sessioner og genåbn dem sikkert uden blindt at slette låse." }
+    },
+    {
+      "id": "project-dashboard",
+      "status": "planned",
+      "title": { "de": "Projekt-Dashboard", "en": "Project dashboard", "da": "Projekt-dashboard" },
+      "description": { "de": "Aktivität, Session-Zustand und Git-Status eines Projekts auf einen Blick.", "en": "Project activity, session health, and Git status at a glance.", "da": "Projektaktivitet, sessionsstatus og Git-status på ét sted." }
+    },
+    {
+      "id": "content-search",
+      "status": "planned",
+      "title": { "de": "Session-Volltextsuche", "en": "Session full-text search", "da": "Fuldtekstsøgning i sessioner" },
+      "description": { "de": "Frühere Aufgaben und Diskussionen über einen lokalen, inkrementellen Index durchsuchen.", "en": "Search earlier tasks and discussions through a local incremental index.", "da": "Søg i tidligere opgaver og diskussioner via et lokalt, trinvist indeks." }
+    }
+  ]
+}

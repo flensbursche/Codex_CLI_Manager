@@ -5,6 +5,7 @@ let companionInfo = { supportsAutostart: false, autostartEnabled: false };
 let language = "de";
 let sessionEvents;
 let sidebarCollapsed = localStorage.getItem("codex-sidebar-collapsed") === "true";
+let menuDismissBound = false;
 const languageLocales = { de: "de-DE", en: "en-GB", da: "da-DK" };
 let messages = {};
 const loadMessages = async (code) => {
@@ -61,22 +62,39 @@ const icons = {
   gitlab: brandIcon('M23.955 13.587l-1.342-4.135-2.66-8.19a.455.455 0 0 0-.867 0l-2.66 8.19H7.574l-2.66-8.19a.455.455 0 0 0-.867 0l-2.66 8.19L.045 13.587a.924.924 0 0 0 .331 1.023L12 23.783l11.625-9.173a.924.924 0 0 0 .33-1.023z'),
   history: tablerIcon('<path d="M12 8v4l2 2"/><path d="M3.05 11a9 9 0 1 0 .5-3M3 4v4h4"/>'),
   info: tablerIcon('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.01"/>'),
+  share: tablerIcon('<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5l6.8-4M8.6 13.5l6.8 4"/>'),
   refresh: tablerIcon('<path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"/>')
 };
-const theme = localStorage.getItem("codex-manager-theme") || "light";
-document.documentElement.dataset.theme = theme;
+const colorScheme = window.matchMedia("(prefers-color-scheme: dark)");
+let themePreference = localStorage.getItem("codex-manager-theme") || "auto";
+const applyThemePreference = () => { document.documentElement.dataset.theme = themePreference === "auto" ? colorScheme.matches ? "dark" : "light" : themePreference; };
+applyThemePreference();
+colorScheme.addEventListener("change", () => { if (themePreference === "auto") applyThemePreference(); });
 
 function header() {
   const autostart = companionInfo.supportsAutostart ? `<button class="menu-row switch-row" id="autostart-toggle" role="switch" aria-checked="${companionInfo.autostartEnabled}"><span>${t("autostart")}</span><i class="toggle-switch"><b></b></i></button>` : "";
   const darkMode = document.documentElement.dataset.theme === "dark";
-  return `<header class="top"><a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=4" alt=""></span><strong>Codex CLI Manager</strong></a><span class="live"><i class="dot"></i>${t("live")}</span><span class="spacer"></span><details class="header-menu"><summary class="quiet-button icon-button" aria-label="${t("menu")}" title="${t("menu")}">${icons.menu}</summary><div class="header-menu-panel">${autostart}<button class="menu-row switch-row" id="theme-toggle" role="switch" aria-checked="${darkMode}">${darkMode ? icons.moon : icons.sun}<span>${t("darkMode")}</span><i class="toggle-switch"><b></b></i></button><div class="menu-block"><span class="menu-label">${icons.globe}${t("language")}</span><div class="language-options" role="group" aria-label="${t("language")}">${["de", "en", "da"].map((code) => `<button type="button" data-language="${code}" class="${language === code ? "active" : ""}" aria-pressed="${language === code}">${code === "da" ? "DK" : code.toUpperCase()}</button>`).join("")}</div></div><a class="menu-row" href="/history">${icons.history}<span>${t("versionHistory")}</span></a><a class="menu-row" href="/settings/terminal">${icons.settings}<span>${t("terminalSettings")}</span></a><div class="menu-update" id="menu-update"><span>${icons.refresh}<span>${t("updateChecking")}</span></span><button type="button" id="update-check">${t("checkNow")}</button></div><details class="menu-about"><summary class="menu-row">${icons.info}<span>${t("about")}</span></summary><div><strong>Codex CLI Manager ${esc(companionInfo.version || "")}</strong><p>${t("aboutDescription")}</p><a href="https://github.com/flensbursche/Codex_CLI_Manager" target="_blank" rel="noreferrer">GitHub</a></div></details></div></details></header>`;
+  return `<header class="top"><a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=4" alt=""></span><strong>Codex CLI Manager</strong></a><span class="live"><i class="dot"></i>${t("live")}</span><span class="spacer"></span><details class="header-menu"><summary class="quiet-button icon-button" aria-label="${t("menu")}" title="${t("menu")}">${icons.menu}</summary><div class="header-menu-panel">${autostart}<button class="menu-row switch-row" id="theme-toggle" role="switch" aria-checked="${darkMode}">${darkMode ? icons.moon : icons.sun}<span>${t("darkMode")}</span><i class="toggle-switch"><b></b></i></button><div class="menu-block"><span class="menu-label">${icons.globe}${t("language")}</span><div class="language-options" role="group" aria-label="${t("language")}">${["de", "en", "da"].map((code) => `<button type="button" data-language="${code}" class="${language === code ? "active" : ""}" aria-pressed="${language === code}">${code === "da" ? "DK" : code.toUpperCase()}</button>`).join("")}</div></div><a class="menu-row" href="/settings/terminal">${icons.settings}<span>${t("terminalSettings")}</span></a><a class="menu-row" href="/about">${icons.info}<span>${t("about")}</span><small>${esc(companionInfo.version || "")}</small></a><button class="menu-row" id="share-repository" type="button">${icons.share}<span>${t("shareRepository")}</span></button><div class="menu-update" id="menu-update"><span>${icons.refresh}<span>${t("updateChecking")}</span></span><button type="button" id="update-check">${t("checkNow")}</button></div></div></details></header>`;
 }
 
 function bindTheme() {
-  document.querySelector("#theme-toggle").onclick = (event) => { const next = document.documentElement.dataset.theme === "light" ? "dark" : "light"; document.documentElement.dataset.theme = next; localStorage.setItem("codex-manager-theme", next); event.currentTarget.setAttribute("aria-checked", String(next === "dark")); event.currentTarget.querySelector("svg")?.replaceWith(svgNode(next === "dark" ? icons.moon : icons.sun)); };
+  if (!menuDismissBound) {
+    document.addEventListener("pointerdown", (event) => document.querySelectorAll(".header-menu[open]").forEach((menu) => { if (!menu.contains(event.target)) menu.removeAttribute("open"); }));
+    document.addEventListener("keydown", (event) => { if (event.key === "Escape") document.querySelectorAll(".header-menu[open]").forEach((menu) => menu.removeAttribute("open")); });
+    menuDismissBound = true;
+  }
+  document.querySelector("#theme-toggle").onclick = (event) => { const next = document.documentElement.dataset.theme === "light" ? "dark" : "light"; themePreference = next; localStorage.setItem("codex-manager-theme", next); applyThemePreference(); event.currentTarget.setAttribute("aria-checked", String(next === "dark")); event.currentTarget.querySelector("svg")?.replaceWith(svgNode(next === "dark" ? icons.moon : icons.sun)); };
   const autostart = document.querySelector("#autostart-toggle");
   if (autostart) autostart.onclick = async () => { autostart.disabled = true; try { const result = await fetchJson(`/api/autostart/${!companionInfo.autostartEnabled}`, { method: "POST" }); companionInfo.autostartEnabled = result.enabled; autostart.setAttribute("aria-checked", String(result.enabled)); } finally { autostart.disabled = false; } };
   document.querySelectorAll("[data-language]").forEach((button) => button.onclick = changeLanguage);
+  const shareRepository = document.querySelector("#share-repository");
+  if (shareRepository) shareRepository.onclick = async () => {
+    const url = "https://github.com/flensbursche/Codex_CLI_Manager";
+    try {
+      if (navigator.share) await navigator.share({ title: "Codex CLI Manager", text: t("aboutDescription"), url });
+      else { await navigator.clipboard.writeText(url); shareRepository.querySelector("span").textContent = t("repoLinkCopied"); window.setTimeout(() => { const label = shareRepository.querySelector("span"); if (label) label.textContent = t("shareRepository"); }, 1800); }
+    } catch (error) { if (error.name !== "AbortError") window.prompt(t("copyPathFallback"), url); }
+  };
   document.querySelector("#update-check").onclick = () => loadUpdateStatus(true);
   void loadUpdateStatus(false);
   const sidebarToggle = document.querySelector("#sidebar-toggle");
@@ -169,22 +187,29 @@ function renderTerminalSettingsPage(settings) {
   };
 }
 
-async function versionHistoryPage() {
+async function aboutPage() {
   app.innerHTML = `<div class="shell">${header()}<main class="session-page"><div class="history-content"><a class="back" href="/">${t("backSessions")}</a><div class="page-loading">${t("loading")}</div></div></main></div>`;
   bindTheme();
   try {
-    const response = await fetch("/version-history.json", { cache: "no-store" });
-    if (!response.ok) throw new Error(t("historyLoadFailed"));
-    renderVersionHistory(await response.json());
+    const [historyResponse, roadmapResponse] = await Promise.all([
+      fetch("/version-history.json", { cache: "no-store" }),
+      fetch("/roadmap.json", { cache: "no-store" })
+    ]);
+    if (!historyResponse.ok || !roadmapResponse.ok) throw new Error(t("historyLoadFailed"));
+    renderAbout(await historyResponse.json(), await roadmapResponse.json());
   } catch (error) {
     document.querySelector(".history-content").innerHTML = `<a class="back" href="/">${t("backSessions")}</a><div class="empty">${esc(error.message)}</div>`;
   }
 }
 
-function renderVersionHistory(history) {
+function renderAbout(history, roadmap) {
   const content = document.querySelector(".history-content");
   const date = (value) => value ? new Intl.DateTimeFormat(languageLocales[language], { dateStyle: "medium" }).format(new Date(value)) : "";
-  content.innerHTML = `<a class="back" href="/">${t("backSessions")}</a><div class="history-heading"><span class="eyebrow">Codex CLI Manager</span><h1>${t("versionHistory")}</h1><p>${t("versionHistoryDescription")}</p></div><div class="history-list">${(history.releases || []).map((release) => `<section class="history-release ${release.released ? "" : "unreleased"}"><header><div><span>${release.released ? t("version", esc(release.version)) : t("unreleased")}</span><time>${date(release.date)}</time></div><code>${esc(String(release.commit || "").slice(0, 7))}</code></header><ol>${(release.commits || []).map((commit) => `<li><a href="https://github.com/flensbursche/Codex_CLI_Manager/commit/${encodeURIComponent(commit.hash)}" target="_blank" rel="noreferrer"><code>${esc(commit.shortHash)}</code><span>${esc(commit.subject)}</span><time>${date(commit.date)}</time></a></li>`).join("")}</ol></section>`).join("")}</div>`;
+  const localized = (value) => value?.[language] || value?.en || "";
+  const statusLabel = (status) => t(status === "done" ? "roadmapDone" : status === "next" ? "roadmapNext" : "roadmapPlanned");
+  const roadmapItems = (roadmap.items || []).map((item) => `<article class="roadmap-item ${esc(item.status)}"><header><span>${esc(statusLabel(item.status))}</span><code>${esc(item.id)}</code></header><h3>${esc(localized(item.title))}</h3><p>${esc(localized(item.description))}</p></article>`).join("");
+  const releases = (history.releases || []).map((release) => `<section class="history-release ${release.released ? "" : "unreleased"}"><header><div><span>${release.released ? t("version", esc(release.version)) : t("unreleased")}</span><time>${date(release.date)}</time></div><code>${esc(String(release.commit || "").slice(0, 7))}</code></header><ol>${(release.commits || []).map((commit) => `<li><a href="https://github.com/flensbursche/Codex_CLI_Manager/commit/${encodeURIComponent(commit.hash)}" target="_blank" rel="noreferrer"><code>${esc(commit.shortHash)}</code><span>${esc(commit.subject)}</span><time>${date(commit.date)}</time></a></li>`).join("")}</ol></section>`).join("");
+  content.innerHTML = `<a class="back" href="/">${t("backSessions")}</a><div class="about-heading"><div><span class="eyebrow">Codex CLI Manager</span><h1>${t("about")}</h1><p>${t("aboutDescription")}</p></div><div class="about-version"><span>${t("currentVersion")}</span><strong>${esc(companionInfo.version || "")}</strong></div></div><div class="about-links"><a href="https://github.com/flensbursche/Codex_CLI_Manager" target="_blank" rel="noreferrer">${icons.github}<span>${t("openRepository")}</span></a></div><section class="roadmap-section"><header><div><span class="eyebrow">${esc(roadmap.version || "1.0")}</span><h2>${t("roadmap")}</h2></div><p>${t("roadmapDescription")}</p></header><div class="roadmap-grid">${roadmapItems}</div></section><section class="history-section"><header><h2>${t("versionHistory")}</h2><p>${t("versionHistoryDescription")}</p></header><div class="history-list">${releases}</div></section>`;
 }
 
 async function fetchJson(url, options) {
@@ -423,7 +448,8 @@ function sessionRow(session, shadows = [], query = "") {
   const shadowList = shadows.length ? `<div class="shadow-sessions">${shadows.map((shadow) => shadowSessionRow(shadow, query)).join("")}</div>` : "";
   const favoriteLabel = session.pinned ? t("removeFavorite") : t("addFavorite");
   const projectRemove = session.projectId ? `<button class="session-project-remove" data-id="${session.id}" aria-label="${t("removeFromProject")}" title="${t("removeFromProject")}">${icons.unlink}</button>` : "";
-  return `<article class="session-row ${session.active ? "active-session" : ""}" data-id="${session.id}" draggable="true"><div class="session-copy"><div class="session-context"><button class="session-path-copy copy-value" type="button" data-copy="${esc(session.cwd)}" title="${t("copyPath")}"><code>${highlight(directoryLabel(session.cwd), query)}</code>${icons.copy}</button><div class="session-meta"><time>${sessionTime(session)}</time>${projectRemove}<button class="session-favorite ${session.pinned ? "active" : ""}" data-id="${session.id}" aria-label="${favoriteLabel}" aria-pressed="${session.pinned ? "true" : "false"}" title="${favoriteLabel}">${icons.favorite}</button></div></div><div class="session-body"><div class="session-summary"><div class="session-title-line"><strong class="session-title" title="${esc(session.title)}">${highlight(session.title, query)}</strong>${gitIndicator(session.git)}</div>${session.customTitle ? `<span class="session-original-title">${t("originalTitle")}: ${highlight(session.originalTitle, query)}</span>` : ""}${session.preview ? `<span class="session-prompt">${highlight(session.preview, query)}</span>` : ""}</div><div class="session-actions"><a class="session-details" href="/session/${encodeURIComponent(session.id)}">${t("details")}</a><button class="session-launch ${session.desktop ? "desktop" : ""}" data-id="${session.id}" data-action="${action}" ${disabled ? "disabled" : ""} aria-label="${label}" title="${source}: ${label}"><span class="launch-source">${sourceIcon}</span><span class="launch-divider"></span><span class="launch-play">${icons.play}</span></button></div></div>${shadowList}</div></article>`;
+  const utility = `<div class="session-utility">${projectRemove}<button class="session-favorite ${session.pinned ? "active" : ""}" data-id="${session.id}" aria-label="${favoriteLabel}" aria-pressed="${session.pinned ? "true" : "false"}" title="${favoriteLabel}">${icons.favorite}</button></div>`;
+  return `<article class="session-row ${session.active ? "active-session" : ""}" data-id="${session.id}" draggable="true"><div class="session-copy"><div class="session-context"><button class="session-path-copy copy-value" type="button" data-copy="${esc(session.cwd)}" title="${t("copyPath")}"><code>${highlight(directoryLabel(session.cwd), query)}</code>${icons.copy}</button><time class="session-time">${sessionTime(session)}</time></div><div class="session-body"><div class="session-summary"><div class="session-title-line"><strong class="session-title" title="${esc(session.title)}">${highlight(session.title, query)}</strong>${gitIndicator(session.git)}</div>${session.customTitle ? `<span class="session-original-title">${t("originalTitle")}: ${highlight(session.originalTitle, query)}</span>` : ""}${session.preview ? `<span class="session-prompt">${highlight(session.preview, query)}</span>` : ""}</div><div class="session-actions">${utility}<a class="session-details" href="/session/${encodeURIComponent(session.id)}">${t("details")}</a><button class="session-launch ${session.desktop ? "desktop" : ""}" data-id="${session.id}" data-action="${action}" ${disabled ? "disabled" : ""} aria-label="${label}" title="${source}: ${label}"><span class="launch-source">${sourceIcon}</span><span class="launch-divider"></span><span class="launch-play">${icons.play}</span></button></div></div>${shadowList}</div></article>`;
 }
 
 function gitIndicator(git) {
@@ -437,7 +463,7 @@ function gitIndicator(git) {
   const stateClass = git.conflicts ? "conflict" : git.dirty ? "dirty" : "clean";
   const providerClass = git.provider === "github" ? "provider-github" : git.provider === "gitlab" ? "provider-gitlab" : "";
   const providerIcon = git.provider === "github" ? icons.github : git.provider === "gitlab" ? icons.gitlab : icons.git;
-  return `<span class="session-git ${stateClass} ${providerClass}" title="${esc(details)}" aria-label="${esc(details)}">${providerIcon}</span>`;
+  return `<span class="session-git ${stateClass} ${providerClass}" tabindex="0" aria-label="${esc(details)}">${providerIcon}<span class="git-tooltip" role="tooltip">${esc(details)}</span></span>`;
 }
 
 function shadowSessionRow(session, query = "") {
@@ -562,7 +588,7 @@ async function initialize() {
 function renderCurrentRoute() {
   const match = window.location.pathname.match(/^\/session\/([A-Za-z0-9_-]+)$/);
   if (match) { void sessionPage(match[1]); return; }
-  if (window.location.pathname === "/history") { void versionHistoryPage(); return; }
+  if (window.location.pathname === "/about" || window.location.pathname === "/history") { void aboutPage(); return; }
   if (window.location.pathname === "/settings/terminal") { void terminalSettingsPage(); return; }
   listPage();
 }
