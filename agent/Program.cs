@@ -298,6 +298,7 @@ internal sealed class TrayIconHost : IDisposable
         var openPowerShell = menu.Items.Add("Monitor");
         var update = menu.Items.Add("Nach Updates suchen");
         menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+        var about = menu.Items.Add("About");
         var exit = menu.Items.Add("Beenden");
         using var trayIcon = AppIcon.Create();
         using var icon = new System.Windows.Forms.NotifyIcon
@@ -310,6 +311,11 @@ internal sealed class TrayIconHost : IDisposable
         openBrowser.Click += (_, _) => OpenBrowser(appUrl);
         openPowerShell.Click += (_, _) => TerminalHost.OpenPowerShell(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+        about.Click += (_, _) => System.Windows.Forms.MessageBox.Show(
+            $"Codex CLI Manager\nVersion {ProductInfo.Version}\n\nLokaler .NET-Manager für Codex CLI Sessions.\n\ngithub.com/flensbursche/Codex_CLI_Manager",
+            "About Codex CLI Manager",
+            System.Windows.Forms.MessageBoxButtons.OK,
+            System.Windows.Forms.MessageBoxIcon.Information);
         update.Click += async (_, _) =>
         {
             update.Enabled = false;

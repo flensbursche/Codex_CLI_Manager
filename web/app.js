@@ -18,6 +18,8 @@ const icons = {
   chrome: tablerIcon('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 9h8.4M14.6 13.5l-4.2 7.3M9.4 13.5L5.2 6.2"/>'),
   terminal: tablerIcon('<path d="M5 7l5 5-5 5M12 17h7"/>'),
   settings: tablerIcon('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.55V21h-4v-.08A1.7 1.7 0 0 0 8.97 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.52-1.03H3v-4h.08A1.7 1.7 0 0 0 4.6 8.94a1.7 1.7 0 0 0-.34-1.88L4.2 7l2.83-2.83.06.06a1.7 1.7 0 0 0 1.88.34A1.7 1.7 0 0 0 10 3.05V3h4v.05a1.7 1.7 0 0 0 1.03 1.52 1.7 1.7 0 0 0 1.88-.34l.06-.06L19.8 7l-.06.06a1.7 1.7 0 0 0-.34 1.88A1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15z"/>'),
+  moon: tablerIcon('<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'),
+  sun: tablerIcon('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"/>'),
   filter: tablerIcon('<path d="M4 6h16M7 12h10M10 18h4"/>'),
   plus: tablerIcon('<path d="M12 5v14M5 12h14"/>'),
   close: tablerIcon('<path d="M6 6l12 12M18 6L6 18"/>')
@@ -27,11 +29,12 @@ document.documentElement.dataset.theme = theme;
 
 function header() {
   const autostart = companionInfo.supportsAutostart ? `<button class="quiet-button" id="autostart-toggle">Autostart: ${companionInfo.autostartEnabled ? "An" : "Aus"}</button>` : "";
-  return `<header class="top"><a class="brand" href="/"><strong>Codex CLI Manager</strong></a><span class="live"><i class="dot"></i>Live</span><span class="spacer"></span>${autostart}<button class="quiet-button terminal-settings-toggle" id="terminal-settings-toggle">${icons.settings}<span>Terminal</span></button><button class="quiet-button" id="theme-toggle">${document.documentElement.dataset.theme === "light" ? "Dark Mode" : "Light Mode"}</button></header>`;
+  const darkMode = document.documentElement.dataset.theme === "light";
+  return `<header class="top"><a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=3" alt=""></span><strong>Codex CLI Manager</strong></a><span class="live"><i class="dot"></i>Live</span><span class="spacer"></span>${autostart}<button class="quiet-button terminal-settings-toggle" id="terminal-settings-toggle">${icons.settings}<span>Terminal Settings</span></button><button class="quiet-button icon-button" id="theme-toggle" aria-label="${darkMode ? "Dark Mode" : "Light Mode"}" title="${darkMode ? "Dark Mode" : "Light Mode"}">${darkMode ? icons.moon : icons.sun}</button></header>`;
 }
 
 function bindTheme() {
-  document.querySelector("#theme-toggle").onclick = () => { const next = document.documentElement.dataset.theme === "light" ? "dark" : "light"; document.documentElement.dataset.theme = next; localStorage.setItem("codex-manager-theme", next); document.querySelector("#theme-toggle").textContent = next === "light" ? "Dark Mode" : "Light Mode"; };
+  document.querySelector("#theme-toggle").onclick = () => { const next = document.documentElement.dataset.theme === "light" ? "dark" : "light"; const button = document.querySelector("#theme-toggle"); const label = next === "light" ? "Dark Mode" : "Light Mode"; document.documentElement.dataset.theme = next; localStorage.setItem("codex-manager-theme", next); button.innerHTML = next === "light" ? icons.moon : icons.sun; button.setAttribute("aria-label", label); button.title = label; };
   const autostart = document.querySelector("#autostart-toggle");
   if (autostart) autostart.onclick = async () => { autostart.disabled = true; try { const result = await fetchJson(`/api/autostart/${!companionInfo.autostartEnabled}`, { method: "POST" }); companionInfo.autostartEnabled = result.enabled; autostart.textContent = `Autostart: ${result.enabled ? "An" : "Aus"}`; } finally { autostart.disabled = false; } };
   document.querySelector("#terminal-settings-toggle").onclick = openTerminalSettings;

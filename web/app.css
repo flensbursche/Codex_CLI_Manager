@@ -96,6 +96,18 @@ summary {
   text-decoration: none;
 }
 
+.mark {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+}
+
+.mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .brand strong {
   overflow: hidden;
   font-size: 17px;
@@ -141,6 +153,18 @@ summary {
 
 .quiet-button:hover {
   background: var(--soft);
+}
+
+.icon-button {
+  width: 38px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.icon-button svg {
+  width: 18px;
+  height: 18px;
 }
 
 .terminal-settings-toggle {
@@ -1380,6 +1404,11 @@ summary {
 
   .brand strong {
     font-size: 15px;
+  }
+
+  .mark {
+    width: 29px;
+    height: 29px;
   }
 
   .quiet-button {

@@ -3,7 +3,7 @@ import vm from "node:vm";
 
 const script = await readFile(new URL("../web/app.js", import.meta.url), "utf8");
 new vm.Script(script);
-for (const feature of ['session.internal === true', 'open-desktop', 'session-launch', 'session-details', 'session-actions', 'session-favorite', 'toggleFavorite(threadId, button)', 'project-create-form', 'project-name-clear', 'assignSessionToProject(threadId, projectId)', 'text/codex-thread', 'search-clear', 'Suche leeren', 'Gerade eben', 'Gerade beendet', 'sessionTime(session)', 'sessionBundles(sessions)', 'shadow-sessions', 'ChatGPT Desktop', 'session-context', 'new EventSource("/api/events")', 'openTerminalSettings()', '/api/terminal-settings', 'window.setTimeout(initialize, 1000)']) {
+for (const feature of ['session.internal === true', 'open-desktop', 'session-launch', 'session-details', 'session-actions', 'session-favorite', 'toggleFavorite(threadId, button)', 'project-create-form', 'project-name-clear', 'assignSessionToProject(threadId, projectId)', 'text/codex-thread', 'search-clear', 'Suche leeren', 'Gerade eben', 'Gerade beendet', 'sessionTime(session)', 'sessionBundles(sessions)', 'shadow-sessions', 'ChatGPT Desktop', 'session-context', 'new EventSource("/api/events")', 'openTerminalSettings()', '/api/terminal-settings', 'window.setTimeout(initialize, 1000)', 'Terminal Settings', 'class="quiet-button icon-button"']) {
   if (!script.includes(feature)) throw new Error(`Web-Feature fehlt: ${feature}`);
 }
 const agent = await readFile(new URL("../agent/Program.cs", import.meta.url), "utf8");
@@ -24,6 +24,7 @@ if (agent.includes('startInfo.ArgumentList.Add("-NoProfile")')) throw new Error(
 if (!agent.includes("ExtractAssociatedIcon(executable)")) throw new Error("Das Tray verwendet nicht das eigene App-Icon.");
 if (!agent.includes('app.MapGet("/api/terminal-settings"')) throw new Error("Die Terminal-Erkennung und -Auswahl fehlt.");
 if (!agent.includes('menu.Items.Add("Nach Updates suchen")')) throw new Error("Der Tray-Updater fehlt.");
+if (!agent.includes('menu.Items.Add("About")')) throw new Error("Der About-Menüpunkt fehlt.");
 if (!agent.includes('CheckForUpdateAsync')) throw new Error("Die GitHub-Release-Prüfung fehlt.");
 if (!agent.includes('SHA256.HashDataAsync')) throw new Error("Update-Pakete werden nicht per SHA-256 geprüft.");
 if (!agent.includes('TryApplyStagedUpdate(args)')) throw new Error("Der separate Update-Helfer fehlt.");
@@ -35,7 +36,7 @@ for (const feature of ["min-width: 0", "font-size: 0.875rem", "@media (max-width
 }
 const appIcon = await readFile(new URL("../web/app-icon.svg", import.meta.url), "utf8");
 if (!appIcon.includes('fill="#ff6537"') || !appIcon.includes('stroke="#fff"')) throw new Error("Das gemeinsame orange-weiße App-Icon fehlt.");
-if (script.includes('class="mark"')) throw new Error("Der Seiten-Header enthält weiterhin ein Logo.");
+if (!script.includes('class="mark"><img src="/app-icon.svg?v=3"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 const project = await readFile(new URL("../agent/CodexSessionManager.Agent.csproj", import.meta.url), "utf8");
 const projectVersion = project.match(/<Version>([^<]+)<\/Version>/)?.[1];
