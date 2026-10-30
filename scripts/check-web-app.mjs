@@ -26,6 +26,7 @@ if (!agent.includes("TerminalHost.OpenPowerShell(cwd, command)")) throw new Erro
 if (!agent.includes('"Microsoft.WindowsTerminal_8wekyb3d8bbwe"')) throw new Error("Windows Terminal wird nicht über seinen App-Alias gestartet.");
 if (!agent.includes('"{574e775e-4f2a-5b96-ac1e-a2962a402336}"')) throw new Error("Das normale PowerShell-Profil von Windows Terminal wird nicht explizit verwendet.");
 if (!agent.includes('startInfo.ArgumentList.Add("new");') || agent.includes('startInfo.ArgumentList.Add("0");')) throw new Error("Session-Resume öffnet nicht immer ein neues Windows-Terminal-Fenster.");
+if (!agent.includes('startInfo.ArgumentList.Add("--appendCommandLine");') || agent.includes('startInfo.ArgumentList.Add(shell.Path);')) throw new Error("Windows Terminal erhält den PowerShell-Aufruf weiterhin als fehlerhaften einzelnen Dateinamen.");
 if (!agent.includes('"Microsoft.PowerShell_8wekyb3d8bbwe"')) throw new Error("Die installierte PowerShell-7-App wird nicht bevorzugt.");
 if (!agent.includes('Convert.ToBase64String(Encoding.Unicode.GetBytes(initialization))')) throw new Error("Der Resume-Befehl wird für Windows Terminal nicht sicher kodiert.");
 if (!agent.includes('$env:NO_COLOR=$null; $env:TERM=$null; $env:COLORTERM=$null')) throw new Error("Geerbte Automations-Farbvariablen werden vor dem Terminal-Start nicht entfernt.");

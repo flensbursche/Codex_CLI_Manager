@@ -1481,7 +1481,7 @@ internal static class TerminalHost
         var startInfo = new ProcessStartInfo
         {
             FileName = terminal == "windows-terminal" ? ExecutablePath : shell.Path,
-            UseShellExecute = true,
+            UseShellExecute = false,
             WorkingDirectory = workingDirectory
         };
 
@@ -1494,7 +1494,7 @@ internal static class TerminalHost
             startInfo.ArgumentList.Add(shell.ProfileId);
             startInfo.ArgumentList.Add("--startingDirectory");
             startInfo.ArgumentList.Add(workingDirectory);
-            startInfo.ArgumentList.Add(shell.Path);
+            startInfo.ArgumentList.Add("--appendCommandLine");
         }
 
         startInfo.ArgumentList.Add("-NoLogo");
