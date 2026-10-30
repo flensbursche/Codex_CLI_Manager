@@ -403,9 +403,9 @@ internal sealed class SessionMetadataStore
     private static readonly JsonSerializerOptions StorageJson = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private readonly object _sync = new();
     private readonly string _path = Path.Combine(UserInstallation.InstallDirectory, "session-metadata.json");
-    private Dictionary<string, string> _titles;
+    private StoredSessionMetadata _state;
 
-    public SessionMetadataStore() => _titles = Load();
+    public SessionMetadataStore() => _state = Load();
 
     public void Apply(JsonObject session)
     {
@@ -413,11 +413,14 @@ internal sealed class SessionMetadataStore
         if (string.IsNullOrWhiteSpace(threadId)) return;
         lock (_sync)
         {
-            if (!_titles.TryGetValue(threadId, out var customTitle)) return;
-            var originalTitle = session["title"]?.GetValue<string>() ?? "";
-            session["originalTitle"] = originalTitle;
-            session["title"] = customTitle;
-            session["customTitle"] = true;
+            if (_state.Titles.TryGetValue(threadId, out var customTitle))
+            {
+                var originalTitle = session["title"]?.GetValue<string>() ?? "";
+                session["originalTitle"] = originalTitle;
+                session["title"] = customTitle;
+                session["customTitle"] = true;
+            }
+            if (_state.Pinned.TryGetValue(threadId, out var pinned)) session["pinned"] = pinned;
         }
     }
 
@@ -429,8 +432,8 @@ internal sealed class SessionMetadataStore
         var customized = !string.IsNullOrWhiteSpace(title) && !title.Equals(originalTitle, StringComparison.CurrentCulture);
         lock (_sync)
         {
-            if (customized) _titles[threadId] = title;
-            else _titles.Remove(threadId);
+            if (customized) _state.Titles[threadId] = title;
+            else _state.Titles.Remove(threadId);
             Save();
         }
         return new JsonObject
@@ -441,30 +444,63 @@ internal sealed class SessionMetadataStore
         };
     }
 
-    private Dictionary<string, string> Load()
+    public void SavePinned(string threadId, bool pinned)
+    {
+        if (!Guid.TryParse(threadId, out _)) throw new ArgumentException("Ungültige Session-ID.");
+        lock (_sync)
+        {
+            _state.Pinned[threadId] = pinned;
+            Save();
+        }
+    }
+
+    private StoredSessionMetadata Load()
     {
         try
         {
             if (File.Exists(_path))
             {
-                var stored = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(_path), StorageJson);
-                return stored is null
-                    ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-                    : new Dictionary<string, string>(stored, StringComparer.OrdinalIgnoreCase);
+                var json = File.ReadAllText(_path);
+                var root = JsonNode.Parse(json) as JsonObject;
+                if (root?.ContainsKey("titles") == true || root?.ContainsKey("pinned") == true)
+                {
+                    var stored = JsonSerializer.Deserialize<StoredSessionMetadata>(json, StorageJson) ?? new StoredSessionMetadata();
+                    return Normalize(stored);
+                }
+
+                // v0.8.0 stored custom titles as a plain dictionary. Keep those values
+                // when migrating to the combined app-owned metadata format.
+                var legacyTitles = JsonSerializer.Deserialize<Dictionary<string, string>>(json, StorageJson);
+                return new StoredSessionMetadata
+                {
+                    Titles = new Dictionary<string, string>(legacyTitles ?? [], StringComparer.OrdinalIgnoreCase)
+                };
             }
         }
         catch
         {
         }
-        return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        return new StoredSessionMetadata();
     }
 
     private void Save()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
         var temporary = _path + ".tmp";
-        File.WriteAllText(temporary, JsonSerializer.Serialize(_titles, StorageJson), new UTF8Encoding(false));
+        File.WriteAllText(temporary, JsonSerializer.Serialize(_state, StorageJson), new UTF8Encoding(false));
         File.Move(temporary, _path, overwrite: true);
+    }
+
+    private static StoredSessionMetadata Normalize(StoredSessionMetadata value) => new()
+    {
+        Titles = new Dictionary<string, string>(value.Titles ?? [], StringComparer.OrdinalIgnoreCase),
+        Pinned = new Dictionary<string, bool>(value.Pinned ?? [], StringComparer.OrdinalIgnoreCase)
+    };
+
+    private sealed class StoredSessionMetadata
+    {
+        public Dictionary<string, string> Titles { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+        public Dictionary<string, bool> Pinned { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     }
 }
 
@@ -780,7 +816,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.8.0";
+    public const string Version = "0.8.1";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);
@@ -1369,7 +1405,9 @@ internal sealed class CodexClient
     public void SetPinned(string threadId, bool pinned)
     {
         ValidateThreadId(threadId);
-        CodexStateStore.SetPinned(threadId, pinned);
+        var rows = CodexStateStore.Query($"select id from threads where id = '{threadId}' limit 1");
+        if (rows.Count != 1) throw new KeyNotFoundException("Session wurde nicht gefunden.");
+        _metadata.SavePinned(threadId, pinned);
     }
 
     public JsonObject SetTitle(string threadId, string? title)
@@ -1674,7 +1712,6 @@ internal static class CodexStateStore
     private const int Row = 100;
     private const int Done = 101;
     private const int OpenReadOnly = 1;
-    private const int OpenReadWrite = 2;
     private static readonly string DatabasePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex", "state_5.sqlite");
 
     public static long ChangeStamp()
@@ -1730,29 +1767,6 @@ internal static class CodexStateStore
         }
     }
 
-    public static void SetPinned(string threadId, bool pinned)
-    {
-        if (!Guid.TryParse(threadId, out _)) throw new ArgumentException("Ungültige Session-ID.");
-        if (!File.Exists(DatabasePath)) throw new FileNotFoundException("Codex-Datenbank wurde nicht gefunden.", DatabasePath);
-        IntPtr database = IntPtr.Zero;
-        IntPtr statement = IntPtr.Zero;
-        try
-        {
-            Check(sqlite3_open_v2(DatabasePath, out database, OpenReadWrite, null), database, "Codex-Datenbank konnte nicht zum Schreiben geöffnet werden");
-            sqlite3_busy_timeout(database, 3000);
-            var sql = $"update threads set is_pinned = {(pinned ? 1 : 0)} where id = '{threadId}'";
-            Check(sqlite3_prepare_v2(database, sql, -1, out statement, IntPtr.Zero), database, "Favorit konnte nicht vorbereitet werden");
-            var step = sqlite3_step(statement);
-            Check(step == Done ? Ok : step, database, "Favorit konnte nicht gespeichert werden");
-            if (sqlite3_changes(database) != 1) throw new KeyNotFoundException("Session wurde nicht gefunden.");
-        }
-        finally
-        {
-            if (statement != IntPtr.Zero) sqlite3_finalize(statement);
-            if (database != IntPtr.Zero) sqlite3_close_v2(database);
-        }
-    }
-
     private static void Check(int code, IntPtr database, string context)
     {
         if (code == Ok) return;
@@ -1768,8 +1782,6 @@ internal static class CodexStateStore
     [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)] private static extern int sqlite3_finalize(IntPtr statement);
     [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)] private static extern int sqlite3_close_v2(IntPtr database);
     [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)] private static extern IntPtr sqlite3_errmsg(IntPtr database);
-    [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)] private static extern int sqlite3_busy_timeout(IntPtr database, int milliseconds);
-    [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)] private static extern int sqlite3_changes(IntPtr database);
     [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)] private static extern int sqlite3_column_count(IntPtr statement);
     [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)] private static extern IntPtr sqlite3_column_name(IntPtr statement, int index);
     [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)] private static extern int sqlite3_column_type(IntPtr statement, int index);

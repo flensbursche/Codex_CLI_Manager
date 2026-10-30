@@ -19,11 +19,11 @@ Codex CLI Manager ist ein lokales Windows-Cockpit zum Finden, Sortieren, Öffnen
 - gruppiert Sessions nach Aktivität und filtert nach Projekt, Zeitraum, Quelle und Archivstatus
 - blendet interne Guardian- und Memory-Sessions standardmäßig aus
 - erkennt offene Threads über Codex-Prozess und Writer-Lock, kennzeichnet unklare Zustände und verhindert Doppelstarts
-- verwaltet Favoriten und frei angelegte Projekte mit Drag-and-drop-Zuordnung
+- verwaltet Favoriten in app-eigenen Metadaten und frei angelegte Projekte mit Drag-and-drop-Zuordnung
 - bündelt von Connectoren erzeugte Schatten-Sessions unter ihrer Hauptsession
 - setzt CLI-Sessions in einem neuen Windows-Terminal-Fenster mit PowerShell fort
 - erkennt Windows Terminal und installierte PowerShell-Versionen pro Benutzer
-- öffnet Desktop-Sessions per offiziellem `codex://threads/<id>`-Deep-Link
+- öffnet Desktop-Sessions über den von aktuellen Codex-Desktop-Versionen registrierten `codex://threads/<id>`-Deep-Link
 - macht Session- und Projektpfade direkt kopierbar und zeigt vollständige Metadaten
 - speichert eigene Session-Titel dauerhaft, ohne den von Codex gelieferten Originaltitel zu überschreiben
 - öffnet Projektordner in VS Code
@@ -57,13 +57,15 @@ Das veröffentlichte Windows-Paket ist selbstenthalten und benötigt kein separa
 
 ## Release bauen
 
-Der GitHub-Workflow `Windows companion` läuft manuell oder bei Tags mit dem Präfix `v`. Ein Tag wie `v0.8.0` erzeugt ein GitHub Release mit `CodexSessionManager-Setup-win-x64.zip` und SHA-256-Prüfsumme. Installierte Clients erkennen dieses Release automatisch und bieten es im Tray-Menü an.
+Der GitHub-Workflow `Windows companion` läuft manuell oder bei Tags mit dem Präfix `v`. Ein Tag wie `v0.8.1` erzeugt ein GitHub Release mit `CodexSessionManager-Setup-win-x64.zip` und SHA-256-Prüfsumme. Installierte Clients erkennen dieses Release automatisch und bieten es im Tray-Menü an.
+
+Pushes und Pull Requests gegen `main` führen zusätzlich den Web-Smoke-Test und einen .NET-Release-Build aus. Das auf Text- und Strukturprüfungen basierende Smoke-Testskript ignoriert reine CSS-Formatierungsunterschiede.
 
 Ein normaler Push auf `main` veröffentlicht absichtlich kein Client-Update. Release-Versionen werden so angelegt:
 
 ```powershell
-git tag v0.8.0
-git push origin v0.8.0
+git tag v0.8.1
+git push origin v0.8.1
 ```
 
 Lokal mit installiertem .NET 10 SDK:
@@ -98,5 +100,16 @@ dotnet build agent\CodexSessionManager.Agent.csproj
 - Der HTTP-Server bindet ausschließlich an `127.0.0.1` und verwendet einen lokalen Port zwischen 4180 und 4199.
 - Schreibende Browseraktionen benötigen einen zufälligen lokalen Aktionstoken.
 - Aktionsendpunkte akzeptieren ausschließlich validierte Session-IDs, keine freien Shellbefehle oder Arbeitsverzeichnisse.
-- Die Codex-Datenbank wird read-only geöffnet.
+- Die interne Codex-Datenbank wird ausschließlich read-only geöffnet. Favoriten, eigene Titel und Projektzuordnungen speichert der Manager separat unter `%LOCALAPPDATA%\CodexSessionManager`.
+- Das Codex-Datenbankschema ist keine öffentliche Schnittstelle. Falls eine Codex-Version das Schema ändert, kann eine Anpassung des Managers notwendig werden; die Datenbank wird dabei nicht verändert.
 - Der Companion übernimmt die normalen Rechte des angemeldeten Windows-Benutzers.
+
+Sicherheitsprobleme bitte nicht als öffentliches Issue melden. Der Meldeweg steht in [SECURITY.md](SECURITY.md).
+
+## Kompatibilitätshinweis
+
+Der Desktop-Deep-Link ist in aktuellen Codex-Desktop-Installationen registriert, aber nicht als stabile öffentliche API dokumentiert. Änderungen an Codex Desktop können diese Integration daher beeinflussen.
+
+## Lizenz
+
+Codex CLI Manager steht unter der [MIT-Lizenz](LICENSE).

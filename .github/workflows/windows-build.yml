@@ -3,17 +3,25 @@ name: Windows companion
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
     tags:
       - "v*"
+  pull_request:
+    branches:
+      - main
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
@@ -30,25 +38,41 @@ jobs:
           }
       - name: Check browser companion
         run: node scripts/check-web-app.mjs
+      - name: Build Windows companion
+        run: dotnet build agent/CodexSessionManager.Agent.csproj -c Release
       - name: Publish self-contained Windows companion
+        if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
         run: dotnet publish agent/CodexSessionManager.Agent.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
       - name: Package
+        if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
         run: |
           Compress-Archive -Path publish/* -DestinationPath CodexSessionManager-Setup-win-x64.zip
           $hash = (Get-FileHash CodexSessionManager-Setup-win-x64.zip -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  CodexSessionManager-Setup-win-x64.zip" | Set-Content CodexSessionManager-Setup-win-x64.zip.sha256 -Encoding ascii -NoNewline
       - uses: actions/upload-artifact@v4
+        if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
         with:
           name: CodexSessionManager-Setup-win-x64
           path: |
             CodexSessionManager-Setup-win-x64.zip
             CodexSessionManager-Setup-win-x64.zip.sha256
           if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: CodexSessionManager-Setup-win-x64
+          path: release
       - name: Publish GitHub release
-        if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
-        run: gh release create $env:RELEASE_TAG CodexSessionManager-Setup-win-x64.zip CodexSessionManager-Setup-win-x64.zip.sha256 --verify-tag --generate-notes --title "Codex CLI Manager $env:RELEASE_TAG"
+        run: gh release create $env:RELEASE_TAG release/CodexSessionManager-Setup-win-x64.zip release/CodexSessionManager-Setup-win-x64.zip.sha256 --verify-tag --generate-notes --title "Codex CLI Manager $env:RELEASE_TAG"

@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Sicherheitsproblem melden
+    url: https://github.com/flensbursche/Codex_CLI_Manager/security/advisories/new
+    about: Sicherheitsprobleme bitte vertraulich als Security Advisory melden.

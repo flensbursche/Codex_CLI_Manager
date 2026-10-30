@@ -1,0 +1,39 @@
+name: Fehler melden
+description: Reproduzierbares Problem im Codex CLI Manager melden
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Bitte keine Zugangsdaten, Session-Inhalte oder Sicherheitslücken öffentlich eintragen.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: z. B. 0.8.1
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Beschreibung
+      description: Was ist passiert und was wurde erwartet?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Schritte zum Reproduzieren
+    validations:
+      required: true
+  - type: dropdown
+    id: windows
+    attributes:
+      label: Windows-Version
+      options:
+        - Windows 11
+        - Windows 10
+        - Andere
+    validations:
+      required: true

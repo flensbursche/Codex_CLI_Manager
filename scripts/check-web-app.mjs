@@ -9,7 +9,8 @@ for (const feature of ['session.internal === true', 'open-desktop', 'session-lau
 const agent = await readFile(new URL("../agent/Program.cs", import.meta.url), "utf8");
 if (!agent.includes("thread-writer-locks")) throw new Error("Aktive Codex-Threads werden nicht über Writer-Locks erkannt.");
 if (!agent.includes("AttachShadowSessions(items)")) throw new Error("Agent-erzeugte Schatten-Sessions werden keinem Master zugeordnet.");
-if (!agent.includes("CodexStateStore.SetPinned(threadId, pinned)")) throw new Error("Favoriten werden nicht im Codex-State gespeichert.");
+if (!agent.includes("_metadata.SavePinned(threadId, pinned)")) throw new Error("Favoriten werden nicht in app-eigenen Metadaten gespeichert.");
+if (agent.includes("OpenReadWrite") || agent.includes("CodexStateStore.SetPinned")) throw new Error("Die interne Codex-Datenbank wird weiterhin für Favoriten beschrieben.");
 if (!agent.includes("projects.Assign(threadId, projectId)")) throw new Error("Sessions können keinem Projekt zugeordnet werden.");
 if (!agent.includes('LanguageSettingsStore')) throw new Error("Die gemeinsame Sprachspeicherung fehlt.");
 if (!agent.includes('app.MapGet("/api/language"')) throw new Error("Der Sprach-Endpunkt fehlt.");
@@ -40,9 +41,27 @@ if (!agent.includes('AppEndpoint.SelectAndSave()')) throw new Error("Die automat
 if (!agent.includes('SessionMetadataStore')) throw new Error("Dauerhafte Session-Titel fehlen.");
 if (agent.includes('resume-force')) throw new Error("Der unsichere manuelle Doppelstart ist weiterhin aktiv.");
 const styles = await readFile(new URL("../web/app.css", import.meta.url), "utf8");
-for (const feature of ["min-width: 0", "font-size: 0.875rem", "@media (max-width: 760px)", ".terminal-dialog", ".project-create {\n    margin-top: 8px;", ".header-menu-panel", ".language-options", ".list-layout.sidebar-collapsed", ".path-copy", ".settings-form-page .terminal-detected"]) {
-  if (!styles.includes(feature)) throw new Error(`Responsive Web-Feature fehlt: ${feature}`);
-}
+const regexEscape = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const hasDeclaration = (source, property, value) => new RegExp(`${regexEscape(property)}\\s*:\\s*${regexEscape(value)}(?:\\s*;|\\s*[;}]|\\s*$)`, "i").test(source);
+const hasRule = (source, selector) => {
+  const selectorPattern = regexEscape(selector).replace(/\\ /g, "\\s+");
+  return new RegExp(`${selectorPattern}\\s*\\{`, "i").test(source);
+};
+const hasRuleDeclaration = (source, selector, property, value) => {
+  const selectorPattern = regexEscape(selector).replace(/\\ /g, "\\s+");
+  const matches = source.matchAll(new RegExp(`${selectorPattern}\\s*\\{([^}]*)\\}`, "gis"));
+  return [...matches].some((match) => hasDeclaration(match[1], property, value));
+};
+const assertResponsiveStyles = (source) => {
+  if (!hasDeclaration(source, "min-width", "0")) throw new Error("Responsive Web-Feature fehlt: min-width: 0");
+  if (!hasDeclaration(source, "font-size", "0.875rem")) throw new Error("Responsive Web-Feature fehlt: font-size: 0.875rem");
+  if (!/@media\s*\(\s*max-width\s*:\s*760px\s*\)/i.test(source)) throw new Error("Responsive Web-Feature fehlt: Mobile Media Query");
+  for (const selector of [".terminal-dialog", ".header-menu-panel", ".language-options", ".list-layout.sidebar-collapsed", ".path-copy", ".settings-form-page .terminal-detected"])
+    if (!hasRule(source, selector)) throw new Error(`Responsive Web-Feature fehlt: ${selector}`);
+  if (!hasRuleDeclaration(source, ".project-create", "margin-top", "8px")) throw new Error("Responsive Web-Feature fehlt: Projektabstand");
+};
+assertResponsiveStyles(styles);
+assertResponsiveStyles(styles.replace(/\s+/g, " "));
 const appIcon = await readFile(new URL("../web/app-icon.svg", import.meta.url), "utf8");
 if (!appIcon.includes('fill="#ff6537"') || !appIcon.includes('stroke="#fff"')) throw new Error("Das gemeinsame orange-weiße App-Icon fehlt.");
 if (!script.includes('class="mark"><img src="/app-icon.svg?v=3"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
