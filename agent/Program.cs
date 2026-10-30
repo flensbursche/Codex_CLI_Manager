@@ -186,6 +186,7 @@ app.MapPost("/api/{action}", async (string action, ActionRequest request, CodexC
             case "open-desktop": await codex.OpenDesktopAsync(request.ThreadId, cancellation); break;
             case "open-project": await codex.OpenProjectAsync(request.ThreadId, cancellation); break;
             case "archive": await codex.ArchiveAsync(request.ThreadId, cancellation); break;
+            case "unarchive": await codex.UnarchiveAsync(request.ThreadId, cancellation); break;
             default: return Results.NotFound(new { error = "Unbekannte Aktion." });
         }
         return Results.Ok(new { data = new { ok = true } });
@@ -1324,7 +1325,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.10.1";
+    public const string Version = "0.10.2";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);
@@ -1770,11 +1771,27 @@ internal static class PowerShellHost
     internal static string ResolveTerminalExecutablePath(string executable)
     {
         if (!executable.Contains(' ')) return executable;
+
+        // Windows Terminal reparses the command following `--` and can turn a
+        // quoted Store package path into `C:\Program "Files\...`. Prefer the
+        // per-user execution alias, which has no spaces and still starts the
+        // selected PowerShell 7 package.
+        var executionAlias = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Microsoft", "WindowsApps", Path.GetFileName(executable));
+        if (!executionAlias.Contains(' ') && File.Exists(executionAlias)) return executionAlias;
+
         var buffer = new StringBuilder(4096);
         var length = GetShortPathName(executable, buffer, (uint)buffer.Capacity);
-        if (length == 0 || length >= (uint)buffer.Capacity) return executable;
-        var shortPath = buffer.ToString();
-        return !shortPath.Contains(' ') && File.Exists(shortPath) ? shortPath : executable;
+        if (length > 0 && length < (uint)buffer.Capacity)
+        {
+            var shortPath = buffer.ToString();
+            if (!shortPath.Contains(' ') && File.Exists(shortPath)) return shortPath;
+        }
+
+        // PowerShell's installer registers pwsh.exe on PATH. A command name is
+        // safer here than handing Windows Terminal an absolute path it mangles.
+        return Path.GetFileName(executable);
     }
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
@@ -2554,6 +2571,13 @@ internal sealed class CodexClient
     {
         ValidateThreadId(threadId);
         var result = await RunCodexCommandAsync(["archive", threadId], cancellation);
+        if (result.ExitCode != 0) throw new InvalidOperationException(result.Error.Trim());
+    }
+
+    public async Task UnarchiveAsync(string threadId, CancellationToken cancellation)
+    {
+        ValidateThreadId(threadId);
+        var result = await RunCodexCommandAsync(["unarchive", threadId], cancellation);
         if (result.ExitCode != 0) throw new InvalidOperationException(result.Error.Trim());
     }
 

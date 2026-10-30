@@ -47,7 +47,7 @@ return 0;
 
 static Task TestWindowsTerminalArgumentsAsync()
 {
-    var shell = new ShellResolution("powershell7", "PowerShell 7", @"C:\Program Files\PowerShell\7\pwsh.exe", "7", "{test-profile}");
+    var shell = new ShellResolution("powershell7", "PowerShell 7", @"C:\Program Files\WindowsApps\Microsoft.PowerShell_7.6.9.0_x64__8wekyb3d8bbwe\pwsh.exe", "7", "{test-profile}");
     var startInfo = TerminalHost.CreateStartInfo(true, @"C:\terminal\wt.exe", shell, @"C:\DEV\Project With Spaces", "Write-Output 'resume-test'");
     var arguments = startInfo.ArgumentList.ToArray();
     var expected = new[]
@@ -61,6 +61,8 @@ static Task TestWindowsTerminalArgumentsAsync()
     Assert(initialization.Contains("$env:NO_COLOR=$null", StringComparison.Ordinal), "Color environment cleanup is missing.");
     Assert(initialization.EndsWith("Write-Output 'resume-test'", StringComparison.Ordinal), "Resume command is missing from encoded initialization.");
     Assert(!startInfo.UseShellExecute, "Terminal launch must use an exact native argument list.");
+    Assert(!arguments[8].Contains(' '), $"Windows Terminal received a space-containing PowerShell path: {arguments[8]}");
+    Assert(!arguments[8].Contains("Program Files", StringComparison.OrdinalIgnoreCase), "The Store package path can be mangled by Windows Terminal.");
     return Task.CompletedTask;
 }
 

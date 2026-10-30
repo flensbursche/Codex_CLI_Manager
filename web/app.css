@@ -1099,6 +1099,10 @@ summary {
   display: none;
 }
 
+.list-status.success {
+  color: var(--accent);
+}
+
 .compatibility-warning {
   flex: 0 0 auto;
   margin: 0 15px 8px;
@@ -1641,15 +1645,19 @@ mark.search-match {
   text-overflow: ellipsis;
 }
 
-.session-details {
+.session-details,
+.session-restore {
   padding: 4px 2px;
+  border: 0;
   color: var(--faint);
+  background: transparent;
   font-size: 11px;
   font-weight: 600;
   text-decoration: none;
 }
 
-.session-details:hover {
+.session-details:hover,
+.session-restore:hover {
   color: var(--text);
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -1888,6 +1896,10 @@ mark.search-match {
   color: var(--danger);
   background: var(--soft);
   font-size: 13px;
+}
+
+.action-error.success {
+  color: var(--accent);
 }
 
 .section {
