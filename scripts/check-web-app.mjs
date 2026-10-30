@@ -19,7 +19,7 @@ if (!agent.includes('LanguageSettingsStore')) throw new Error("Die gemeinsame Sp
 if (!agent.includes('app.MapGet("/api/language"')) throw new Error("Der Sprach-Endpunkt fehlt.");
 for (const language of ["de", "en", "da"]) {
   const locale = JSON.parse(await readFile(new URL(`../web/locales/${language}.json`, import.meta.url), "utf8"));
-  for (const key of ["sessions", "sessionSearchCountMany", "terminalSettings", "versionHistory", "gitStatus", "gitClean", "removeFromProject", "sessionOpen", "copyPath", "editTitle", "roadmap", "shareRepository", "tray.open", "tray.updates"])
+  for (const key of ["sessions", "sessionSearchCountMany", "terminalSettings", "versionHistory", "gitStatus", "gitClean", "removeFromProject", "sessionOpen", "copyPath", "editTitle", "roadmap", "shareRepository", "aboutAndHistory", "tray.open", "tray.updates", "tray.aboutHistory"])
     if (!locale[key]) throw new Error(`Übersetzung fehlt: ${language}.${key}`);
 }
 if (!agent.includes("TerminalHost.OpenPowerShell(cwd, command)")) throw new Error("Session-Resume verwendet nicht Windows Terminal.");

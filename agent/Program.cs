@@ -710,11 +710,7 @@ internal sealed class TrayIconHost : IDisposable
         openBrowser.Click += (_, _) => OpenBrowser(appUrl);
         openPowerShell.Click += (_, _) => TerminalHost.OpenPowerShell(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
-        about.Click += (_, _) => System.Windows.Forms.MessageBox.Show(
-            language.Format("aboutBody", ProductInfo.Version),
-            language.Text("aboutTitle"),
-            System.Windows.Forms.MessageBoxButtons.OK,
-            System.Windows.Forms.MessageBoxIcon.Information);
+        about.Click += (_, _) => OpenBrowser($"{appUrl.TrimEnd('/')}/about");
         update.Click += async (_, _) =>
         {
             update.Enabled = false;
@@ -808,7 +804,7 @@ internal sealed class TrayIconHost : IDisposable
             openBrowser.Text = language.Text("open");
             openPowerShell.Text = language.Text("monitor");
             update.Text = update.Tag is UpdateInfo available ? language.Format("install", available.Version) : language.Text("updates");
-            about.Text = language.Text("about");
+            about.Text = language.Format("aboutHistory", ProductInfo.Version);
             exit.Text = language.Text("exit");
         }
         language.Changed += ApplyLanguage;
