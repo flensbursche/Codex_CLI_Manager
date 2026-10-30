@@ -2,13 +2,17 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 
 const script = await readFile(new URL("../web/app.js", import.meta.url), "utf8");
+const html = await readFile(new URL("../web/index.html", import.meta.url), "utf8");
 new vm.Script(script);
+for (const asset of ["/app-icon.svg?v=21", "/app.css?v=21", "/app.js?v=21"])
+  if (!html.includes(asset)) throw new Error(`Web-Asset verwendet nicht die aktuelle Cache-Version: ${asset}`);
 for (const feature of ['session.internal === true', 'open-desktop', 'session-launch', 'session-details', 'session-actions', 'session-favorite', 'toggleFavorite(threadId, button)', 'project-create-form', 'project-name-clear', 'pendingProjectSessionId', 'newProjectForSession', 'assignSessionToProject(threadId, projectId)', 'removeSessionFromProject(threadId, button)', 'session-project-remove', '/unassign', 'text/codex-thread', 'search-clear', 'sessionTime(session)', 'sessionBundles(sessions)', 'shadow-sessions', 'ChatGPT Desktop', 'session-context', 'new EventSource("/api/events")', '/api/terminal-settings', '/api/language', '/api/update-status', 'window.setTimeout(initialize, 1000)', 'await loadMessages(result.language)', 'header-menu', 'sidebar-collapsed', 'data-language', 'sessionSearchCountMany', 'bindCopyButtons()', '/title', 'terminalSettingsPage()', 'aboutPage()', 'gitIndicator(session.git)', 'sessionHealthIndicator(session.health)', 'healthStateLabel(session.health)', 'compatibility-warning', 'compatibilityLimited', 'role="switch"', 'share-repository', 'menu-update', 'prefers-color-scheme: dark', 'menuDismissBound', 'latest.version !== companionInfo.version', 'window.location.reload()']) {
   if (!script.includes(feature)) throw new Error(`Web-Feature fehlt: ${feature}`);
 }
-for (const feature of ['session-restore', 'sessionsLoading', 'aria-label="${t("filterSource")}"', 'aria-label="${t("sessions")}"', 'terminalStarted', 'draggedSessionId', 'sessionAssigned', 'project-assignment', 'updateSessionProject(session', 'project-delete', 'deleteProject(projectId']) {
+for (const feature of ['session-restore', 'sessionsLoading', 'aria-label="${t("filterSource")}"', 'aria-label="${t("sessions")}"', 'terminalStarted', 'draggedSessionId', 'sessionAssigned', 'project-assignment', 'updateSessionProject(session', 'project-delete', 'deleteProject(projectId', 'project-delete-dialog', 'deleteProjectDescription', 'event.key === "Escape"', 'closeCreator(true)']) {
   if (!script.includes(feature)) throw new Error(`Web-Feedback-Feature fehlt: ${feature}`);
 }
+if (script.includes('window.confirm(t("deleteProjectConfirm"')) throw new Error("Projektlöschung verwendet weiterhin den nativen Browser-Dialog.");
 const agent = await readFile(new URL("../agent/Program.cs", import.meta.url), "utf8");
 if (!agent.includes("thread-writer-locks")) throw new Error("Aktive Codex-Threads werden nicht über Writer-Locks erkannt.");
 if (!agent.includes("AttachShadowSessions(items)")) throw new Error("Agent-erzeugte Schatten-Sessions werden keinem Master zugeordnet.");
@@ -29,7 +33,7 @@ if (!agent.includes("TrayMenuRenderer") || !agent.includes("TrayMenuPalette.Curr
 if (!agent.includes('app.MapGet("/api/language"')) throw new Error("Der Sprach-Endpunkt fehlt.");
 for (const language of ["de", "en", "da"]) {
   const locale = JSON.parse(await readFile(new URL(`../web/locales/${language}.json`, import.meta.url), "utf8"));
-  for (const key of ["sessions", "sessionSearchCountMany", "terminalSettings", "versionHistory", "newProjectForSession", "gitStatus", "gitClean", "gitUnavailable", "gitLocalNoRemote", "healthHealthy", "healthUncertain", "healthDuplicate", "healthSignals", "compatibilityLimited", "removeFromProject", "sessionOpen", "copyPath", "editTitle", "roadmap", "shareRepository", "aboutAndHistory", "updateBadge", "restoreAction", "sessionsLoading", "filterSource", "terminalStarted", "archivingAction", "sessionAssigned", "projectAssignment", "deleteProject", "tray.open", "tray.updates", "tray.aboutHistory"])
+  for (const key of ["sessions", "sessionSearchCountMany", "terminalSettings", "versionHistory", "newProjectForSession", "gitStatus", "gitClean", "gitUnavailable", "gitLocalNoRemote", "healthHealthy", "healthUncertain", "healthDuplicate", "healthSignals", "compatibilityLimited", "removeFromProject", "sessionOpen", "copyPath", "editTitle", "roadmap", "shareRepository", "aboutAndHistory", "updateBadge", "restoreAction", "sessionsLoading", "filterSource", "terminalStarted", "archivingAction", "sessionAssigned", "projectAssignment", "deleteProject", "deleteProjectTitle", "deleteProjectDescription", "deleteProjectAction", "tray.open", "tray.updates", "tray.aboutHistory"])
     if (!locale[key]) throw new Error(`Übersetzung fehlt: ${language}.${key}`);
 }
 if (!agent.includes("TerminalHost.OpenPowerShell(cwd, command)")) throw new Error("Session-Resume verwendet nicht Windows Terminal.");
@@ -81,7 +85,7 @@ const assertResponsiveStyles = (source) => {
   if (!hasDeclaration(source, "font-size", "0.875rem")) throw new Error("Responsive Web-Feature fehlt: font-size: 0.875rem");
   if (!hasRuleDeclaration(source, ".projects button", "font-size", "0.75rem")) throw new Error("Responsive Web-Feature fehlt: kompakte Projekttypografie");
   if (!/@media\s*\(\s*max-width\s*:\s*760px\s*\)/i.test(source)) throw new Error("Responsive Web-Feature fehlt: Mobile Media Query");
-  for (const selector of [".terminal-dialog", ".header-menu-panel", ".language-options", ".list-layout.sidebar-collapsed", ".path-copy", ".settings-form-page .terminal-detected", ".session-git", ".session-project-remove", ".git-tooltip", ".history-content", ".roadmap-grid"])
+  for (const selector of [".terminal-dialog", ".confirm-dialog", ".header-menu-panel", ".language-options", ".list-layout.sidebar-collapsed", ".path-copy", ".settings-form-page .terminal-detected", ".session-git", ".session-project-remove", ".git-tooltip", ".history-content", ".roadmap-grid"])
     if (!hasRule(source, selector)) throw new Error(`Responsive Web-Feature fehlt: ${selector}`);
   if (!hasRuleDeclaration(source, ".project-create", "margin-top", "8px")) throw new Error("Responsive Web-Feature fehlt: Projektabstand");
   if (!hasRuleDeclaration(source, ".project-create-form", "margin-top", "8px")) throw new Error("Responsive Web-Feature fehlt: Abstand des Projektformulars");
@@ -103,7 +107,7 @@ const acceptanceWorkflow = await readFile(new URL("../.github/workflows/windows-
 if (!acceptanceWorkflow.includes("codex-manager-ui") || !acceptanceWorkflow.includes("test-release.ps1")) throw new Error("Der interaktive Windows-Acceptance-Workflow fehlt.");
 const appIcon = await readFile(new URL("../web/app-icon.svg", import.meta.url), "utf8");
 if (!appIcon.includes('fill="#ff6537"') || !appIcon.includes('stroke="#fff"')) throw new Error("Das gemeinsame orange-weiße App-Icon fehlt.");
-if (!script.includes('class="mark"><img src="/app-icon.svg?v=20"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
+if (!script.includes('class="mark"><img src="/app-icon.svg?v=21"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
 const shareMenuIndex = script.indexOf('id="share-repository"');
 const aboutMenuIndex = script.indexOf('href="/about"', shareMenuIndex);
 const updateMenuIndex = script.indexOf('id="menu-update"', aboutMenuIndex);

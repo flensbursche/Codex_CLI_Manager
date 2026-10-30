@@ -1,6 +1,297 @@
 {
-  "generatedAt": "2026-10-30T10:58:02+01:00",
+  "generatedAt": "2026-10-30T16:22:18+01:00",
   "releases": [
+    {
+      "version": "0.10.4",
+      "tag": "v0.10.4",
+      "date": "2026-10-30T16:22:18+01:00",
+      "commit": "cd9274548992fa7261cea5c94eb03de6dd080257",
+      "released": true,
+      "commits": [
+        {
+          "hash": "cd9274548992fa7261cea5c94eb03de6dd080257",
+          "shortHash": "cd92745",
+          "date": "2026-10-30T16:22:18+01:00",
+          "subject": "Add explicit project assignment and cleanup controls"
+        }
+      ]
+    },
+    {
+      "version": "0.10.3",
+      "tag": "v0.10.3",
+      "date": "2026-10-30T15:52:58+01:00",
+      "commit": "beb55bddf1ea9bdf652e627f0388b1ab981bc49e",
+      "released": true,
+      "commits": [
+        {
+          "hash": "beb55bddf1ea9bdf652e627f0388b1ab981bc49e",
+          "shortHash": "beb55bd",
+          "date": "2026-10-30T15:52:58+01:00",
+          "subject": "Launch detected PowerShell through encoded terminal bridge"
+        }
+      ]
+    },
+    {
+      "version": "0.10.2",
+      "tag": "v0.10.2",
+      "date": "2026-10-30T15:29:03+01:00",
+      "commit": "9ff5522841266b18417165656e461885ae311e4b",
+      "released": true,
+      "commits": [
+        {
+          "hash": "9ff5522841266b18417165656e461885ae311e4b",
+          "shortHash": "9ff5522",
+          "date": "2026-10-30T15:29:03+01:00",
+          "subject": "Fix terminal resume and restore archived sessions"
+        }
+      ]
+    },
+    {
+      "version": "0.10.1",
+      "tag": "v0.10.1",
+      "date": "2026-10-30T15:09:33+01:00",
+      "commit": "df3a5fbbe7ef94f6f08fa007f9fd91dd66645360",
+      "released": true,
+      "commits": [
+        {
+          "hash": "df3a5fbbe7ef94f6f08fa007f9fd91dd66645360",
+          "shortHash": "df3a5fb",
+          "date": "2026-10-30T15:09:33+01:00",
+          "subject": "Harden acceptance isolation and refine project sidebar"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0",
+      "tag": "v0.10.0",
+      "date": "2026-10-30T14:58:47+01:00",
+      "commit": "16edab29e5f9a5fa87d70bf3a6ea739a1a71e748",
+      "released": true,
+      "commits": [
+        {
+          "hash": "16edab29e5f9a5fa87d70bf3a6ea739a1a71e748",
+          "shortHash": "16edab2",
+          "date": "2026-10-30T14:58:47+01:00",
+          "subject": "Add Windows release acceptance and signing gates"
+        }
+      ]
+    },
+    {
+      "version": "0.9.15",
+      "tag": "v0.9.15",
+      "date": "2026-10-30T14:26:47+01:00",
+      "commit": "2e1d4af7cbb767dce726d6b2dce5dfd6cb92e67e",
+      "released": true,
+      "commits": [
+        {
+          "hash": "2e1d4af7cbb767dce726d6b2dce5dfd6cb92e67e",
+          "shortHash": "2e1d4af",
+          "date": "2026-10-30T14:26:47+01:00",
+          "subject": "Open tray PowerShell through terminal profile"
+        }
+      ]
+    },
+    {
+      "version": "0.9.14",
+      "tag": "v0.9.14",
+      "date": "2026-10-30T14:10:18+01:00",
+      "commit": "4b3342d0637580f23eca99a991a6462f2c5c76a4",
+      "released": true,
+      "commits": [
+        {
+          "hash": "4b3342d0637580f23eca99a991a6462f2c5c76a4",
+          "shortHash": "4b3342d",
+          "date": "2026-10-30T14:10:18+01:00",
+          "subject": "Polish tray menu and create projects by drop"
+        }
+      ]
+    },
+    {
+      "version": "0.9.13",
+      "tag": "v0.9.13",
+      "date": "2026-10-30T13:44:47+01:00",
+      "commit": "1cbfe01a92be8504c051ae68eef635dacbcf64fe",
+      "released": true,
+      "commits": [
+        {
+          "hash": "1cbfe01a92be8504c051ae68eef635dacbcf64fe",
+          "shortHash": "1cbfe01",
+          "date": "2026-10-30T13:44:47+01:00",
+          "subject": "Use stable terminal path and clarify session states"
+        }
+      ]
+    },
+    {
+      "version": "0.9.12",
+      "tag": "v0.9.12",
+      "date": "2026-10-30T12:50:17+01:00",
+      "commit": "348e9d7465dd5996210125b15edb276c66b6cf9f",
+      "released": true,
+      "commits": [
+        {
+          "hash": "348e9d7465dd5996210125b15edb276c66b6cf9f",
+          "shortHash": "348e9d7",
+          "date": "2026-10-30T12:50:17+01:00",
+          "subject": "Harden PowerShell resume launch"
+        }
+      ]
+    },
+    {
+      "version": "0.9.11",
+      "tag": "v0.9.11",
+      "date": "2026-10-30T12:38:34+01:00",
+      "commit": "8f850d584a997a484bfafec0456bb4f0a9343198",
+      "released": true,
+      "commits": [
+        {
+          "hash": "8f850d584a997a484bfafec0456bb4f0a9343198",
+          "shortHash": "8f850d5",
+          "date": "2026-10-30T12:38:34+01:00",
+          "subject": "Make terminal integration test CI-safe"
+        },
+        {
+          "hash": "4e3d8850d1d3da5a86b790da0966ee05eb1fc295",
+          "shortHash": "4e3d885",
+          "date": "2026-10-30T12:34:42+01:00",
+          "subject": "Fix Windows Terminal resume invocation"
+        },
+        {
+          "hash": "3cc5aa6f12bad64feec6271ab96fa986f7a7e7dc",
+          "shortHash": "3cc5aa6",
+          "date": "2026-10-30T12:30:09+01:00",
+          "subject": "Add executable integration tests and schema fallback"
+        },
+        {
+          "hash": "14b2acddf70eb7e3b546a3e7495c7f1e359ea606",
+          "shortHash": "14b2acd",
+          "date": "2026-10-30T12:24:45+01:00",
+          "subject": "Add multi-signal session health diagnostics"
+        }
+      ]
+    },
+    {
+      "version": "0.9.10",
+      "tag": "v0.9.10",
+      "date": "2026-10-30T12:10:41+01:00",
+      "commit": "bdde48754840dd968ef3f86f9026b493240eb991",
+      "released": true,
+      "commits": [
+        {
+          "hash": "bdde48754840dd968ef3f86f9026b493240eb991",
+          "shortHash": "bdde487",
+          "date": "2026-10-30T12:10:41+01:00",
+          "subject": "Preserve provider icons when Git status is blocked"
+        }
+      ]
+    },
+    {
+      "version": "0.9.9",
+      "tag": "v0.9.9",
+      "date": "2026-10-30T11:51:53+01:00",
+      "commit": "dbb5249e294fb639ee6c99e79a913c7305ce8988",
+      "released": true,
+      "commits": [
+        {
+          "hash": "dbb5249e294fb639ee6c99e79a913c7305ce8988",
+          "shortHash": "dbb5249",
+          "date": "2026-10-30T11:51:53+01:00",
+          "subject": "Move about link above version status"
+        }
+      ]
+    },
+    {
+      "version": "0.9.8",
+      "tag": "v0.9.8",
+      "date": "2026-10-30T11:46:08+01:00",
+      "commit": "988f84da9be3d83bde9254f80bedc0c7b3f4fbc2",
+      "released": true,
+      "commits": [
+        {
+          "hash": "988f84da9be3d83bde9254f80bedc0c7b3f4fbc2",
+          "shortHash": "988f84d",
+          "date": "2026-10-30T11:46:08+01:00",
+          "subject": "Surface repositories with blocked Git status"
+        }
+      ]
+    },
+    {
+      "version": "0.9.7",
+      "tag": "v0.9.7",
+      "date": "2026-10-30T11:39:15+01:00",
+      "commit": "7d5ae074a8efe64a13c0f6e0e472bfb072029b4e",
+      "released": true,
+      "commits": [
+        {
+          "hash": "7d5ae074a8efe64a13c0f6e0e472bfb072029b4e",
+          "shortHash": "7d5ae07",
+          "date": "2026-10-30T11:39:15+01:00",
+          "subject": "Stop Windows Terminal parsing shell arguments"
+        },
+        {
+          "hash": "01fbcaf32f4ea0d341ed35a095f6f29a9f7e23d4",
+          "shortHash": "01fbcaf",
+          "date": "2026-10-30T11:37:12+01:00",
+          "subject": "Show available updates beside live status"
+        }
+      ]
+    },
+    {
+      "version": "0.9.6",
+      "tag": "v0.9.6",
+      "date": "2026-10-30T11:32:30+01:00",
+      "commit": "b4967ccd84421d1dc9c1c417a0cbfea61e5ee02d",
+      "released": true,
+      "commits": [
+        {
+          "hash": "b4967ccd84421d1dc9c1c417a0cbfea61e5ee02d",
+          "shortHash": "b4967cc",
+          "date": "2026-10-30T11:32:30+01:00",
+          "subject": "Make repository link action copy directly"
+        }
+      ]
+    },
+    {
+      "version": "0.9.5",
+      "tag": "v0.9.5",
+      "date": "2026-10-30T11:26:26+01:00",
+      "commit": "1c6dc1c6b2291bd061641dce9479abd1cc068c35",
+      "released": true,
+      "commits": [
+        {
+          "hash": "1c6dc1c6b2291bd061641dce9479abd1cc068c35",
+          "shortHash": "1c6dc1c",
+          "date": "2026-10-30T11:26:26+01:00",
+          "subject": "Clarify repository menu actions"
+        },
+        {
+          "hash": "0a79077810efde47ac495449ea4b192a7607474c",
+          "shortHash": "0a79077",
+          "date": "2026-10-30T11:25:33+01:00",
+          "subject": "Fix Windows Terminal session launch"
+        },
+        {
+          "hash": "b4adc5b94067106e5ef1f215f43e39037aaed4bc",
+          "shortHash": "b4adc5b",
+          "date": "2026-10-30T11:16:58+01:00",
+          "subject": "Reload stale browser tabs after updates"
+        }
+      ]
+    },
+    {
+      "version": "0.9.4",
+      "tag": "v0.9.4",
+      "date": "2026-10-30T11:06:19+01:00",
+      "commit": "874c17a16653bf9149e456ff78d2eed49e776a1d",
+      "released": true,
+      "commits": [
+        {
+          "hash": "874c17a16653bf9149e456ff78d2eed49e776a1d",
+          "shortHash": "874c17a",
+          "date": "2026-10-30T11:06:19+01:00",
+          "subject": "Make update stages visible and shorten restart"
+        }
+      ]
+    },
     {
       "version": "0.9.3",
       "tag": "v0.9.3",

@@ -78,7 +78,7 @@ function header() {
   const autostart = companionInfo.supportsAutostart ? `<button class="menu-row switch-row" id="autostart-toggle" role="switch" aria-label="${t("autostart")}" aria-checked="${companionInfo.autostartEnabled}"><span>${t("autostart")}</span><i class="toggle-switch"><b></b></i></button>` : "";
   const darkMode = document.documentElement.dataset.theme === "dark";
   return `<header class="top">
-    <a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=20" alt=""></span><strong>Codex CLI Manager</strong></a>
+    <a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=21" alt=""></span><strong>Codex CLI Manager</strong></a>
     <span class="live"><i class="dot"></i>${t("live")}</span>
     <button class="header-update" id="header-update" type="button" hidden></button>
     <span class="spacer"></span>
@@ -404,25 +404,60 @@ function projectButton(project) {
 }
 
 async function deleteProject(projectId, name) {
-  if (!window.confirm(t("deleteProjectConfirm", name))) return;
-  try {
-    await fetchJson(`/api/projects/${encodeURIComponent(projectId)}/delete`, { method: "POST" });
-    state.projects = state.projects.filter((project) => project.id !== projectId);
-    if (state.project === projectId) { state.project = null; state.view = "all"; renderSidebarNav(); }
-    renderProjects(); renderSessions(); showListStatus(t("projectDeleted"), "success");
-  } catch (error) { showListError(error.message); }
+  document.querySelector("#project-delete-dialog")?.close();
+  const dialog = document.createElement("dialog");
+  dialog.className = "confirm-dialog";
+  dialog.id = "project-delete-dialog";
+  dialog.setAttribute("aria-labelledby", "project-delete-title");
+  dialog.setAttribute("aria-describedby", "project-delete-description");
+  dialog.innerHTML = `<form class="confirm-dialog-content">
+    <header>
+      <span class="confirm-dialog-icon">${icons.trash}</span>
+      <div><span class="eyebrow">${t("projects")}</span><h2 id="project-delete-title">${t("deleteProjectTitle")}</h2></div>
+      <button class="dialog-close" type="button" aria-label="${t("close")}">${icons.close}</button>
+    </header>
+    <p id="project-delete-description">${esc(t("deleteProjectDescription", name))}</p>
+    <div class="confirm-dialog-error" role="alert" hidden></div>
+    <footer><button class="secondary" type="button" data-close autofocus>${t("cancel")}</button><button class="danger" type="submit">${t("deleteProjectAction")}</button></footer>
+  </form>`;
+  document.body.append(dialog);
+  const form = dialog.querySelector("form");
+  const errorBox = dialog.querySelector(".confirm-dialog-error");
+  const buttons = [...dialog.querySelectorAll("button")];
+  dialog.querySelectorAll("[data-close], .dialog-close").forEach((button) => button.onclick = () => dialog.close());
+  dialog.onclick = (event) => { if (event.target === dialog) dialog.close(); };
+  dialog.onclose = () => dialog.remove();
+  form.onsubmit = async (event) => {
+    event.preventDefault();
+    buttons.forEach((button) => button.disabled = true);
+    errorBox.hidden = true;
+    try {
+      await fetchJson(`/api/projects/${encodeURIComponent(projectId)}/delete`, { method: "POST" });
+      state.projects = state.projects.filter((project) => project.id !== projectId);
+      if (state.project === projectId) { state.project = null; state.view = "all"; renderSidebarNav(); }
+      renderProjects(); renderSessions(); showListStatus(t("projectDeleted"), "success");
+      dialog.close();
+    } catch (error) {
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+      buttons.forEach((button) => button.disabled = false);
+    }
+  };
+  dialog.showModal();
 }
 
 function bindProjectCreator() {
   const toggle = document.querySelector("#project-create-toggle"); const label = document.querySelector("#project-create-label"); const form = document.querySelector("#project-create-form"); const input = document.querySelector("#project-name"); const clearInput = document.querySelector("#project-name-clear");
   const resetPendingAssignment = () => { state.pendingProjectSessionId = null; toggle.classList.remove("assignment-pending", "drop-target"); label.textContent = t("newProject"); };
   const openCreator = (threadId = null) => { state.pendingProjectSessionId = threadId; toggle.classList.toggle("assignment-pending", Boolean(threadId)); label.textContent = threadId ? t("newProjectForSession") : t("newProject"); form.hidden = false; input.focus(); };
-  toggle.onclick = () => { if (form.hidden) openCreator(); else { form.hidden = true; resetPendingAssignment(); } };
+  const closeCreator = (restoreFocus = false) => { form.hidden = true; input.value = ""; clearInput.hidden = true; resetPendingAssignment(); if (restoreFocus) toggle.focus(); };
+  toggle.onclick = () => { if (form.hidden) openCreator(); else closeCreator(); };
   toggle.ondragover = (event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; toggle.classList.add("drop-target"); };
   toggle.ondragleave = () => toggle.classList.remove("drop-target");
   toggle.ondrop = (event) => { event.preventDefault(); toggle.classList.remove("drop-target"); const threadId = event.dataTransfer.getData("text/codex-thread") || state.draggedSessionId; if (threadId) openCreator(threadId); };
   input.oninput = () => { clearInput.hidden = !input.value; };
   clearInput.onclick = () => { input.value = ""; clearInput.hidden = true; input.focus(); };
+  form.onkeydown = (event) => { if (event.key === "Escape") { event.preventDefault(); closeCreator(true); } };
   form.onsubmit = async (event) => { event.preventDefault(); const name = input.value.trim(); if (!name) return; const pendingThreadId = state.pendingProjectSessionId; const project = await fetchJson("/api/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) }); state.projects.push(project); if (pendingThreadId) await assignSessionToProject(pendingThreadId, project.id); input.value = ""; clearInput.hidden = true; form.hidden = true; resetPendingAssignment(); renderProjects(); };
 }
 

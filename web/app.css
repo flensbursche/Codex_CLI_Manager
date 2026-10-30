@@ -460,6 +460,90 @@ summary {
   backdrop-filter: blur(2px);
 }
 
+.confirm-dialog {
+  width: min(440px, calc(100% - 28px));
+  max-height: calc(100dvh - 36px);
+  padding: 0;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  color: var(--text);
+  background: var(--panel);
+  box-shadow: 0 20px 70px rgba(20, 24, 21, 0.25);
+}
+
+.confirm-dialog::backdrop {
+  background: rgba(20, 24, 21, 0.38);
+  backdrop-filter: blur(2px);
+}
+
+.confirm-dialog-content {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+}
+
+.confirm-dialog-content > header {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 34px;
+  align-items: start;
+  gap: 12px;
+}
+
+.confirm-dialog-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  color: #d65252;
+  background: rgba(214, 82, 82, 0.12);
+}
+
+.confirm-dialog-content h2 {
+  margin: 3px 0 0;
+  font-size: 20px;
+}
+
+.confirm-dialog-content > p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.confirm-dialog-content > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+}
+
+.confirm-dialog-content > footer button {
+  min-height: 38px;
+  padding: 0 15px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.confirm-dialog-content .danger {
+  border: 1px solid #c94b4b;
+  color: #fff;
+  background: #c94b4b;
+}
+
+.confirm-dialog-content .danger:hover {
+  border-color: #b93f3f;
+  background: #b93f3f;
+}
+
+.confirm-dialog-error {
+  padding: 10px 12px;
+  border: 1px solid rgba(214, 82, 82, 0.28);
+  border-radius: 8px;
+  color: #b93f3f;
+  background: rgba(214, 82, 82, 0.09);
+  font-size: 12px;
+}
+
 .terminal-settings-form {
   display: grid;
   gap: 15px;
