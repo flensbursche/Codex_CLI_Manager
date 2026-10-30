@@ -816,7 +816,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.8.1";
+    public const string Version = "0.8.2";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);
@@ -827,29 +827,34 @@ internal static class UpdateService
     private const string PackageName = "CodexSessionManager-Setup-win-x64.zip";
     private static readonly string UpdatesRoot = Path.Combine(Path.GetTempPath(), "CodexSessionManager", "updates");
     private static readonly HttpClient Client = CreateClient();
+    private static readonly HttpClient LatestReleaseClient = CreateClient(followRedirects: false);
 
     public static async Task<UpdateInfo?> CheckForUpdateAsync(CancellationToken cancellation)
     {
-        using var response = await Client.GetAsync($"https://api.github.com/repos/{Repository}/releases/latest", cancellation);
+        using var response = await LatestReleaseClient.GetAsync($"https://github.com/{Repository}/releases/latest", cancellation);
         if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return null;
-        response.EnsureSuccessStatusCode();
-        using var document = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(cancellation), cancellationToken: cancellation);
-        var root = document.RootElement;
-        var tag = root.GetProperty("tag_name").GetString() ?? throw new InvalidOperationException("Das GitHub Release hat keine Versionsnummer.");
+        if (response.StatusCode is not System.Net.HttpStatusCode.MovedPermanently
+            and not System.Net.HttpStatusCode.Redirect
+            and not System.Net.HttpStatusCode.TemporaryRedirect
+            and not System.Net.HttpStatusCode.PermanentRedirect)
+        {
+            response.EnsureSuccessStatusCode();
+            throw new InvalidOperationException("GitHub hat keine aktuelle Release-Version zurückgegeben.");
+        }
+
+        var location = response.Headers.Location ?? throw new InvalidOperationException("Das GitHub Release hat keine Versionsnummer.");
+        var releasePath = location.IsAbsoluteUri ? location.AbsolutePath : location.OriginalString.Split('?', 2)[0];
+        var tagPrefix = $"/{Repository}/releases/tag/";
+        if (!releasePath.StartsWith(tagPrefix, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("GitHub hat eine unerwartete Release-Adresse zurückgegeben.");
+        var tag = Uri.UnescapeDataString(releasePath[tagPrefix.Length..].Trim('/'));
+        if (string.IsNullOrWhiteSpace(tag)) throw new InvalidOperationException("Das GitHub Release hat keine Versionsnummer.");
         var latest = ParseVersion(tag);
         if (latest <= ParseVersion(ProductInfo.Version)) return null;
 
-        string? packageUrl = null;
-        string? checksumUrl = null;
-        foreach (var asset in root.GetProperty("assets").EnumerateArray())
-        {
-            var name = asset.GetProperty("name").GetString();
-            var url = asset.GetProperty("browser_download_url").GetString();
-            if (name == PackageName) packageUrl = url;
-            if (name == PackageName + ".sha256") checksumUrl = url;
-        }
-        if (packageUrl is null || checksumUrl is null)
-            throw new InvalidOperationException("Das neueste GitHub Release enthält kein vollständiges Windows-Update.");
+        var releaseBase = $"https://github.com/{Repository}/releases/download/{Uri.EscapeDataString(tag)}/";
+        var packageUrl = releaseBase + PackageName;
+        var checksumUrl = releaseBase + PackageName + ".sha256";
         ValidateDownloadUrl(packageUrl);
         ValidateDownloadUrl(checksumUrl);
         return new UpdateInfo(latest.ToString(3), packageUrl, checksumUrl);
@@ -935,12 +940,10 @@ internal static class UpdateService
         });
     }
 
-    private static HttpClient CreateClient()
+    private static HttpClient CreateClient(bool followRedirects = true)
     {
-        var client = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
+        var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = followRedirects }) { Timeout = TimeSpan.FromMinutes(10) };
         client.DefaultRequestHeaders.UserAgent.ParseAdd($"Codex-CLI-Manager/{ProductInfo.Version}");
-        client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
-        client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
         return client;
     }
 

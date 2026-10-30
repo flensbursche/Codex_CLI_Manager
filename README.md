@@ -57,15 +57,15 @@ Das veröffentlichte Windows-Paket ist selbstenthalten und benötigt kein separa
 
 ## Release bauen
 
-Der GitHub-Workflow `Windows companion` läuft manuell oder bei Tags mit dem Präfix `v`. Ein Tag wie `v0.8.1` erzeugt ein GitHub Release mit `CodexSessionManager-Setup-win-x64.zip` und SHA-256-Prüfsumme. Installierte Clients erkennen dieses Release automatisch und bieten es im Tray-Menü an.
+Der GitHub-Workflow `Windows companion` läuft manuell oder bei Tags mit dem Präfix `v`. Ein Tag wie `v0.8.2` erzeugt ein GitHub Release mit `CodexSessionManager-Setup-win-x64.zip` und SHA-256-Prüfsumme. Installierte Clients erkennen dieses Release ohne Abhängigkeit vom anonymen GitHub-API-Limit und bieten es im Tray-Menü an.
 
 Pushes und Pull Requests gegen `main` führen zusätzlich den Web-Smoke-Test und einen .NET-Release-Build aus. Das auf Text- und Strukturprüfungen basierende Smoke-Testskript ignoriert reine CSS-Formatierungsunterschiede.
 
 Ein normaler Push auf `main` veröffentlicht absichtlich kein Client-Update. Release-Versionen werden so angelegt:
 
 ```powershell
-git tag v0.8.1
-git push origin v0.8.1
+git tag v0.8.2
+git push origin v0.8.2
 ```
 
 Lokal mit installiertem .NET 10 SDK:
