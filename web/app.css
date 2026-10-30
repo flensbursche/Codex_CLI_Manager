@@ -1408,6 +1408,23 @@ summary {
   color: var(--text);
 }
 
+.session-git.provider-gitlab {
+  color: #fc6d26;
+}
+
+mark.search-match {
+  margin: 0;
+  padding: 0 1px;
+  border-radius: 2px;
+  background: #ffdc73;
+  color: #25220f;
+}
+
+:root[data-theme="dark"] mark.search-match {
+  background: #7c641b;
+  color: #fff4bd;
+}
+
 .session-git::after {
   position: absolute;
   right: -1px;

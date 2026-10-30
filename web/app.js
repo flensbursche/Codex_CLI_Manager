@@ -16,6 +16,17 @@ const loadMessages = async (code) => {
 };
 const t = (key, ...values) => { const template = messages[key] ?? key; return values.reduce((text, value, index) => text.replaceAll(`{${index}}`, value), template); };
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
+const highlight = (value, query) => {
+  const text = String(value ?? ""); const needle = String(query ?? "").trim();
+  if (!needle) return esc(text);
+  const lowerText = text.toLocaleLowerCase(languageLocales[language]); const lowerNeedle = needle.toLocaleLowerCase(languageLocales[language]);
+  let result = ""; let offset = 0; let index = lowerText.indexOf(lowerNeedle);
+  while (index >= 0) {
+    result += `${esc(text.slice(offset, index))}<mark class="search-match">${esc(text.slice(index, index + needle.length))}</mark>`;
+    offset = index + needle.length; index = lowerText.indexOf(lowerNeedle, offset);
+  }
+  return result + esc(text.slice(offset));
+};
 const relative = (timestamp) => { const ms = Date.now() - timestamp; if (ms < 60000) return t("justNow"); const minutes = Math.round(ms / 60000); if (minutes < 60) return t("minutesAgo", minutes); const hours = Math.round(minutes / 60); if (hours < 24) return t("hoursAgo", hours); const days = Math.round(hours / 24); if (days === 1) return t("yesterday"); if (days < 14) return t("daysAgo", days); return new Intl.DateTimeFormat(languageLocales[language], { dateStyle: "medium", timeStyle: "short" }).format(timestamp); };
 const sessionTime = (session) => { const age = Date.now() - Number(session.updatedAt || 0); return !session.active && age >= 0 && age <= 3 * 60000 ? t("justEnded") : relative(session.updatedAt); };
 const directoryLabel = (value) => { const path = String(value || t("noProject")); return value && !/[\\/]$/.test(path) ? `${path}\\` : path; };
@@ -47,6 +58,7 @@ const icons = {
   unlink: tablerIcon('<path d="M10 13a5 5 0 0 0 7.07.07l2-2a5 5 0 0 0-7.07-7.07l-1.15 1.15"/><path d="M14 11a5 5 0 0 0-7.07-.07l-2 2A5 5 0 0 0 12 20l1.15-1.15"/><path d="M4 4l16 16"/>'),
   git: brandIcon('M23.546 10.93L13.067.452a1.55 1.55 0 0 0-2.188 0L8.708 2.625l2.76 2.76a1.84 1.84 0 0 1 2.327 2.34l2.658 2.66a1.84 1.84 0 1 1-1.104 1.044l-2.477-2.478v6.525a1.84 1.84 0 1 1-1.525-.05V8.835a1.84 1.84 0 0 1-.992-2.402L7.638 3.716.453 10.93a1.55 1.55 0 0 0 0 2.188l10.477 10.43a1.55 1.55 0 0 0 2.186 0l10.43-10.43a1.55 1.55 0 0 0 0-2.188z'),
   github: brandIcon('M12 .297C5.37.297 0 5.67 0 12.297c0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.418-1.305.762-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297 24 5.67 18.627.297 12 .297z'),
+  gitlab: brandIcon('M23.955 13.587l-1.342-4.135-2.66-8.19a.455.455 0 0 0-.867 0l-2.66 8.19H7.574l-2.66-8.19a.455.455 0 0 0-.867 0l-2.66 8.19L.045 13.587a.924.924 0 0 0 .331 1.023L12 23.783l11.625-9.173a.924.924 0 0 0 .33-1.023z'),
   history: tablerIcon('<path d="M12 8v4l2 2"/><path d="M3.05 11a9 9 0 1 0 .5-3M3 4v4h4"/>'),
   info: tablerIcon('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.01"/>'),
   refresh: tablerIcon('<path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"/>')
@@ -380,7 +392,7 @@ function sessionsWithoutInternalFilter() {
 function filteredSessions() {
   const query = document.querySelector("#search").value.trim().toLowerCase(); const source = document.querySelector("#source").value; const pinned = document.querySelector("#pinned").value; const days = Number(document.querySelector("#period").value); const sort = document.querySelector("#sort").value; const cutoff = days ? Date.now() - days * 86400000 : 0;
   const byId = new Map(state.sessions.map((session) => [session.id, session]));
-  return sessionsWithoutInternalFilter().filter((session) => (!state.project || session.projectId === state.project || (session.parentId && byId.get(session.parentId)?.projectId === state.project)) && (source === "all" || session.source === source) && (pinned === "all" || session.pinned) && (!cutoff || session.updatedAt >= cutoff) && (!query || `${session.title} ${session.preview} ${session.project} ${session.branch || ""} ${session.git?.branch || ""} ${session.git?.lastCommitSubject || ""} ${session.cwd} ${session.storagePath || ""}`.toLowerCase().includes(query))).sort((a, b) => sort === "created" ? b.createdAt - a.createdAt : sort === "project" ? a.project.localeCompare(b.project) : sort === "title" ? a.title.localeCompare(b.title) : sort === "path" ? (a.storagePath || "").localeCompare(b.storagePath || "") : b.updatedAt - a.updatedAt);
+  return sessionsWithoutInternalFilter().filter((session) => (!state.project || session.projectId === state.project || (session.parentId && byId.get(session.parentId)?.projectId === state.project)) && (source === "all" || session.source === source) && (pinned === "all" || session.pinned) && (!cutoff || session.updatedAt >= cutoff) && (!query || `${session.title} ${session.originalTitle || ""} ${session.preview} ${session.project} ${session.branch || ""} ${session.git?.branch || ""} ${session.git?.lastCommitSubject || ""} ${session.cwd} ${session.storagePath || ""}`.toLowerCase().includes(query))).sort((a, b) => sort === "created" ? b.createdAt - a.createdAt : sort === "project" ? a.project.localeCompare(b.project) : sort === "title" ? a.title.localeCompare(b.title) : sort === "path" ? (a.storagePath || "").localeCompare(b.storagePath || "") : b.updatedAt - a.updatedAt);
 }
 
 function sessionBundles(sessions) {
@@ -391,11 +403,12 @@ function sessionBundles(sessions) {
 
 function renderSessions() {
   const sessions = filteredSessions(); const sort = document.querySelector("#sort").value; const bundles = sessionBundles(sessions);
+  const query = document.querySelector("#search").value.trim();
   if (sort === "updated") bundles.sort((a, b) => b.updatedAt - a.updatedAt);
   document.querySelector("#search").placeholder = t(bundles.length === 1 ? "sessionSearchCountOne" : "sessionSearchCountMany", bundles.length);
   showListError("");
   const groups = ["justNow", "today", "yesterdayGroup", "thisWeek", "lastWeek", "thisMonth", "older"];
-  document.querySelector("#sessions").innerHTML = !bundles.length ? `<div class="empty">${t("noSessions")}</div>` : sort === "updated" ? groups.map((group) => { const items = bundles.filter((bundle) => activityGroup(bundle.updatedAt) === group); return items.length ? `<section class="session-group"><h2>${t(group)}</h2>${items.map((bundle) => sessionRow(bundle.master, bundle.shadows)).join("")}</section>` : ""; }).join("") : bundles.map((bundle) => sessionRow(bundle.master, bundle.shadows)).join("");
+  document.querySelector("#sessions").innerHTML = !bundles.length ? `<div class="empty">${t("noSessions")}</div>` : sort === "updated" ? groups.map((group) => { const items = bundles.filter((bundle) => activityGroup(bundle.updatedAt) === group); return items.length ? `<section class="session-group"><h2>${t(group)}</h2>${items.map((bundle) => sessionRow(bundle.master, bundle.shadows, query)).join("")}</section>` : ""; }).join("") : bundles.map((bundle) => sessionRow(bundle.master, bundle.shadows, query)).join("");
   document.querySelectorAll(".session-favorite").forEach((button) => button.onclick = () => toggleFavorite(button.dataset.id, button));
   document.querySelectorAll(".session-project-remove").forEach((button) => button.onclick = () => removeSessionFromProject(button.dataset.id, button));
   document.querySelectorAll(".session-launch").forEach((button) => button.onclick = () => openFromList(button.dataset.id, button.dataset.action, button));
@@ -403,33 +416,34 @@ function renderSessions() {
   bindSessionDragging();
 }
 
-function sessionRow(session, shadows = []) {
+function sessionRow(session, shadows = [], query = "") {
   const action = session.desktop ? "open-desktop" : "resume"; const disabled = session.active && !session.desktop; const label = session.desktop ? t("openDesktop") : disabled ? t("alreadyOpen") : t("resume");
   const source = session.desktop ? "ChatGPT Desktop" : "CLI";
   const sourceIcon = session.desktop ? icons.desktop : icons.terminal;
-  const shadowList = shadows.length ? `<div class="shadow-sessions">${shadows.map(shadowSessionRow).join("")}</div>` : "";
+  const shadowList = shadows.length ? `<div class="shadow-sessions">${shadows.map((shadow) => shadowSessionRow(shadow, query)).join("")}</div>` : "";
   const favoriteLabel = session.pinned ? t("removeFavorite") : t("addFavorite");
   const projectRemove = session.projectId ? `<button class="session-project-remove" data-id="${session.id}" aria-label="${t("removeFromProject")}" title="${t("removeFromProject")}">${icons.unlink}</button>` : "";
-  return `<article class="session-row ${session.active ? "active-session" : ""}" data-id="${session.id}" draggable="true"><div class="session-copy"><div class="session-context"><button class="session-path-copy copy-value" type="button" data-copy="${esc(session.cwd)}" title="${t("copyPath")}"><code>${esc(directoryLabel(session.cwd))}</code>${icons.copy}</button><div class="session-meta"><time>${sessionTime(session)}</time>${projectRemove}<button class="session-favorite ${session.pinned ? "active" : ""}" data-id="${session.id}" aria-label="${favoriteLabel}" aria-pressed="${session.pinned ? "true" : "false"}" title="${favoriteLabel}">${icons.favorite}</button></div></div><div class="session-body"><div class="session-summary"><div class="session-title-line"><strong class="session-title" title="${esc(session.title)}">${esc(session.title)}</strong>${gitIndicator(session.git)}</div>${session.customTitle ? `<span class="session-original-title">${t("originalTitle")}: ${esc(session.originalTitle)}</span>` : ""}${session.preview ? `<span class="session-prompt">${esc(session.preview)}</span>` : ""}</div><div class="session-actions"><a class="session-details" href="/session/${encodeURIComponent(session.id)}">${t("details")}</a><button class="session-launch ${session.desktop ? "desktop" : ""}" data-id="${session.id}" data-action="${action}" ${disabled ? "disabled" : ""} aria-label="${label}" title="${source}: ${label}"><span class="launch-source">${sourceIcon}</span><span class="launch-divider"></span><span class="launch-play">${icons.play}</span></button></div></div>${shadowList}</div></article>`;
+  return `<article class="session-row ${session.active ? "active-session" : ""}" data-id="${session.id}" draggable="true"><div class="session-copy"><div class="session-context"><button class="session-path-copy copy-value" type="button" data-copy="${esc(session.cwd)}" title="${t("copyPath")}"><code>${highlight(directoryLabel(session.cwd), query)}</code>${icons.copy}</button><div class="session-meta"><time>${sessionTime(session)}</time>${projectRemove}<button class="session-favorite ${session.pinned ? "active" : ""}" data-id="${session.id}" aria-label="${favoriteLabel}" aria-pressed="${session.pinned ? "true" : "false"}" title="${favoriteLabel}">${icons.favorite}</button></div></div><div class="session-body"><div class="session-summary"><div class="session-title-line"><strong class="session-title" title="${esc(session.title)}">${highlight(session.title, query)}</strong>${gitIndicator(session.git)}</div>${session.customTitle ? `<span class="session-original-title">${t("originalTitle")}: ${highlight(session.originalTitle, query)}</span>` : ""}${session.preview ? `<span class="session-prompt">${highlight(session.preview, query)}</span>` : ""}</div><div class="session-actions"><a class="session-details" href="/session/${encodeURIComponent(session.id)}">${t("details")}</a><button class="session-launch ${session.desktop ? "desktop" : ""}" data-id="${session.id}" data-action="${action}" ${disabled ? "disabled" : ""} aria-label="${label}" title="${source}: ${label}"><span class="launch-source">${sourceIcon}</span><span class="launch-divider"></span><span class="launch-play">${icons.play}</span></button></div></div>${shadowList}</div></article>`;
 }
 
 function gitIndicator(git) {
   if (!git?.linked) return "";
   const stateLabel = gitStateLabel(git);
   const overview = [git.branch, stateLabel, git.ahead ? t("gitAhead", git.ahead) : "", git.behind ? t("gitBehind", git.behind) : ""].filter(Boolean).join(" · ");
-  const providerLabel = git.provider === "github" ? `GitHub${git.remoteHost ? ` · ${git.remoteHost}` : ""}` : git.remoteHost || "";
+  const providerLabel = git.provider === "github" ? `GitHub${git.remoteHost ? ` · ${git.remoteHost}` : ""}` : git.provider === "gitlab" ? `GitLab${git.remoteHost ? ` · ${git.remoteHost}` : ""}` : git.remoteHost || "";
   const changed = (git.changes || []).map((change) => `${change.status}  ${change.path}`);
   if (git.changedFiles > changed.length) changed.push(t("gitMoreChanges", git.changedFiles - changed.length));
   const details = [providerLabel, overview, ...changed, git.lastCommitShort && git.lastCommitSubject ? `${t("lastCommit")}: ${git.lastCommitShort} ${git.lastCommitSubject}` : ""].filter(Boolean).join("\n");
   const stateClass = git.conflicts ? "conflict" : git.dirty ? "dirty" : "clean";
-  const providerClass = git.provider === "github" ? "provider-github" : "";
-  return `<span class="session-git ${stateClass} ${providerClass}" title="${esc(details)}" aria-label="${esc(details)}">${git.provider === "github" ? icons.github : icons.git}</span>`;
+  const providerClass = git.provider === "github" ? "provider-github" : git.provider === "gitlab" ? "provider-gitlab" : "";
+  const providerIcon = git.provider === "github" ? icons.github : git.provider === "gitlab" ? icons.gitlab : icons.git;
+  return `<span class="session-git ${stateClass} ${providerClass}" title="${esc(details)}" aria-label="${esc(details)}">${providerIcon}</span>`;
 }
 
-function shadowSessionRow(session) {
+function shadowSessionRow(session, query = "") {
   const usesChrome = /(^|\s)@Chrome\b/i.test(session.preview || ""); const sourceIcon = usesChrome ? icons.chrome : session.desktop ? icons.desktop : icons.terminal; const sourceLabel = usesChrome ? "Chrome" : session.desktop ? "Desktop" : "CLI";
   const status = session.active ? `<span class="shadow-status active"><i></i>${t("sessionOpen")}</span>` : `<span class="shadow-status">${sessionTime(session)}</span>`;
-  return `<div class="shadow-session"><span class="shadow-branch">↳</span><span class="shadow-title" title="${esc(session.title)}">${esc(session.title)}</span><span class="shadow-kind">${sourceIcon}${sourceLabel}</span>${status}</div>`;
+  return `<div class="shadow-session"><span class="shadow-branch">↳</span><span class="shadow-title" title="${esc(session.title)}">${highlight(session.title, query)}</span><span class="shadow-kind">${sourceIcon}${sourceLabel}</span>${status}</div>`;
 }
 
 async function toggleFavorite(threadId, button) {
