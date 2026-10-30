@@ -26,6 +26,7 @@
   "updateChecking": "Checking for updates …",
   "checkNow": "Check",
   "updateAvailable": "Version {0} available – install from the tray menu",
+  "updateBadge": "Update {0}",
   "upToDate": "Version {0} is up to date",
   "updateCheckFailed": "Update check failed",
   "menu": "Menu",

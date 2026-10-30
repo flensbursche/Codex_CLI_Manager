@@ -74,7 +74,7 @@ colorScheme.addEventListener("change", () => { if (themePreference === "auto") a
 function header() {
   const autostart = companionInfo.supportsAutostart ? `<button class="menu-row switch-row" id="autostart-toggle" role="switch" aria-checked="${companionInfo.autostartEnabled}"><span>${t("autostart")}</span><i class="toggle-switch"><b></b></i></button>` : "";
   const darkMode = document.documentElement.dataset.theme === "dark";
-  return `<header class="top"><a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=6" alt=""></span><strong>Codex CLI Manager</strong></a><span class="live"><i class="dot"></i>${t("live")}</span><span class="spacer"></span><details class="header-menu"><summary class="quiet-button icon-button" aria-label="${t("menu")}" title="${t("menu")}">${icons.menu}</summary><div class="header-menu-panel">${autostart}<button class="menu-row switch-row" id="theme-toggle" role="switch" aria-checked="${darkMode}">${darkMode ? icons.moon : icons.sun}<span>${t("darkMode")}</span><i class="toggle-switch"><b></b></i></button><div class="menu-block"><span class="menu-label">${icons.globe}${t("language")}</span><div class="language-options" role="group" aria-label="${t("language")}">${["de", "en", "da"].map((code) => `<button type="button" data-language="${code}" class="${language === code ? "active" : ""}" aria-pressed="${language === code}">${code === "da" ? "DK" : code.toUpperCase()}</button>`).join("")}</div></div><a class="menu-row" href="/settings/terminal">${icons.settings}<span>${t("terminalSettings")}</span></a><a class="menu-row" href="/about">${icons.info}<span>${esc(t("aboutAndHistory", `v${companionInfo.version || ""}`))}</span></a><button class="menu-row" id="share-repository" type="button">${icons.share}<span>${t("shareRepository")}</span></button><div class="menu-update" id="menu-update"><span>${icons.refresh}<span>${t("updateChecking")}</span></span><button type="button" id="update-check">${t("checkNow")}</button></div></div></details></header>`;
+  return `<header class="top"><a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=7" alt=""></span><strong>Codex CLI Manager</strong></a><span class="live"><i class="dot"></i>${t("live")}</span><button class="header-update" id="header-update" type="button" hidden></button><span class="spacer"></span><details class="header-menu"><summary class="quiet-button icon-button" aria-label="${t("menu")}" title="${t("menu")}">${icons.menu}</summary><div class="header-menu-panel">${autostart}<button class="menu-row switch-row" id="theme-toggle" role="switch" aria-checked="${darkMode}">${darkMode ? icons.moon : icons.sun}<span>${t("darkMode")}</span><i class="toggle-switch"><b></b></i></button><div class="menu-block"><span class="menu-label">${icons.globe}${t("language")}</span><div class="language-options" role="group" aria-label="${t("language")}">${["de", "en", "da"].map((code) => `<button type="button" data-language="${code}" class="${language === code ? "active" : ""}" aria-pressed="${language === code}">${code === "da" ? "DK" : code.toUpperCase()}</button>`).join("")}</div></div><a class="menu-row" href="/settings/terminal">${icons.settings}<span>${t("terminalSettings")}</span></a><a class="menu-row" href="/about">${icons.info}<span>${esc(t("aboutAndHistory", `v${companionInfo.version || ""}`))}</span></a><button class="menu-row" id="share-repository" type="button">${icons.share}<span>${t("shareRepository")}</span></button><div class="menu-update" id="menu-update"><span>${icons.refresh}<span>${t("updateChecking")}</span></span><button type="button" id="update-check">${t("checkNow")}</button></div></div></details></header>`;
 }
 
 function bindTheme() {
@@ -97,6 +97,7 @@ function bindTheme() {
     } catch { window.prompt(t("copyPathFallback"), url); }
   };
   document.querySelector("#update-check").onclick = () => loadUpdateStatus(true);
+  document.querySelector("#header-update").onclick = () => document.querySelector(".header-menu").open = true;
   void loadUpdateStatus(false);
   const sidebarToggle = document.querySelector("#sidebar-toggle");
   if (sidebarToggle) sidebarToggle.onclick = () => { sidebarCollapsed = !sidebarCollapsed; localStorage.setItem("codex-sidebar-collapsed", String(sidebarCollapsed)); document.querySelector(".list-layout")?.classList.toggle("sidebar-collapsed", sidebarCollapsed); const label = sidebarCollapsed ? t("expandSidebar") : t("collapseSidebar"); sidebarToggle.innerHTML = `${sidebarCollapsed ? icons.sidebarOpen : icons.sidebarClose}<span>${label}</span>`; sidebarToggle.setAttribute("aria-label", label); sidebarToggle.title = label; };
@@ -108,13 +109,15 @@ function svgNode(markup) {
 
 async function loadUpdateStatus(refresh) {
   const box = document.querySelector("#menu-update"); if (!box) return;
-  const button = box.querySelector("button"); const label = box.querySelector("span span"); button.disabled = true; label.textContent = t("updateChecking");
+  const button = box.querySelector("button"); const label = box.querySelector("span span"); const headerUpdate = document.querySelector("#header-update"); button.disabled = true; label.textContent = t("updateChecking");
   try {
     const result = await fetchJson(`/api/update-status?refresh=${refresh ? "true" : "false"}`);
     label.textContent = result.status === "available" ? t("updateAvailable", result.version) : result.status === "error" ? t("updateCheckFailed") : t("upToDate", result.currentVersion);
     box.classList.toggle("available", result.status === "available");
     box.title = result.error || "";
-  } catch (error) { label.textContent = t("updateCheckFailed"); box.title = error.message; }
+    headerUpdate.hidden = result.status !== "available";
+    headerUpdate.textContent = result.status === "available" ? t("updateBadge", result.version) : "";
+  } catch (error) { label.textContent = t("updateCheckFailed"); box.title = error.message; headerUpdate.hidden = true; }
   finally { button.disabled = false; }
 }
 

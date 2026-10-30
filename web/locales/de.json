@@ -26,6 +26,7 @@
   "updateChecking": "Update wird geprüft …",
   "checkNow": "Prüfen",
   "updateAvailable": "Version {0} verfügbar – Installation über das Tray-Menü",
+  "updateBadge": "Update {0}",
   "upToDate": "Version {0} ist aktuell",
   "updateCheckFailed": "Update-Prüfung fehlgeschlagen",
   "menu": "Menü",

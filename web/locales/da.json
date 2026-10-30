@@ -26,6 +26,7 @@
   "updateChecking": "Søger efter opdateringer …",
   "checkNow": "Kontrollér",
   "updateAvailable": "Version {0} er tilgængelig – installer via systembakken",
+  "updateBadge": "Opdatering {0}",
   "upToDate": "Version {0} er opdateret",
   "updateCheckFailed": "Opdateringskontrol mislykkedes",
   "menu": "Menu",
