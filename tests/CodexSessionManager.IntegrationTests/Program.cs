@@ -5,6 +5,7 @@ using System.Text;
 var tests = new (string Name, Func<Task> Run)[]
 {
     ("Windows Terminal arguments", TestWindowsTerminalArgumentsAsync),
+    ("Windows Terminal process launch", TestWindowsTerminalLaunchAsync),
     ("PowerShell process launch", TestPowerShellLaunchAsync),
     ("Session mutex and file lock", TestSessionLocksAsync),
     ("Session health state matrix", TestSessionHealthAsync),
@@ -48,7 +49,7 @@ static Task TestWindowsTerminalArgumentsAsync()
     var expected = new[]
     {
         "-w", "new", "new-tab", "--profile", "{test-profile}", "--startingDirectory", @"C:\DEV\Project With Spaces",
-        "--appendCommandLine", "--", "-NoLogo", "-NoExit", "-EncodedCommand"
+        shell.Path, "-NoLogo", "-NoExit", "-EncodedCommand"
     };
     Assert(arguments.Length == expected.Length + 1, "Unexpected Windows Terminal argument count.");
     Assert(arguments.Take(expected.Length).SequenceEqual(expected), $"Windows Terminal arguments differ: {string.Join(" | ", arguments)}");
@@ -57,6 +58,41 @@ static Task TestWindowsTerminalArgumentsAsync()
     Assert(initialization.EndsWith("Write-Output 'resume-test'", StringComparison.Ordinal), "Resume command is missing from encoded initialization.");
     Assert(!startInfo.UseShellExecute, "Terminal launch must use an exact native argument list.");
     return Task.CompletedTask;
+}
+
+static async Task TestWindowsTerminalLaunchAsync()
+{
+    if (!File.Exists(TerminalHost.ExecutablePath))
+    {
+        Console.WriteLine("      SKIP: Windows Terminal is not installed on this runner.");
+        return;
+    }
+
+    var root = CreateTestRoot();
+    try
+    {
+        var marker = Path.Combine(root, "windows-terminal-started.txt");
+        var escapedMarker = marker.Replace("'", "''", StringComparison.Ordinal);
+        var shell = PowerShellHost.Resolve("auto");
+        var startInfo = TerminalHost.CreateStartInfo(
+            true,
+            TerminalHost.ExecutablePath,
+            shell,
+            root,
+            $"[IO.File]::WriteAllText('{escapedMarker}', 'ok'); exit");
+        using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Windows Terminal process was not started.");
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        while (!File.Exists(marker))
+        {
+            await Task.Delay(100, timeout.Token);
+        }
+        Assert(File.ReadAllText(marker) == "ok", "Windows Terminal did not execute the PowerShell initialization.");
+    }
+    finally
+    {
+        DeleteTestRoot(root);
+    }
 }
 
 static async Task TestPowerShellLaunchAsync()

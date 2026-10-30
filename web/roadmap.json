@@ -27,6 +27,12 @@
       "description": { "de": "Hängende Sessions diagnostizieren und kontrolliert wieder öffnen, ohne Locks blind zu löschen.", "en": "Diagnose stuck sessions and reopen them safely without blindly deleting locks.", "da": "Diagnosticér fastlåste sessioner og genåbn dem sikkert uden blindt at slette låse." }
     },
     {
+      "id": "launch-profiles",
+      "status": "planned",
+      "title": { "de": "Startparameter und Debug-Profile", "en": "Launch parameters and debug profiles", "da": "Startparametre og fejlfindingsprofiler" },
+      "description": { "de": "Automatisch gesetzte Terminal- und Codex-Parameter transparent machen und optionale Startprofile anbieten, etwa --no-daemon für die Fehlersuche.", "en": "Make automatically applied terminal and Codex parameters transparent and provide optional launch profiles, such as --no-daemon for debugging.", "da": "Gør automatisk anvendte terminal- og Codex-parametre synlige, og tilbyd valgfrie startprofiler, f.eks. --no-daemon til fejlfinding." }
+    },
+    {
       "id": "project-dashboard",
       "status": "planned",
       "title": { "de": "Projekt-Dashboard", "en": "Project dashboard", "da": "Projekt-dashboard" },

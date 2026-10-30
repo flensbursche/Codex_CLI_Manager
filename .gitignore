@@ -15,3 +15,5 @@ pytest-cache-files-*/
 .nuget-packages/
 agent/bin/
 agent/obj/
+tests/**/bin/
+tests/**/obj/
