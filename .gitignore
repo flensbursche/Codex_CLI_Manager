@@ -15,6 +15,3 @@ pytest-cache-files-*/
 .nuget-packages/
 agent/bin/
 agent/obj/
-.codex/
-.agents/
-AGENTS.md
