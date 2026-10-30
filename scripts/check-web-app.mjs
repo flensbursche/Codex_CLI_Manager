@@ -19,7 +19,7 @@ if (!agent.includes("FindRepositoryRoot(directory)") || !agent.includes('["unava
 if (!agent.includes("ReadRemoteFromConfig(repositoryRoot)") || !agent.includes('["provider"] = provider')) throw new Error("Der Remote-Anbieter blockierter Repositories wird nicht aus der Git-Konfiguration erkannt.");
 if (!agent.includes("ApplySessionHealth(item, processSnapshot)") || !agent.includes('["processScanAvailable"] = processes.Available') || !agent.includes("SessionHealthEvaluator.Evaluate") || !agent.includes('signals.ProcessCount > 1 ? "duplicate"')) throw new Error("Der mehrsignalige Session Health Check fehlt.");
 if (!agent.includes("CodexStateStore.QueryThreads(archived)") || !agent.includes("BuildThreadListQuery") || !agent.includes("codexCompatibility = CodexStateStore.GetCompatibility()")) throw new Error("Der kontrollierte Codex-Kompatibilitätsmodus fehlt.");
-if (!agent.includes("AcceptanceEnvironment.InstanceMutexName") || !agent.includes("AcceptanceEnvironment.UpdateSignalName") || !agent.includes("AcceptanceEnvironment.DataRoot")) throw new Error("Der isolierte Release-Acceptance-Modus fehlt.");
+if (!agent.includes("AcceptanceEnvironment.InstanceMutexName") || !agent.includes("AcceptanceEnvironment.UpdateSignalName") || !agent.includes("AcceptanceEnvironment.DataRoot") || !agent.includes("AcceptanceEnvironment.ApplyTo(restart)")) throw new Error("Der isolierte Release-Acceptance-Modus fehlt.");
 if (!agent.includes('LanguageSettingsStore')) throw new Error("Die gemeinsame Sprachspeicherung fehlt.");
 if (!agent.includes("TrayMenuRenderer") || !agent.includes("TrayMenuPalette.Current()") || !agent.includes("TrayMenuGlyphs.Terminal") || !agent.includes("ApplyRoundedRegion(menu, 12)")) throw new Error("Das gestaltete, abgerundete Tray-Menü mit eigenen Symbolen fehlt.");
 if (!agent.includes('app.MapGet("/api/language"')) throw new Error("Der Sprach-Endpunkt fehlt.");
@@ -74,10 +74,12 @@ const hasRuleDeclaration = (source, selector, property, value) => {
 const assertResponsiveStyles = (source) => {
   if (!hasDeclaration(source, "min-width", "0")) throw new Error("Responsive Web-Feature fehlt: min-width: 0");
   if (!hasDeclaration(source, "font-size", "0.875rem")) throw new Error("Responsive Web-Feature fehlt: font-size: 0.875rem");
+  if (!hasRuleDeclaration(source, ".projects button", "font-size", "0.75rem")) throw new Error("Responsive Web-Feature fehlt: kompakte Projekttypografie");
   if (!/@media\s*\(\s*max-width\s*:\s*760px\s*\)/i.test(source)) throw new Error("Responsive Web-Feature fehlt: Mobile Media Query");
   for (const selector of [".terminal-dialog", ".header-menu-panel", ".language-options", ".list-layout.sidebar-collapsed", ".path-copy", ".settings-form-page .terminal-detected", ".session-git", ".session-project-remove", ".git-tooltip", ".history-content", ".roadmap-grid"])
     if (!hasRule(source, selector)) throw new Error(`Responsive Web-Feature fehlt: ${selector}`);
   if (!hasRuleDeclaration(source, ".project-create", "margin-top", "8px")) throw new Error("Responsive Web-Feature fehlt: Projektabstand");
+  if (!hasRuleDeclaration(source, ".project-create-form", "margin-top", "8px")) throw new Error("Responsive Web-Feature fehlt: Abstand des Projektformulars");
 };
 assertResponsiveStyles(styles);
 assertResponsiveStyles(styles.replace(/\s+/g, " "));
@@ -96,7 +98,7 @@ const acceptanceWorkflow = await readFile(new URL("../.github/workflows/windows-
 if (!acceptanceWorkflow.includes("codex-manager-ui") || !acceptanceWorkflow.includes("test-release.ps1")) throw new Error("Der interaktive Windows-Acceptance-Workflow fehlt.");
 const appIcon = await readFile(new URL("../web/app-icon.svg", import.meta.url), "utf8");
 if (!appIcon.includes('fill="#ff6537"') || !appIcon.includes('stroke="#fff"')) throw new Error("Das gemeinsame orange-weiße App-Icon fehlt.");
-if (!script.includes('class="mark"><img src="/app-icon.svg?v=16"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
+if (!script.includes('class="mark"><img src="/app-icon.svg?v=17"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
 const shareMenuIndex = script.indexOf('id="share-repository"');
 const aboutMenuIndex = script.indexOf('href="/about"', shareMenuIndex);
 const updateMenuIndex = script.indexOf('id="menu-update"', aboutMenuIndex);

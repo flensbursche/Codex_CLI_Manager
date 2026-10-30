@@ -150,6 +150,9 @@ $started = $null
 $startedExecutable = $null
 $installedProcess = $null
 $disposableInstallRoot = Join-Path $env:LOCALAPPDATA 'CodexSessionManager'
+$normalInstalledExecutable = Join-Path $disposableInstallRoot 'CodexSessionManager.exe'
+$normalInstallExistedBefore = Test-Path -LiteralPath $normalInstalledExecutable -PathType Leaf
+$normalInstallHashBefore = if ($normalInstallExistedBefore) { (Get-FileHash -LiteralPath $normalInstalledExecutable -Algorithm SHA256).Hash } else { $null }
 $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
 $autostartBefore = Get-AutostartValue $runKey
 $result = [ordered]@{
@@ -259,6 +262,10 @@ try {
     if (-not $PreviousPackagePath) {
         Assert-True ($autostartBefore -eq $autostartAfter) "Der isolierte Test hat den Autostart verändert."
         $result.Checks += 'autostart-unchanged'
+        $normalInstallExistsAfter = Test-Path -LiteralPath $normalInstalledExecutable -PathType Leaf
+        $normalInstallHashAfter = if ($normalInstallExistsAfter) { (Get-FileHash -LiteralPath $normalInstalledExecutable -Algorithm SHA256).Hash } else { $null }
+        Assert-True ($normalInstallExistedBefore -eq $normalInstallExistsAfter -and $normalInstallHashBefore -eq $normalInstallHashAfter) "Der isolierte Test hat die normale Installation verändert."
+        $result.Checks += 'normal-installation-unchanged'
     }
     $result.Passed = $true
 }

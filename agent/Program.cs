@@ -236,6 +236,14 @@ internal static class AcceptanceEnvironment
         : "Local\\CodexSessionManager.UpdateShutdown";
     public static string? DataRoot { get; } = ResolveDataRoot();
 
+    public static void ApplyTo(ProcessStartInfo startInfo)
+    {
+        if (!Enabled) return;
+        startInfo.UseShellExecute = false;
+        startInfo.Environment[IdVariable] = Id!;
+        startInfo.Environment[RootVariable] = DataRoot!;
+    }
+
     private static string? ResolveId()
     {
         var value = Environment.GetEnvironmentVariable(IdVariable);
@@ -1316,7 +1324,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.10.0";
+    public const string Version = "0.10.1";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);
@@ -1453,8 +1461,12 @@ internal static class UpdateService
             stageDuration.Restart();
             progress.Report(language.Text("restarting"));
             Thread.Sleep(400);
-            var restart = new ProcessStartInfo(installedExecutable) { UseShellExecute = true };
-            if (AcceptanceEnvironment.Enabled) restart.ArgumentList.Add("--no-browser");
+            var restart = new ProcessStartInfo(installedExecutable) { UseShellExecute = !AcceptanceEnvironment.Enabled };
+            if (AcceptanceEnvironment.Enabled)
+            {
+                AcceptanceEnvironment.ApplyTo(restart);
+                restart.ArgumentList.Add("--no-browser");
+            }
             Process.Start(restart);
             EnsureMinimumStage(stageDuration, 1100);
         }

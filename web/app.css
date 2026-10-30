@@ -793,6 +793,7 @@ summary {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 34px;
   gap: 5px;
+  margin-top: 8px;
 }
 
 .project-create-form[hidden] {
@@ -850,6 +851,10 @@ summary {
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 3px;
+}
+
+.projects button {
+  font-size: 0.75rem;
 }
 
 .projects button span:last-child {
