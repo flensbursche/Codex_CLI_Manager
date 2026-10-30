@@ -84,6 +84,8 @@
   "openDesktop": "Open in Codex Desktop",
   "alreadyOpen": "Session is already open",
   "resume": "Resume session",
+  "reconnect": "Reconnect",
+  "reconnectConfirm": "This session's status is unclear. Open it again? Codex will check the existing writer lock and safely report a conflict in the new terminal.",
   "removeFavorite": "Remove from favorites",
   "addFavorite": "Add to favorites",
   "sessionOpen": "Open",

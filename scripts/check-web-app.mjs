@@ -3,7 +3,7 @@ import vm from "node:vm";
 
 const script = await readFile(new URL("../web/app.js", import.meta.url), "utf8");
 new vm.Script(script);
-for (const feature of ['session.internal === true', 'open-desktop', 'session-launch', 'session-details', 'session-actions', 'session-favorite', 'toggleFavorite(threadId, button)', 'project-create-form', 'project-name-clear', 'assignSessionToProject(threadId, projectId)', 'text/codex-thread', 'search-clear', 'sessionTime(session)', 'sessionBundles(sessions)', 'shadow-sessions', 'ChatGPT Desktop', 'session-context', 'new EventSource("/api/events")', '/api/terminal-settings', '/api/language', '/api/update-status', 'window.setTimeout(initialize, 1000)', 'await loadMessages(result.language)', 'header-menu', 'sidebar-collapsed', 'data-language', 'sessionSearchCountMany', 'bindCopyButtons()', '/title', 'terminalSettingsPage()', 'role="switch"', 'menu-about', 'menu-update']) {
+for (const feature of ['session.internal === true', 'open-desktop', 'resume-force', 'session-launch', 'session-details', 'session-actions', 'session-favorite', 'toggleFavorite(threadId, button)', 'project-create-form', 'project-name-clear', 'assignSessionToProject(threadId, projectId)', 'text/codex-thread', 'search-clear', 'sessionTime(session)', 'sessionBundles(sessions)', 'shadow-sessions', 'ChatGPT Desktop', 'session-context', 'new EventSource("/api/events")', '/api/terminal-settings', '/api/language', '/api/update-status', 'window.setTimeout(initialize, 1000)', 'await loadMessages(result.language)', 'header-menu', 'sidebar-collapsed', 'data-language', 'sessionSearchCountMany', 'bindCopyButtons()', '/title', 'terminalSettingsPage()', 'role="switch"', 'menu-about', 'menu-update']) {
   if (!script.includes(feature)) throw new Error(`Web-Feature fehlt: ${feature}`);
 }
 const agent = await readFile(new URL("../agent/Program.cs", import.meta.url), "utf8");
@@ -38,7 +38,7 @@ if (!agent.includes('app.MapGet("/api/events"')) throw new Error("Der SSE-Endpun
 if (!agent.includes('AppEndpoint.SelectAndSave()')) throw new Error("Die automatische Ausweichwahl bei belegtem Port fehlt.");
 if (!agent.includes('SessionMetadataStore')) throw new Error("Dauerhafte Session-Titel fehlen.");
 const styles = await readFile(new URL("../web/app.css", import.meta.url), "utf8");
-for (const feature of ["min-width: 0", "font-size: 0.875rem", "@media (max-width: 760px)", ".terminal-dialog", ".project-create {\n    margin-top: 8px;", ".header-menu-panel", ".language-options", ".list-layout.sidebar-collapsed", ".path-copy"]) {
+for (const feature of ["min-width: 0", "font-size: 0.875rem", "@media (max-width: 760px)", ".terminal-dialog", ".project-create {\n    margin-top: 8px;", ".header-menu-panel", ".language-options", ".list-layout.sidebar-collapsed", ".path-copy", ".settings-form-page .terminal-detected"]) {
   if (!styles.includes(feature)) throw new Error(`Responsive Web-Feature fehlt: ${feature}`);
 }
 const appIcon = await readFile(new URL("../web/app-icon.svg", import.meta.url), "utf8");

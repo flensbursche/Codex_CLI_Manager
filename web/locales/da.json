@@ -84,6 +84,8 @@
   "openDesktop": "Åbn i Codex Desktop",
   "alreadyOpen": "Sessionen er allerede åben",
   "resume": "Fortsæt session",
+  "reconnect": "Forbind igen",
+  "reconnectConfirm": "Sessionens status er uklar. Åbn den igen? Codex kontrollerer den eksisterende writer-lock og viser sikkert en konflikt i den nye terminal.",
   "removeFavorite": "Fjern fra favoritter",
   "addFavorite": "Føj til favoritter",
   "sessionOpen": "Åben",
