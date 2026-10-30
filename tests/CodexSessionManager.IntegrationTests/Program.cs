@@ -62,6 +62,11 @@ static Task TestWindowsTerminalArgumentsAsync()
 
 static async Task TestWindowsTerminalLaunchAsync()
 {
+    if (string.Equals(Environment.GetEnvironmentVariable("GITHUB_ACTIONS"), "true", StringComparison.OrdinalIgnoreCase))
+    {
+        Console.WriteLine("      SKIP: GitHub's hosted runner has no interactive Windows desktop.");
+        return;
+    }
     if (!File.Exists(TerminalHost.ExecutablePath))
     {
         Console.WriteLine("      SKIP: Windows Terminal is not installed on this runner.");
@@ -78,7 +83,7 @@ static async Task TestWindowsTerminalLaunchAsync()
             true,
             TerminalHost.ExecutablePath,
             shell,
-            root,
+            AppContext.BaseDirectory,
             $"[IO.File]::WriteAllText('{escapedMarker}', 'ok'); exit");
         using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Windows Terminal process was not started.");
 

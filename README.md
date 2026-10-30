@@ -65,7 +65,7 @@ Die vorbereitete Produktionsstrategie für Authenticode, Azure Artifact Signing 
 
 Der GitHub-Workflow `Windows companion` läuft manuell oder bei Tags mit dem Präfix `v`. Ein Tag wie `v0.9.0` erzeugt ein GitHub Release mit `CodexSessionManager-Setup-win-x64.zip` und SHA-256-Prüfsumme. Installierte Clients erkennen dieses Release ohne Abhängigkeit vom anonymen GitHub-API-Limit und bieten es im Tray-Menü an.
 
-Pushes und Pull Requests gegen `main` führen den Web-Smoke-Test, einen .NET-Release-Build und ausführbare Windows-Integrationstests aus. Die Integrationstests starten eine echte PowerShell mit kodiertem Initialisierungsbefehl, prüfen Windows-Terminal-Argumente, benannte Session-Mutexe, exklusive Dateilocks, die Health-Zustandsmatrix sowie Prüfsumme, Dateikopie und Pfadschutz des Updaters. Das ergänzende Smoke-Testskript bleibt bewusst eine schnelle Strukturprüfung.
+Pushes und Pull Requests gegen `main` führen den Web-Smoke-Test, einen .NET-Release-Build und ausführbare Windows-Integrationstests aus. Die Integrationstests starten eine echte PowerShell mit kodiertem Initialisierungsbefehl, prüfen Windows-Terminal-Argumente, benannte Session-Mutexe, exklusive Dateilocks, die Health-Zustandsmatrix sowie Prüfsumme, Dateikopie und Pfadschutz des Updaters. Auf einem interaktiven lokalen Windows-Desktop starten sie zusätzlich ein echtes Windows-Terminal-Fenster und verifizieren die Ausführung per Marker; nur dieser GUI-Test wird auf dem headless GitHub-Runner übersprungen. Das ergänzende Smoke-Testskript bleibt bewusst eine schnelle Strukturprüfung.
 
 Ein normaler Push auf `main` veröffentlicht absichtlich kein Client-Update. Release-Versionen werden so angelegt:
 
