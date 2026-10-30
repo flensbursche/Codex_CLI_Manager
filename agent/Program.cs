@@ -694,14 +694,54 @@ internal sealed class TrayIconHost : IDisposable
     {
         var trayThreadId = Environment.CurrentManagedThreadId;
         System.Windows.Forms.Application.EnableVisualStyles();
-        using var menu = new System.Windows.Forms.ContextMenuStrip();
-        var openBrowser = menu.Items.Add("");
-        var openPowerShell = menu.Items.Add("");
-        var update = menu.Items.Add("");
-        menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
-        var about = menu.Items.Add("");
-        var exit = menu.Items.Add("");
+        var palette = TrayMenuPalette.Current();
+        using var menuFont = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+        using var headerFont = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
         using var trayIcon = AppIcon.Create();
+        using var appImage = trayIcon.ToBitmap();
+        using var terminalImage = TrayMenuGlyphs.Terminal(palette.Icon);
+        using var updateImage = TrayMenuGlyphs.Update(palette.Icon);
+        using var aboutImage = TrayMenuGlyphs.Info(palette.Icon);
+        using var exitImage = TrayMenuGlyphs.Close(palette.Danger);
+        using var menu = new System.Windows.Forms.ContextMenuStrip
+        {
+            AutoSize = true,
+            BackColor = palette.Background,
+            ForeColor = palette.Text,
+            Font = menuFont,
+            ImageScalingSize = new System.Drawing.Size(20, 20),
+            LayoutStyle = System.Windows.Forms.ToolStripLayoutStyle.VerticalStackWithOverflow,
+            MinimumSize = new System.Drawing.Size(294, 0),
+            Padding = new System.Windows.Forms.Padding(7, 8, 7, 8),
+            Renderer = new TrayMenuRenderer(palette),
+            ShowCheckMargin = false,
+            ShowImageMargin = true
+        };
+        var header = new System.Windows.Forms.ToolStripMenuItem("Codex CLI Manager", appImage)
+        {
+            Enabled = false,
+            Font = headerFont,
+            ForeColor = palette.Text,
+            Padding = new System.Windows.Forms.Padding(8, 8, 12, 8),
+            Tag = "header"
+        };
+        menu.Items.Add(header);
+        menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+        var openBrowser = menu.Items.Add("", appImage);
+        var openPowerShell = menu.Items.Add("", terminalImage);
+        var update = menu.Items.Add("", updateImage);
+        menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+        var about = menu.Items.Add("", aboutImage);
+        var exit = menu.Items.Add("", exitImage);
+        foreach (System.Windows.Forms.ToolStripItem item in menu.Items)
+        {
+            item.AutoSize = false;
+            item.Margin = new System.Windows.Forms.Padding(2, 1, 2, 1);
+            item.Padding = System.Windows.Forms.Padding.Empty;
+            item.Size = new System.Drawing.Size(276, item is System.Windows.Forms.ToolStripSeparator ? 8 : ReferenceEquals(item, header) ? 44 : 38);
+        }
+        menu.Opened += (_, _) => TrayMenuRenderer.ApplyRoundedRegion(menu, 12);
+        menu.SizeChanged += (_, _) => { if (menu.Visible) TrayMenuRenderer.ApplyRoundedRegion(menu, 12); };
         using var icon = new System.Windows.Forms.NotifyIcon
         {
             Icon = trayIcon,
@@ -828,6 +868,203 @@ internal sealed class TrayIconHost : IDisposable
         _thread.Join(TimeSpan.FromSeconds(2));
         _ready.Dispose();
     }
+}
+
+internal sealed record TrayMenuPalette(
+    System.Drawing.Color Background,
+    System.Drawing.Color Surface,
+    System.Drawing.Color Hover,
+    System.Drawing.Color Border,
+    System.Drawing.Color Text,
+    System.Drawing.Color Muted,
+    System.Drawing.Color Icon,
+    System.Drawing.Color Accent,
+    System.Drawing.Color Danger)
+{
+    public static TrayMenuPalette Current()
+    {
+        var dark = false;
+        try
+        {
+            using var theme = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+            dark = theme?.GetValue("AppsUseLightTheme") is int value && value == 0;
+        }
+        catch
+        {
+        }
+        return dark
+            ? new(
+                System.Drawing.Color.FromArgb(27, 28, 26),
+                System.Drawing.Color.FromArgb(34, 35, 32),
+                System.Drawing.Color.FromArgb(44, 48, 49),
+                System.Drawing.Color.FromArgb(57, 60, 57),
+                System.Drawing.Color.FromArgb(235, 237, 233),
+                System.Drawing.Color.FromArgb(158, 164, 157),
+                System.Drawing.Color.FromArgb(198, 210, 217),
+                System.Drawing.Color.FromArgb(255, 101, 55),
+                System.Drawing.Color.FromArgb(219, 126, 126))
+            : new(
+                System.Drawing.Color.FromArgb(250, 250, 248),
+                System.Drawing.Color.FromArgb(255, 255, 253),
+                System.Drawing.Color.FromArgb(232, 238, 241),
+                System.Drawing.Color.FromArgb(217, 222, 218),
+                System.Drawing.Color.FromArgb(37, 40, 38),
+                System.Drawing.Color.FromArgb(99, 105, 99),
+                System.Drawing.Color.FromArgb(66, 99, 122),
+                System.Drawing.Color.FromArgb(255, 101, 55),
+                System.Drawing.Color.FromArgb(154, 71, 71));
+    }
+}
+
+internal sealed class TrayMenuRenderer(TrayMenuPalette palette) : System.Windows.Forms.ToolStripRenderer
+{
+    protected override void OnRenderToolStripBackground(System.Windows.Forms.ToolStripRenderEventArgs e)
+    {
+        e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        using var path = RoundedPath(e.AffectedBounds, 12);
+        using var brush = new System.Drawing.SolidBrush(palette.Background);
+        e.Graphics.FillPath(brush, path);
+    }
+
+    protected override void OnRenderToolStripBorder(System.Windows.Forms.ToolStripRenderEventArgs e)
+    {
+        var bounds = new System.Drawing.Rectangle(0, 0, e.ToolStrip.Width - 1, e.ToolStrip.Height - 1);
+        e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        using var path = RoundedPath(bounds, 12);
+        using var pen = new System.Drawing.Pen(palette.Border);
+        e.Graphics.DrawPath(pen, path);
+    }
+
+    protected override void OnRenderMenuItemBackground(System.Windows.Forms.ToolStripItemRenderEventArgs e)
+    {
+        var bounds = new System.Drawing.Rectangle(3, 1, Math.Max(0, e.Item.Width - 6), Math.Max(0, e.Item.Height - 2));
+        var header = Equals(e.Item.Tag, "header");
+        var color = header ? palette.Surface : e.Item.Selected && e.Item.Enabled ? palette.Hover : palette.Background;
+        using var path = RoundedPath(bounds, header ? 9 : 7);
+        using var brush = new System.Drawing.SolidBrush(color);
+        e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        e.Graphics.FillPath(brush, path);
+        if (header)
+        {
+            using var accent = new System.Drawing.SolidBrush(palette.Accent);
+            e.Graphics.FillRectangle(accent, 3, 5, 3, Math.Max(0, e.Item.Height - 10));
+        }
+    }
+
+    protected override void OnRenderItemText(System.Windows.Forms.ToolStripItemTextRenderEventArgs e)
+    {
+        var color = Equals(e.Item.Tag, "header") ? palette.Text : e.Item.Enabled ? palette.Text : palette.Muted;
+        var bounds = new System.Drawing.Rectangle(48, 0, Math.Max(0, e.Item.Width - 62), e.Item.Height);
+        System.Windows.Forms.TextRenderer.DrawText(
+            e.Graphics,
+            e.Text,
+            e.TextFont,
+            bounds,
+            color,
+            System.Windows.Forms.TextFormatFlags.Left |
+            System.Windows.Forms.TextFormatFlags.VerticalCenter |
+            System.Windows.Forms.TextFormatFlags.SingleLine |
+            System.Windows.Forms.TextFormatFlags.EndEllipsis |
+            System.Windows.Forms.TextFormatFlags.NoPrefix);
+    }
+
+    protected override void OnRenderItemImage(System.Windows.Forms.ToolStripItemImageRenderEventArgs e)
+    {
+        if (e.Image is null) return;
+        const int size = 20;
+        var bounds = new System.Drawing.Rectangle(16, (e.Item.Height - size) / 2, size, size);
+        e.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+        e.Graphics.DrawImage(e.Image, bounds);
+    }
+
+    protected override void OnRenderSeparator(System.Windows.Forms.ToolStripSeparatorRenderEventArgs e)
+    {
+        var y = e.Item.Height / 2;
+        using var pen = new System.Drawing.Pen(palette.Border);
+        e.Graphics.DrawLine(pen, 14, y, Math.Max(14, e.Item.Width - 14), y);
+    }
+
+    public static void ApplyRoundedRegion(System.Windows.Forms.Control control, int radius)
+    {
+        if (control.Width <= 0 || control.Height <= 0) return;
+        using var path = RoundedPath(new System.Drawing.Rectangle(0, 0, control.Width, control.Height), radius);
+        var previous = control.Region;
+        control.Region = new System.Drawing.Region(path);
+        previous?.Dispose();
+    }
+
+    private static System.Drawing.Drawing2D.GraphicsPath RoundedPath(System.Drawing.Rectangle bounds, int radius)
+    {
+        var path = new System.Drawing.Drawing2D.GraphicsPath();
+        var diameter = Math.Min(radius * 2, Math.Min(bounds.Width, bounds.Height));
+        if (diameter <= 0)
+        {
+            path.AddRectangle(bounds);
+            return path;
+        }
+        var arc = new System.Drawing.Rectangle(bounds.X, bounds.Y, diameter, diameter);
+        path.AddArc(arc, 180, 90);
+        arc.X = bounds.Right - diameter;
+        path.AddArc(arc, 270, 90);
+        arc.Y = bounds.Bottom - diameter;
+        path.AddArc(arc, 0, 90);
+        arc.X = bounds.X;
+        path.AddArc(arc, 90, 90);
+        path.CloseFigure();
+        return path;
+    }
+}
+
+internal static class TrayMenuGlyphs
+{
+    public static System.Drawing.Bitmap Terminal(System.Drawing.Color color) => Draw(color, graphics =>
+    {
+        using var pen = Pen(color);
+        graphics.DrawLine(pen, 4, 6, 8, 10);
+        graphics.DrawLine(pen, 8, 10, 4, 14);
+        graphics.DrawLine(pen, 10, 14, 16, 14);
+    });
+
+    public static System.Drawing.Bitmap Update(System.Drawing.Color color) => Draw(color, graphics =>
+    {
+        using var pen = Pen(color);
+        graphics.DrawArc(pen, 4, 4, 12, 12, 35, 285);
+        graphics.DrawLine(pen, 14, 3, 17, 5);
+        graphics.DrawLine(pen, 17, 5, 15, 8);
+    });
+
+    public static System.Drawing.Bitmap Info(System.Drawing.Color color) => Draw(color, graphics =>
+    {
+        using var pen = Pen(color);
+        using var brush = new System.Drawing.SolidBrush(color);
+        graphics.DrawEllipse(pen, 3.5F, 3.5F, 13F, 13F);
+        graphics.DrawLine(pen, 10, 9, 10, 14);
+        graphics.FillEllipse(brush, 9.1F, 6F, 1.8F, 1.8F);
+    });
+
+    public static System.Drawing.Bitmap Close(System.Drawing.Color color) => Draw(color, graphics =>
+    {
+        using var pen = Pen(color);
+        graphics.DrawLine(pen, 5, 5, 15, 15);
+        graphics.DrawLine(pen, 15, 5, 5, 15);
+    });
+
+    private static System.Drawing.Bitmap Draw(System.Drawing.Color color, Action<System.Drawing.Graphics> draw)
+    {
+        var bitmap = new System.Drawing.Bitmap(20, 20, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+        using var graphics = System.Drawing.Graphics.FromImage(bitmap);
+        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        graphics.Clear(System.Drawing.Color.Transparent);
+        draw(graphics);
+        return bitmap;
+    }
+
+    private static System.Drawing.Pen Pen(System.Drawing.Color color) => new(color, 1.8F)
+    {
+        StartCap = System.Drawing.Drawing2D.LineCap.Round,
+        EndCap = System.Drawing.Drawing2D.LineCap.Round,
+        LineJoin = System.Drawing.Drawing2D.LineJoin.Round
+    };
 }
 
 internal enum UpdateStage
@@ -1049,7 +1286,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.9.13";
+    public const string Version = "0.9.14";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);

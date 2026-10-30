@@ -775,6 +775,14 @@ summary {
   background: var(--soft);
 }
 
+.project-create-toggle.drop-target,
+.project-create-toggle.assignment-pending {
+  border-color: var(--accent);
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
 .project-create-toggle svg,
 .project-create-form svg {
   width: 15px;

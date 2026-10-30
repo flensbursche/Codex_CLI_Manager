@@ -1,5 +1,5 @@
 const app = document.querySelector("#app");
-const state = { sessions: [], projects: [], project: null, view: "all" };
+const state = { sessions: [], projects: [], project: null, view: "all", pendingProjectSessionId: null };
 let actionToken = "";
 let companionInfo = { supportsAutostart: false, autostartEnabled: false };
 let language = "de";
@@ -77,7 +77,7 @@ function header() {
   const autostart = companionInfo.supportsAutostart ? `<button class="menu-row switch-row" id="autostart-toggle" role="switch" aria-checked="${companionInfo.autostartEnabled}"><span>${t("autostart")}</span><i class="toggle-switch"><b></b></i></button>` : "";
   const darkMode = document.documentElement.dataset.theme === "dark";
   return `<header class="top">
-    <a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=13" alt=""></span><strong>Codex CLI Manager</strong></a>
+    <a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=14" alt=""></span><strong>Codex CLI Manager</strong></a>
     <span class="live"><i class="dot"></i>${t("live")}</span>
     <button class="header-update" id="header-update" type="button" hidden></button>
     <span class="spacer"></span>
@@ -263,7 +263,7 @@ function listPage() {
           <div class="rail-divider"></div>
           <div class="side-title">${t("projects")}</div>
           <div class="project-create">
-            <button class="project-create-toggle" id="project-create-toggle" type="button"><span>${icons.plus}</span>${t("newProject")}</button>
+            <button class="project-create-toggle" id="project-create-toggle" type="button"><span>${icons.plus}</span><span id="project-create-label">${t("newProject")}</span></button>
             <form class="project-create-form" id="project-create-form" hidden>
               <label class="project-name-field"><input id="project-name" maxlength="64" placeholder="${t("projectName")}" autocomplete="off"><button class="input-clear project-name-clear" id="project-name-clear" type="button" aria-label="${t("clearProjectName")}" title="${t("clearProjectName")}" hidden>${icons.close}</button></label>
               <button type="submit" aria-label="${t("createProject")}">${icons.plus}</button>
@@ -393,11 +393,16 @@ function projectButton(project) {
 }
 
 function bindProjectCreator() {
-  const toggle = document.querySelector("#project-create-toggle"); const form = document.querySelector("#project-create-form"); const input = document.querySelector("#project-name"); const clearInput = document.querySelector("#project-name-clear");
-  toggle.onclick = () => { form.hidden = !form.hidden; if (!form.hidden) input.focus(); };
+  const toggle = document.querySelector("#project-create-toggle"); const label = document.querySelector("#project-create-label"); const form = document.querySelector("#project-create-form"); const input = document.querySelector("#project-name"); const clearInput = document.querySelector("#project-name-clear");
+  const resetPendingAssignment = () => { state.pendingProjectSessionId = null; toggle.classList.remove("assignment-pending", "drop-target"); label.textContent = t("newProject"); };
+  const openCreator = (threadId = null) => { state.pendingProjectSessionId = threadId; toggle.classList.toggle("assignment-pending", Boolean(threadId)); label.textContent = threadId ? t("newProjectForSession") : t("newProject"); form.hidden = false; input.focus(); };
+  toggle.onclick = () => { if (form.hidden) openCreator(); else { form.hidden = true; resetPendingAssignment(); } };
+  toggle.ondragover = (event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; toggle.classList.add("drop-target"); };
+  toggle.ondragleave = () => toggle.classList.remove("drop-target");
+  toggle.ondrop = (event) => { event.preventDefault(); toggle.classList.remove("drop-target"); const threadId = event.dataTransfer.getData("text/codex-thread"); if (threadId) openCreator(threadId); };
   input.oninput = () => { clearInput.hidden = !input.value; };
   clearInput.onclick = () => { input.value = ""; clearInput.hidden = true; input.focus(); };
-  form.onsubmit = async (event) => { event.preventDefault(); const name = input.value.trim(); if (!name) return; const project = await fetchJson("/api/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) }); state.projects.push(project); input.value = ""; clearInput.hidden = true; form.hidden = true; renderProjects(); };
+  form.onsubmit = async (event) => { event.preventDefault(); const name = input.value.trim(); if (!name) return; const pendingThreadId = state.pendingProjectSessionId; const project = await fetchJson("/api/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) }); state.projects.push(project); if (pendingThreadId) await assignSessionToProject(pendingThreadId, project.id); input.value = ""; clearInput.hidden = true; form.hidden = true; resetPendingAssignment(); renderProjects(); };
 }
 
 async function assignSessionToProject(threadId, projectId) {
@@ -414,7 +419,7 @@ function bindSessionDragging() {
   unassign.ondrop = (event) => { event.preventDefault(); unassign.classList.remove("drop-target"); unassign.hidden = true; const threadId = event.dataTransfer.getData("text/codex-thread"); if (threadId) void removeSessionFromProject(threadId); };
   document.querySelectorAll("article.session-row").forEach((row) => {
     row.ondragstart = (event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/codex-thread", row.dataset.id); row.classList.add("dragging"); unassign.hidden = !state.sessions.find((session) => session.id === row.dataset.id)?.projectId; };
-    row.ondragend = () => { row.classList.remove("dragging"); unassign.hidden = true; unassign.classList.remove("drop-target"); document.querySelectorAll(".projects .drop-target").forEach((target) => target.classList.remove("drop-target")); };
+    row.ondragend = () => { row.classList.remove("dragging"); unassign.hidden = true; unassign.classList.remove("drop-target"); document.querySelectorAll(".projects .drop-target, .project-create-toggle.drop-target").forEach((target) => target.classList.remove("drop-target")); };
   });
 }
 
