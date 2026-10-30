@@ -1,6 +1,21 @@
 {
-  "generatedAt": "2026-10-30T09:13:27+01:00",
+  "generatedAt": "2026-10-30T09:33:02+01:00",
   "releases": [
+    {
+      "version": null,
+      "tag": null,
+      "date": "2026-10-30T09:33:02+01:00",
+      "commit": "ef4edcc9d4ead5bba756a4e0f245df034794824a",
+      "released": false,
+      "commits": [
+        {
+          "hash": "ef4edcc9d4ead5bba756a4e0f245df034794824a",
+          "shortHash": "ef4edcc",
+          "date": "2026-10-30T09:33:02+01:00",
+          "subject": "Add Git status history and project unassignment"
+        }
+      ]
+    },
     {
       "version": "0.8.2",
       "tag": "v0.8.2",
