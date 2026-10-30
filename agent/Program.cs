@@ -200,6 +200,7 @@ app.MapFallback(async context =>
 
 if (openBrowserOnStart)
     app.Lifetime.ApplicationStarted.Register(() => Process.Start(new ProcessStartInfo(appUrl) { UseShellExecute = true }));
+using var updateShutdown = new UpdateShutdownListener(app.Lifetime);
 using var trayIcon = new TrayIconHost(appUrl, app.Lifetime.StopApplication, app.Services.GetRequiredService<LanguageSettingsStore>());
 try
 {
@@ -937,6 +938,50 @@ internal sealed class UpdateProgressWindow : IDisposable
     }
 }
 
+internal sealed class UpdateShutdownListener : IDisposable
+{
+    private const string SignalName = "Local\\CodexSessionManager.UpdateShutdown";
+    private readonly EventWaitHandle _signal = new(false, EventResetMode.AutoReset, SignalName);
+    private readonly CancellationTokenRegistration _stopping;
+    private readonly Task _listener;
+
+    public UpdateShutdownListener(IHostApplicationLifetime lifetime)
+    {
+        _stopping = lifetime.ApplicationStopping.Register(() =>
+        {
+            try { _signal.Set(); } catch { }
+        });
+        _listener = Task.Run(() =>
+        {
+            _signal.WaitOne();
+            if (!lifetime.ApplicationStopping.IsCancellationRequested) lifetime.StopApplication();
+        });
+    }
+
+    public static void RequestStop()
+    {
+        try
+        {
+            using var signal = EventWaitHandle.OpenExisting(SignalName);
+            signal.Set();
+        }
+        catch (WaitHandleCannotBeOpenedException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
+
+    public void Dispose()
+    {
+        _stopping.Dispose();
+        try { _signal.Set(); } catch { }
+        try { _listener.Wait(TimeSpan.FromSeconds(1)); } catch { }
+        _signal.Dispose();
+    }
+}
+
 internal static class AppIcon
 {
     public static System.Drawing.Icon Create()
@@ -1003,7 +1048,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.9.3";
+    public const string Version = "0.9.4";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);
@@ -1082,9 +1127,12 @@ internal static class UpdateService
         var payloadDirectory = Path.Combine(updateDirectory, "payload");
         var packagePath = Path.Combine(updateDirectory, PackageName);
         Directory.CreateDirectory(payloadDirectory);
+        var stageDuration = Stopwatch.StartNew();
         progress?.Invoke(UpdateStage.Downloading);
         await DownloadFileAsync(update.PackageUrl, packagePath, cancellation);
+        await EnsureMinimumStageAsync(stageDuration, cancellation);
 
+        stageDuration.Restart();
         progress?.Invoke(UpdateStage.Verifying);
         var expectedHash = (await Client.GetStringAsync(update.ChecksumUrl, cancellation))
             .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
@@ -1097,7 +1145,9 @@ internal static class UpdateService
             if (!actualHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("Die Prüfsumme des heruntergeladenen Updates stimmt nicht.");
         }
+        await EnsureMinimumStageAsync(stageDuration, cancellation);
 
+        stageDuration.Restart();
         progress?.Invoke(UpdateStage.Preparing);
         ZipFile.ExtractToDirectory(packagePath, payloadDirectory, overwriteFiles: true);
         var stagedExecutable = Directory.EnumerateFiles(payloadDirectory, "CodexSessionManager.exe", SearchOption.AllDirectories).FirstOrDefault()
@@ -1107,6 +1157,7 @@ internal static class UpdateService
         startInfo.ArgumentList.Add("--apply-update");
         startInfo.ArgumentList.Add(UserInstallation.InstallDirectory);
         startInfo.ArgumentList.Add(Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        await EnsureMinimumStageAsync(stageDuration, cancellation);
         _ = Process.Start(startInfo) ?? throw new InvalidOperationException("Der Update-Helfer konnte nicht gestartet werden.");
     }
 
@@ -1126,15 +1177,22 @@ internal static class UpdateService
                 throw new InvalidOperationException("Das Update-Ziel ist nicht zulässig.");
 
             var autostartWasEnabled = AutoStartManager.IsEnabled();
+            var stageDuration = Stopwatch.StartNew();
+            UpdateShutdownListener.RequestStop();
             WaitForManagerExit(processId);
+            EnsureMinimumStage(stageDuration);
+            stageDuration.Restart();
             progress.Report(language.Text("installing"));
             CopyPayload(AppContext.BaseDirectory, destination);
             var installedExecutable = Path.Combine(destination, "CodexSessionManager.exe");
             if (autostartWasEnabled) AutoStartManager.Enable(installedExecutable);
             else AutoStartManager.Disable();
+            EnsureMinimumStage(stageDuration);
+            stageDuration.Restart();
             progress.Report(language.Text("restarting"));
+            Thread.Sleep(400);
             Process.Start(new ProcessStartInfo(installedExecutable) { UseShellExecute = true });
-            Thread.Sleep(800);
+            EnsureMinimumStage(stageDuration, 1100);
         }
         catch (Exception error)
         {
@@ -1201,7 +1259,7 @@ internal static class UpdateService
         try
         {
             using var process = Process.GetProcessById(processId);
-            if (process.WaitForExit(20000)) return;
+            if (process.WaitForExit(10000)) return;
             process.Kill();
             process.WaitForExit(10000);
             if (!process.HasExited) throw new InvalidOperationException("Der bisherige Codex CLI Manager konnte nicht beendet werden.");
@@ -1209,6 +1267,18 @@ internal static class UpdateService
         catch (ArgumentException)
         {
         }
+    }
+
+    private static async Task EnsureMinimumStageAsync(Stopwatch stageDuration, CancellationToken cancellation, int minimumMilliseconds = 700)
+    {
+        var remaining = minimumMilliseconds - (int)stageDuration.ElapsedMilliseconds;
+        if (remaining > 0) await Task.Delay(remaining, cancellation);
+    }
+
+    private static void EnsureMinimumStage(Stopwatch stageDuration, int minimumMilliseconds = 700)
+    {
+        var remaining = minimumMilliseconds - (int)stageDuration.ElapsedMilliseconds;
+        if (remaining > 0) Thread.Sleep(remaining);
     }
 
     private static void CopyPayload(string source, string destination)

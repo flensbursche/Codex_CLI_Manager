@@ -1,13 +1,31 @@
 {
-  "generatedAt": "2026-10-30T10:48:38+01:00",
+  "generatedAt": "2026-10-30T10:58:02+01:00",
   "releases": [
     {
-      "version": null,
-      "tag": null,
-      "date": "2026-10-30T10:48:38+01:00",
-      "commit": "261d329fc25291fea329ae617e27cd4bb1eac17d",
-      "released": false,
+      "version": "0.9.3",
+      "tag": "v0.9.3",
+      "date": "2026-10-30T10:58:02+01:00",
+      "commit": "04854c37a5d9026dec43c2058aa9f8464fe2cdd1",
+      "released": true,
       "commits": [
+        {
+          "hash": "04854c37a5d9026dec43c2058aa9f8464fe2cdd1",
+          "shortHash": "04854c3",
+          "date": "2026-10-30T10:58:02+01:00",
+          "subject": "Align tray and web about navigation"
+        },
+        {
+          "hash": "81f3e0c944a8906b680b5259530e68221cc87958",
+          "shortHash": "81f3e0c",
+          "date": "2026-10-30T10:55:56+01:00",
+          "subject": "Unify about roadmap and release history"
+        },
+        {
+          "hash": "9e4ee794e85d3d221c8c0656168dce58670d850d",
+          "shortHash": "9e4ee79",
+          "date": "2026-10-30T10:50:47+01:00",
+          "subject": "Refresh history and web asset versions"
+        },
         {
           "hash": "261d329fc25291fea329ae617e27cd4bb1eac17d",
           "shortHash": "261d329",
