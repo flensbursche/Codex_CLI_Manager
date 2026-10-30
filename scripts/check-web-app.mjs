@@ -13,7 +13,7 @@ if (!agent.includes("_metadata.SavePinned(threadId, pinned)")) throw new Error("
 if (agent.includes("OpenReadWrite") || agent.includes("CodexStateStore.SetPinned")) throw new Error("Die interne Codex-Datenbank wird weiterhin für Favoriten beschrieben.");
 if (!agent.includes("projects.Assign(threadId, projectId)")) throw new Error("Sessions können keinem Projekt zugeordnet werden.");
 if (!agent.includes("projects.Unassign(threadId)")) throw new Error("Sessions können nicht aus Projekten entfernt werden.");
-if (!agent.includes("GitStatusService") || !agent.includes('"--porcelain=v2"') || !agent.includes("CacheDuration")) throw new Error("Der gecachte Git-Status für Sessions fehlt.");
+if (!agent.includes("GitStatusService") || !agent.includes('"--porcelain=v2"') || !agent.includes("CacheDuration") || !agent.includes('["remote", "-v"]')) throw new Error("Der gecachte Git-Status samt Remote-Anbieter fehlt.");
 if (!agent.includes('LanguageSettingsStore')) throw new Error("Die gemeinsame Sprachspeicherung fehlt.");
 if (!agent.includes('app.MapGet("/api/language"')) throw new Error("Der Sprach-Endpunkt fehlt.");
 for (const language of ["de", "en", "da"]) {
@@ -75,6 +75,7 @@ const appIcon = await readFile(new URL("../web/app-icon.svg", import.meta.url), 
 if (!appIcon.includes('fill="#ff6537"') || !appIcon.includes('stroke="#fff"')) throw new Error("Das gemeinsame orange-weiße App-Icon fehlt.");
 if (!script.includes('class="mark"><img src="/app-icon.svg?v=3"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
 if (!script.includes("git: brandIcon(") || !styles.includes("color: #f05032")) throw new Error("Das echte Git-Markenlogo fehlt.");
+if (!script.includes("github: brandIcon(") || !script.includes('git.provider === "github" ? icons.github : icons.git')) throw new Error("Das GitHub-Octocat für GitHub-Remotes fehlt.");
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 const project = await readFile(new URL("../agent/CodexSessionManager.Agent.csproj", import.meta.url), "utf8");
 const projectVersion = project.match(/<Version>([^<]+)<\/Version>/)?.[1];

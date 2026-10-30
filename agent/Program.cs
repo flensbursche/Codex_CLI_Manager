@@ -1580,6 +1580,10 @@ internal sealed class GitStatusService
         var commitParts = lastCommit.ExitCode == 0
             ? lastCommit.Output.Trim().Split('\x1f', 4)
             : [];
+        var remotes = await RunAsync(directory, ["remote", "-v"], cancellation);
+        var (remoteHost, provider) = remotes.ExitCode == 0
+            ? ParseRemote(remotes.Output)
+            : (null, null);
 
         return new JsonObject
         {
@@ -1591,11 +1595,39 @@ internal sealed class GitStatusService
             ["branch"] = branch,
             ["ahead"] = ahead,
             ["behind"] = behind,
+            ["remoteHost"] = remoteHost,
+            ["provider"] = provider,
             ["lastCommitHash"] = commitParts.Length > 0 ? commitParts[0] : null,
             ["lastCommitShort"] = commitParts.Length > 1 ? commitParts[1] : null,
             ["lastCommitAt"] = commitParts.Length > 2 ? commitParts[2] : null,
             ["lastCommitSubject"] = commitParts.Length > 3 ? Limit(commitParts[3], 200) : null
         };
+    }
+
+    private static (string? Host, string? Provider) ParseRemote(string output)
+    {
+        foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var parts = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 2 || parts.Length > 2 && !parts[2].Equals("(fetch)", StringComparison.OrdinalIgnoreCase)) continue;
+            var remote = parts[1];
+            string? host = null;
+            if (Uri.TryCreate(remote, UriKind.Absolute, out var uri) && !string.IsNullOrWhiteSpace(uri.Host))
+                host = uri.Host;
+            else
+            {
+                var at = remote.IndexOf('@');
+                var colon = at >= 0 ? remote.IndexOf(':', at + 1) : -1;
+                if (at >= 0 && colon > at + 1) host = remote[(at + 1)..colon];
+            }
+            if (string.IsNullOrWhiteSpace(host)) continue;
+            host = host.Trim().ToLowerInvariant();
+            var provider = host.Equals("github.com", StringComparison.OrdinalIgnoreCase) ? "github"
+                : host.Equals("gitlab.com", StringComparison.OrdinalIgnoreCase) || host.Contains("gitlab", StringComparison.OrdinalIgnoreCase) ? "gitlab"
+                : "git";
+            return (host, provider);
+        }
+        return (null, null);
     }
 
     private static JsonObject? ParseChange(string line)

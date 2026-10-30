@@ -46,6 +46,7 @@ const icons = {
   edit: tablerIcon('<path d="M4 20h4l10.5-10.5a2.8 2.8 0 0 0-4-4L4 16v4zM13.5 6.5l4 4"/>'),
   unlink: tablerIcon('<path d="M10 13a5 5 0 0 0 7.07.07l2-2a5 5 0 0 0-7.07-7.07l-1.15 1.15"/><path d="M14 11a5 5 0 0 0-7.07-.07l-2 2A5 5 0 0 0 12 20l1.15-1.15"/><path d="M4 4l16 16"/>'),
   git: brandIcon('M23.546 10.93L13.067.452a1.55 1.55 0 0 0-2.188 0L8.708 2.625l2.76 2.76a1.84 1.84 0 0 1 2.327 2.34l2.658 2.66a1.84 1.84 0 1 1-1.104 1.044l-2.477-2.478v6.525a1.84 1.84 0 1 1-1.525-.05V8.835a1.84 1.84 0 0 1-.992-2.402L7.638 3.716.453 10.93a1.55 1.55 0 0 0 0 2.188l10.477 10.43a1.55 1.55 0 0 0 2.186 0l10.43-10.43a1.55 1.55 0 0 0 0-2.188z'),
+  github: brandIcon('M12 .297C5.37.297 0 5.67 0 12.297c0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.418-1.305.762-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297 24 5.67 18.627.297 12 .297z'),
   history: tablerIcon('<path d="M12 8v4l2 2"/><path d="M3.05 11a9 9 0 1 0 .5-3M3 4v4h4"/>'),
   info: tablerIcon('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.01"/>'),
   refresh: tablerIcon('<path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"/>')
@@ -416,11 +417,13 @@ function gitIndicator(git) {
   if (!git?.linked) return "";
   const stateLabel = gitStateLabel(git);
   const overview = [git.branch, stateLabel, git.ahead ? t("gitAhead", git.ahead) : "", git.behind ? t("gitBehind", git.behind) : ""].filter(Boolean).join(" · ");
+  const providerLabel = git.provider === "github" ? `GitHub${git.remoteHost ? ` · ${git.remoteHost}` : ""}` : git.remoteHost || "";
   const changed = (git.changes || []).map((change) => `${change.status}  ${change.path}`);
   if (git.changedFiles > changed.length) changed.push(t("gitMoreChanges", git.changedFiles - changed.length));
-  const details = [overview, ...changed, git.lastCommitShort && git.lastCommitSubject ? `${t("lastCommit")}: ${git.lastCommitShort} ${git.lastCommitSubject}` : ""].filter(Boolean).join("\n");
+  const details = [providerLabel, overview, ...changed, git.lastCommitShort && git.lastCommitSubject ? `${t("lastCommit")}: ${git.lastCommitShort} ${git.lastCommitSubject}` : ""].filter(Boolean).join("\n");
   const stateClass = git.conflicts ? "conflict" : git.dirty ? "dirty" : "clean";
-  return `<span class="session-git ${stateClass}" title="${esc(details)}" aria-label="${esc(details)}">${icons.git}</span>`;
+  const providerClass = git.provider === "github" ? "provider-github" : "";
+  return `<span class="session-git ${stateClass} ${providerClass}" title="${esc(details)}" aria-label="${esc(details)}">${git.provider === "github" ? icons.github : icons.git}</span>`;
 }
 
 function shadowSessionRow(session) {

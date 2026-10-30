@@ -1404,6 +1404,10 @@ summary {
   height: 19px;
 }
 
+.session-git.provider-github {
+  color: var(--text);
+}
+
 .session-git::after {
   position: absolute;
   right: -1px;
