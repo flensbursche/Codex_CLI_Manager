@@ -74,7 +74,7 @@ const history = JSON.parse(await readFile(new URL("../web/version-history.json",
 if (!Array.isArray(history.releases) || !history.releases.some((release) => release.released && release.tag)) throw new Error("Die aus Git erzeugte Versionshistorie fehlt.");
 const appIcon = await readFile(new URL("../web/app-icon.svg", import.meta.url), "utf8");
 if (!appIcon.includes('fill="#ff6537"') || !appIcon.includes('stroke="#fff"')) throw new Error("Das gemeinsame orange-weiße App-Icon fehlt.");
-if (!script.includes('class="mark"><img src="/app-icon.svg?v=3"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
+if (!script.includes('class="mark"><img src="/app-icon.svg?v=4"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
 if (!script.includes("git: brandIcon(") || !styles.includes("color: #f05032")) throw new Error("Das echte Git-Markenlogo fehlt.");
 if (!script.includes("github: brandIcon(") || !script.includes("gitlab: brandIcon(") || !script.includes("providerIcon")) throw new Error("Die Anbieterlogos für GitHub- und GitLab-Remotes fehlen.");
 if (!script.includes('mark class="search-match"') || !styles.includes("mark.search-match")) throw new Error("Die Hervorhebung sichtbarer Suchtreffer fehlt.");

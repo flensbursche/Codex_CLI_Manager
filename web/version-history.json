@@ -1,13 +1,88 @@
 {
-  "generatedAt": "2026-10-30T09:33:02+01:00",
+  "generatedAt": "2026-10-30T10:48:38+01:00",
   "releases": [
     {
       "version": null,
       "tag": null,
-      "date": "2026-10-30T09:33:02+01:00",
-      "commit": "ef4edcc9d4ead5bba756a4e0f245df034794824a",
+      "date": "2026-10-30T10:48:38+01:00",
+      "commit": "261d329fc25291fea329ae617e27cd4bb1eac17d",
       "released": false,
       "commits": [
+        {
+          "hash": "261d329fc25291fea329ae617e27cd4bb1eac17d",
+          "shortHash": "261d329",
+          "date": "2026-10-30T10:48:38+01:00",
+          "subject": "Remove erroneous project auto imports"
+        }
+      ]
+    },
+    {
+      "version": "0.9.2",
+      "tag": "v0.9.2",
+      "date": "2026-10-30T10:44:43+01:00",
+      "commit": "b97e54b7d6aff1e10ded218fcfa467c9e2489ff2",
+      "released": true,
+      "commits": [
+        {
+          "hash": "b97e54b7d6aff1e10ded218fcfa467c9e2489ff2",
+          "shortHash": "b97e54b",
+          "date": "2026-10-30T10:44:43+01:00",
+          "subject": "Highlight search matches and brand Git providers"
+        },
+        {
+          "hash": "9b6b4990ab49453354e728a59e9c619703c469f3",
+          "shortHash": "9b6b499",
+          "date": "2026-10-30T10:12:03+01:00",
+          "subject": "Show app icon in update progress"
+        },
+        {
+          "hash": "db1f24eebdfdcb6ce05df5d6add2c790e5d73481",
+          "shortHash": "db1f24e",
+          "date": "2026-10-30T10:10:27+01:00",
+          "subject": "Show Octocat for GitHub session remotes"
+        },
+        {
+          "hash": "2e57a4a9413ede1fa58efa2e912566bd4464eb48",
+          "shortHash": "2e57a4a",
+          "date": "2026-10-30T10:09:01+01:00",
+          "subject": "Fix updater restart and show install progress"
+        }
+      ]
+    },
+    {
+      "version": "0.9.1",
+      "tag": "v0.9.1",
+      "date": "2026-10-30T09:44:08+01:00",
+      "commit": "7c60982fbc2e0a99022e66053be142ce03614ede",
+      "released": true,
+      "commits": [
+        {
+          "hash": "7c60982fbc2e0a99022e66053be142ce03614ede",
+          "shortHash": "7c60982",
+          "date": "2026-10-30T09:44:08+01:00",
+          "subject": "Polish Git status and harden update checks"
+        }
+      ]
+    },
+    {
+      "version": "0.9.0",
+      "tag": "v0.9.0",
+      "date": "2026-10-30T09:35:52+01:00",
+      "commit": "33c4e3f406dc1f44d9d1470df99ec3352a839bd4",
+      "released": true,
+      "commits": [
+        {
+          "hash": "33c4e3f406dc1f44d9d1470df99ec3352a839bd4",
+          "shortHash": "33c4e3f",
+          "date": "2026-10-30T09:35:52+01:00",
+          "subject": "Fetch tags for generated release history"
+        },
+        {
+          "hash": "248f83c758362dcebb0c10385ffe692f52ea0a3c",
+          "shortHash": "248f83c",
+          "date": "2026-10-30T09:33:10+01:00",
+          "subject": "Refresh generated version history"
+        },
         {
           "hash": "ef4edcc9d4ead5bba756a4e0f245df034794824a",
           "shortHash": "ef4edcc",
