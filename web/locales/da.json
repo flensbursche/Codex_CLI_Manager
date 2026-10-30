@@ -8,7 +8,7 @@
   "lightMode": "Lys tilstand",
   "language": "Sprog",
   "about": "Om",
-  "aboutAndHistory": "Om {0} og historik",
+  "aboutAndHistory": "Om & historik",
   "aboutDescription": "Lokal .NET-manager til Codex CLI-sessioner.",
   "currentVersion": "Installeret version",
   "openRepository": "Repository på GitHub",

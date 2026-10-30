@@ -8,7 +8,7 @@
   "lightMode": "Light Mode",
   "language": "Language",
   "about": "About",
-  "aboutAndHistory": "About {0} & history",
+  "aboutAndHistory": "About & history",
   "aboutDescription": "Local .NET manager for Codex CLI sessions.",
   "currentVersion": "Installed version",
   "openRepository": "Repository on GitHub",

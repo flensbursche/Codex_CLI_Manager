@@ -74,7 +74,24 @@ colorScheme.addEventListener("change", () => { if (themePreference === "auto") a
 function header() {
   const autostart = companionInfo.supportsAutostart ? `<button class="menu-row switch-row" id="autostart-toggle" role="switch" aria-checked="${companionInfo.autostartEnabled}"><span>${t("autostart")}</span><i class="toggle-switch"><b></b></i></button>` : "";
   const darkMode = document.documentElement.dataset.theme === "dark";
-  return `<header class="top"><a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=8" alt=""></span><strong>Codex CLI Manager</strong></a><span class="live"><i class="dot"></i>${t("live")}</span><button class="header-update" id="header-update" type="button" hidden></button><span class="spacer"></span><details class="header-menu"><summary class="quiet-button icon-button" aria-label="${t("menu")}" title="${t("menu")}">${icons.menu}</summary><div class="header-menu-panel">${autostart}<button class="menu-row switch-row" id="theme-toggle" role="switch" aria-checked="${darkMode}">${darkMode ? icons.moon : icons.sun}<span>${t("darkMode")}</span><i class="toggle-switch"><b></b></i></button><div class="menu-block"><span class="menu-label">${icons.globe}${t("language")}</span><div class="language-options" role="group" aria-label="${t("language")}">${["de", "en", "da"].map((code) => `<button type="button" data-language="${code}" class="${language === code ? "active" : ""}" aria-pressed="${language === code}">${code === "da" ? "DK" : code.toUpperCase()}</button>`).join("")}</div></div><a class="menu-row" href="/settings/terminal">${icons.settings}<span>${t("terminalSettings")}</span></a><a class="menu-row" href="/about">${icons.info}<span>${esc(t("aboutAndHistory", `v${companionInfo.version || ""}`))}</span></a><button class="menu-row" id="share-repository" type="button">${icons.share}<span>${t("shareRepository")}</span></button><div class="menu-update" id="menu-update"><span>${icons.refresh}<span>${t("updateChecking")}</span></span><button type="button" id="update-check">${t("checkNow")}</button></div></div></details></header>`;
+  return `<header class="top">
+    <a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=9" alt=""></span><strong>Codex CLI Manager</strong></a>
+    <span class="live"><i class="dot"></i>${t("live")}</span>
+    <button class="header-update" id="header-update" type="button" hidden></button>
+    <span class="spacer"></span>
+    <details class="header-menu">
+      <summary class="quiet-button icon-button" aria-label="${t("menu")}" title="${t("menu")}">${icons.menu}</summary>
+      <div class="header-menu-panel">
+        ${autostart}
+        <button class="menu-row switch-row" id="theme-toggle" role="switch" aria-checked="${darkMode}">${darkMode ? icons.moon : icons.sun}<span>${t("darkMode")}</span><i class="toggle-switch"><b></b></i></button>
+        <div class="menu-block"><span class="menu-label">${icons.globe}${t("language")}</span><div class="language-options" role="group" aria-label="${t("language")}">${["de", "en", "da"].map((code) => `<button type="button" data-language="${code}" class="${language === code ? "active" : ""}" aria-pressed="${language === code}">${code === "da" ? "DK" : code.toUpperCase()}</button>`).join("")}</div></div>
+        <a class="menu-row" href="/settings/terminal">${icons.settings}<span>${t("terminalSettings")}</span></a>
+        <button class="menu-row" id="share-repository" type="button">${icons.share}<span>${t("shareRepository")}</span></button>
+        <a class="menu-row" href="/about">${icons.info}<span>${t("aboutAndHistory")}</span></a>
+        <div class="menu-update" id="menu-update"><span>${icons.refresh}<span>${t("updateChecking")}</span></span><button type="button" id="update-check">${t("checkNow")}</button></div>
+      </div>
+    </details>
+  </header>`;
 }
 
 function bindTheme() {

@@ -79,7 +79,11 @@ const roadmap = JSON.parse(await readFile(new URL("../web/roadmap.json", import.
 if (roadmap.version !== "1.0" || !Array.isArray(roadmap.items) || roadmap.items.length < 5) throw new Error("Die erweiterbare 1.0-Roadmap fehlt.");
 const appIcon = await readFile(new URL("../web/app-icon.svg", import.meta.url), "utf8");
 if (!appIcon.includes('fill="#ff6537"') || !appIcon.includes('stroke="#fff"')) throw new Error("Das gemeinsame orange-weiße App-Icon fehlt.");
-if (!script.includes('class="mark"><img src="/app-icon.svg?v=8"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
+if (!script.includes('class="mark"><img src="/app-icon.svg?v=9"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
+const shareMenuIndex = script.indexOf('id="share-repository"');
+const aboutMenuIndex = script.indexOf('href="/about"', shareMenuIndex);
+const updateMenuIndex = script.indexOf('id="menu-update"', aboutMenuIndex);
+if (shareMenuIndex < 0 || aboutMenuIndex < shareMenuIndex || updateMenuIndex < aboutMenuIndex || script.includes('t("aboutAndHistory",')) throw new Error("Über & Historie steht nicht ohne redundante Version direkt über dem Versionsstatus.");
 if (!script.includes('id="header-update"') || !script.includes('headerUpdate.hidden = result.status !== "available"')) throw new Error("Der sichtbare Update-Hinweis neben Live fehlt.");
 if (!script.includes("git: brandIcon(") || !styles.includes("color: #f05032")) throw new Error("Das echte Git-Markenlogo fehlt.");
 if (!script.includes("github: brandIcon(") || !script.includes("gitlab: brandIcon(") || !script.includes("providerIcon")) throw new Error("Die Anbieterlogos für GitHub- und GitLab-Remotes fehlen.");
