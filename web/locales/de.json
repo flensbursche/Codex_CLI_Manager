@@ -124,6 +124,7 @@
   "gitAhead": "{0} voraus",
   "gitBehind": "{0} zurück",
   "gitMoreChanges": "+ {0} weitere Änderungen",
+  "gitLocalNoRemote": "Lokales Git-Repository · kein Remote",
   "notGitRepository": "Kein Git-Repository",
   "lastCommit": "Letzter Commit",
   "copyPath": "Pfad kopieren",

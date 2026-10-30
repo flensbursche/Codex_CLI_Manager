@@ -124,6 +124,7 @@
   "gitAhead": "{0} foran",
   "gitBehind": "{0} bagud",
   "gitMoreChanges": "+ {0} flere ændringer",
+  "gitLocalNoRemote": "Lokalt Git-repository · ingen remote",
   "notGitRepository": "Ikke et Git-repository",
   "lastCommit": "Seneste commit",
   "copyPath": "Kopiér sti",

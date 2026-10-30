@@ -23,14 +23,15 @@ if (!agent.includes('LanguageSettingsStore')) throw new Error("Die gemeinsame Sp
 if (!agent.includes('app.MapGet("/api/language"')) throw new Error("Der Sprach-Endpunkt fehlt.");
 for (const language of ["de", "en", "da"]) {
   const locale = JSON.parse(await readFile(new URL(`../web/locales/${language}.json`, import.meta.url), "utf8"));
-  for (const key of ["sessions", "sessionSearchCountMany", "terminalSettings", "versionHistory", "gitStatus", "gitClean", "gitUnavailable", "healthHealthy", "healthUncertain", "healthDuplicate", "healthSignals", "compatibilityLimited", "removeFromProject", "sessionOpen", "copyPath", "editTitle", "roadmap", "shareRepository", "aboutAndHistory", "updateBadge", "tray.open", "tray.updates", "tray.aboutHistory"])
+  for (const key of ["sessions", "sessionSearchCountMany", "terminalSettings", "versionHistory", "gitStatus", "gitClean", "gitUnavailable", "gitLocalNoRemote", "healthHealthy", "healthUncertain", "healthDuplicate", "healthSignals", "compatibilityLimited", "removeFromProject", "sessionOpen", "copyPath", "editTitle", "roadmap", "shareRepository", "aboutAndHistory", "updateBadge", "tray.open", "tray.updates", "tray.aboutHistory"])
     if (!locale[key]) throw new Error(`Übersetzung fehlt: ${language}.${key}`);
 }
 if (!agent.includes("TerminalHost.OpenPowerShell(cwd, command)")) throw new Error("Session-Resume verwendet nicht Windows Terminal.");
 if (!agent.includes('"Microsoft.WindowsTerminal_8wekyb3d8bbwe"')) throw new Error("Windows Terminal wird nicht über seinen App-Alias gestartet.");
 if (!agent.includes('"{574e775e-4f2a-5b96-ac1e-a2962a402336}"')) throw new Error("Das normale PowerShell-Profil von Windows Terminal wird nicht explizit verwendet.");
 if (!agent.includes('startInfo.ArgumentList.Add("new");') || agent.includes('startInfo.ArgumentList.Add("0");')) throw new Error("Session-Resume öffnet nicht immer ein neues Windows-Terminal-Fenster.");
-if (!agent.includes('startInfo.ArgumentList.Add("--");') || !agent.includes('startInfo.ArgumentList.Add(shell.Path);') || agent.includes('startInfo.ArgumentList.Add("--appendCommandLine");')) throw new Error("Windows Terminal erhält den Trenner und PowerShell nicht als eigenständige Argumente.");
+if (!agent.includes('startInfo.ArgumentList.Add("--");') || !agent.includes('PowerShellHost.ResolveTerminalExecutablePath(shell.Path)') || agent.includes('startInfo.ArgumentList.Add("--appendCommandLine");')) throw new Error("Windows Terminal erhält den Trenner und den leerzeichenfreien PowerShell-Pfad nicht als eigenständige Argumente.");
+if (!agent.includes('GetShortPathName(executable, buffer') || !agent.includes("!shortPath.Contains(' ')")) throw new Error("PowerShell-Pfade mit Leerzeichen werden für Windows Terminal nicht sicher verkürzt.");
 if (!agent.includes("ResolvePackagedPowerShell7()") || !agent.includes('GetValue("PackageRootFolder")')) throw new Error("Die echte PowerShell-Paketdatei wird nicht vor dem WindowsApps-Alias aufgelöst.");
 if (!agent.includes('"Microsoft.PowerShell_8wekyb3d8bbwe"')) throw new Error("Die installierte PowerShell-7-App wird nicht bevorzugt.");
 if (!agent.includes('Convert.ToBase64String(Encoding.Unicode.GetBytes(initialization))')) throw new Error("Der Resume-Befehl wird für Windows Terminal nicht sicher kodiert.");
@@ -83,7 +84,7 @@ const roadmap = JSON.parse(await readFile(new URL("../web/roadmap.json", import.
 if (roadmap.version !== "1.0" || !Array.isArray(roadmap.items) || roadmap.items.length < 5) throw new Error("Die erweiterbare 1.0-Roadmap fehlt.");
 const appIcon = await readFile(new URL("../web/app-icon.svg", import.meta.url), "utf8");
 if (!appIcon.includes('fill="#ff6537"') || !appIcon.includes('stroke="#fff"')) throw new Error("Das gemeinsame orange-weiße App-Icon fehlt.");
-if (!script.includes('class="mark"><img src="/app-icon.svg?v=12"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
+if (!script.includes('class="mark"><img src="/app-icon.svg?v=13"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
 const shareMenuIndex = script.indexOf('id="share-repository"');
 const aboutMenuIndex = script.indexOf('href="/about"', shareMenuIndex);
 const updateMenuIndex = script.indexOf('id="menu-update"', aboutMenuIndex);

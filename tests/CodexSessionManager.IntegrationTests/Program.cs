@@ -50,7 +50,7 @@ static Task TestWindowsTerminalArgumentsAsync()
     var expected = new[]
     {
         "-w", "new", "new-tab", "--profile", "{test-profile}", "--startingDirectory", @"C:\DEV\Project With Spaces",
-        "--", shell.Path, "-NoLogo", "-NoExit", "-EncodedCommand"
+        "--", PowerShellHost.ResolveTerminalExecutablePath(shell.Path), "-NoLogo", "-NoExit", "-EncodedCommand"
     };
     Assert(arguments.Length == expected.Length + 1, "Unexpected Windows Terminal argument count.");
     Assert(arguments.Take(expected.Length).SequenceEqual(expected), $"Windows Terminal arguments differ: {string.Join(" | ", arguments)}");
@@ -114,6 +114,9 @@ static Task TestPowerShellPackageResolutionAsync()
         "PowerShell resolution did not prefer the real package executable over the WindowsApps alias.");
     Assert(!packagedExecutable.Contains(@"Microsoft\WindowsApps\Microsoft.PowerShell_8wekyb3d8bbwe", StringComparison.OrdinalIgnoreCase),
         "PowerShell resolution still returned the WindowsApps execution alias.");
+    var terminalExecutable = PowerShellHost.ResolveTerminalExecutablePath(packagedExecutable);
+    Assert(File.Exists(terminalExecutable), "Windows Terminal PowerShell executable does not exist.");
+    Assert(!terminalExecutable.Contains(' '), "Windows Terminal PowerShell executable still contains spaces and can be misquoted.");
     return Task.CompletedTask;
 }
 
@@ -180,7 +183,9 @@ static Task TestSessionHealthAsync()
     AssertHealth(new(true, 0, false, false, false), "closed", false, "closed");
     AssertHealth(new(true, 0, false, false, true), "starting", true, "uncertain");
     AssertHealth(new(true, 1, true, false, false), "healthy", true, "open");
-    AssertHealth(new(true, 0, true, false, false), "uncertain", true, "uncertain");
+    AssertHealth(new(true, 0, true, false, false), "healthy", true, "open");
+    AssertHealth(new(true, 0, false, true, false), "healthy", true, "open");
+    AssertHealth(new(true, 1, false, false, false), "uncertain", true, "uncertain");
     AssertHealth(new(true, 2, true, true, false), "duplicate", true, "open");
     return Task.CompletedTask;
 }

@@ -77,7 +77,7 @@ function header() {
   const autostart = companionInfo.supportsAutostart ? `<button class="menu-row switch-row" id="autostart-toggle" role="switch" aria-checked="${companionInfo.autostartEnabled}"><span>${t("autostart")}</span><i class="toggle-switch"><b></b></i></button>` : "";
   const darkMode = document.documentElement.dataset.theme === "dark";
   return `<header class="top">
-    <a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=12" alt=""></span><strong>Codex CLI Manager</strong></a>
+    <a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=13" alt=""></span><strong>Codex CLI Manager</strong></a>
     <span class="live"><i class="dot"></i>${t("live")}</span>
     <button class="header-update" id="header-update" type="button" hidden></button>
     <span class="spacer"></span>
@@ -507,7 +507,7 @@ function gitIndicator(git) {
   if (!git?.linked) return "";
   const stateLabel = gitStateLabel(git);
   const overview = [git.branch, stateLabel, git.ahead ? t("gitAhead", git.ahead) : "", git.behind ? t("gitBehind", git.behind) : ""].filter(Boolean).join(" · ");
-  const providerLabel = git.provider === "github" ? `GitHub${git.remoteHost ? ` · ${git.remoteHost}` : ""}` : git.provider === "gitlab" ? `GitLab${git.remoteHost ? ` · ${git.remoteHost}` : ""}` : git.remoteHost || "";
+  const providerLabel = git.provider === "github" ? `GitHub${git.remoteHost ? ` · ${git.remoteHost}` : ""}` : git.provider === "gitlab" ? `GitLab${git.remoteHost ? ` · ${git.remoteHost}` : ""}` : git.remoteHost || t("gitLocalNoRemote");
   const changed = (git.changes || []).map((change) => `${change.status}  ${change.path}`);
   if (git.changedFiles > changed.length) changed.push(t("gitMoreChanges", git.changedFiles - changed.length));
   const details = [providerLabel, overview, git.error || "", ...changed, git.lastCommitShort && git.lastCommitSubject ? `${t("lastCommit")}: ${git.lastCommitShort} ${git.lastCommitSubject}` : ""].filter(Boolean).join("\n");

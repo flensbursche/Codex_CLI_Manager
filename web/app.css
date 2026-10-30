@@ -1190,8 +1190,10 @@ summary {
 }
 
 .session-row.health-uncertain {
-  border-color: color-mix(in srgb, var(--warning) 72%, var(--line));
-  box-shadow: 0 0 14px color-mix(in srgb, var(--warning) 18%, transparent);
+  border-color: #4f86ad;
+  box-shadow:
+    0 0 0 1px rgba(79, 134, 173, 0.18),
+    0 0 14px rgba(79, 134, 173, 0.16);
 }
 
 .session-row.health-duplicate {

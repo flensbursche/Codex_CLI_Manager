@@ -1049,7 +1049,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.9.12";
+    public const string Version = "0.9.13";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);
@@ -1486,6 +1486,19 @@ internal static class PowerShellHost
         return null;
     }
 
+    internal static string ResolveTerminalExecutablePath(string executable)
+    {
+        if (!executable.Contains(' ')) return executable;
+        var buffer = new StringBuilder(4096);
+        var length = GetShortPathName(executable, buffer, (uint)buffer.Capacity);
+        if (length == 0 || length >= (uint)buffer.Capacity) return executable;
+        var shortPath = buffer.ToString();
+        return !shortPath.Contains(' ') && File.Exists(shortPath) ? shortPath : executable;
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern uint GetShortPathName(string longPath, StringBuilder shortPath, uint bufferLength);
+
     private static Version PackageVersion(string packageName, string prefix)
     {
         var remainder = packageName[prefix.Length..];
@@ -1568,7 +1581,7 @@ internal static class TerminalHost
             startInfo.ArgumentList.Add("--startingDirectory");
             startInfo.ArgumentList.Add(workingDirectory);
             startInfo.ArgumentList.Add("--");
-            startInfo.ArgumentList.Add(shell.Path);
+            startInfo.ArgumentList.Add(PowerShellHost.ResolveTerminalExecutablePath(shell.Path));
         }
 
         startInfo.ArgumentList.Add("-NoLogo");
@@ -1955,8 +1968,8 @@ internal static class SessionHealthEvaluator
     {
         var state = signals.ProcessCount > 1 ? "duplicate"
             : signals.Launching && signals.ProcessCount == 0 && !signals.WriterLock && !signals.ManagerMutex ? "starting"
-            : signals.ProcessCount > 0 && (signals.WriterLock || signals.ManagerMutex) ? "healthy"
-            : signals.ProcessCount > 0 || signals.WriterLock || signals.ManagerMutex ? "uncertain"
+            : signals.WriterLock || signals.ManagerMutex ? "healthy"
+            : signals.ProcessCount > 0 ? "uncertain"
             : "closed";
         var active = state is not "closed";
         var openState = state is "healthy" or "duplicate" ? "open" : active ? "uncertain" : "closed";
