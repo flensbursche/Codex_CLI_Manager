@@ -1048,7 +1048,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.9.9";
+    public const string Version = "0.9.10";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);
@@ -1643,11 +1643,14 @@ internal sealed class GitStatusService
         {
             var repositoryRoot = FindRepositoryRoot(directory);
             if (repositoryRoot is null) return null;
+            var (fallbackRemoteHost, fallbackProvider) = ReadRemoteFromConfig(repositoryRoot);
             return new JsonObject
             {
                 ["linked"] = true,
                 ["unavailable"] = true,
                 ["repositoryRoot"] = repositoryRoot,
+                ["remoteHost"] = fallbackRemoteHost,
+                ["provider"] = fallbackProvider,
                 ["error"] = Limit(status.Error.Trim(), 800)
             };
         }
@@ -1721,6 +1724,53 @@ internal sealed class GitStatusService
         {
         }
         return null;
+    }
+
+    private static (string? Host, string? Provider) ReadRemoteFromConfig(string repositoryRoot)
+    {
+        try
+        {
+            var marker = Path.Combine(repositoryRoot, ".git");
+            string? gitDirectory = Directory.Exists(marker) ? marker : null;
+            if (gitDirectory is null && File.Exists(marker))
+            {
+                var pointer = File.ReadLines(marker).FirstOrDefault()?.Trim();
+                const string prefix = "gitdir:";
+                if (pointer?.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    var path = pointer[prefix.Length..].Trim();
+                    gitDirectory = Path.GetFullPath(Path.IsPathRooted(path) ? path : Path.Combine(repositoryRoot, path));
+                }
+            }
+            if (gitDirectory is null) return (null, null);
+
+            var configPath = Path.Combine(gitDirectory, "config");
+            if (!File.Exists(configPath))
+            {
+                var commonDirPath = Path.Combine(gitDirectory, "commondir");
+                if (File.Exists(commonDirPath))
+                {
+                    var commonDir = File.ReadLines(commonDirPath).FirstOrDefault()?.Trim();
+                    if (!string.IsNullOrWhiteSpace(commonDir))
+                        configPath = Path.Combine(Path.GetFullPath(Path.Combine(gitDirectory, commonDir)), "config");
+                }
+            }
+            if (!File.Exists(configPath)) return (null, null);
+
+            foreach (var line in File.ReadLines(configPath))
+            {
+                var trimmed = line.Trim();
+                if (!trimmed.StartsWith("url", StringComparison.OrdinalIgnoreCase)) continue;
+                var separator = trimmed.IndexOf('=');
+                if (separator < 0) continue;
+                var remote = trimmed[(separator + 1)..].Trim();
+                if (!string.IsNullOrWhiteSpace(remote)) return ParseRemote($"origin\t{remote}\t(fetch)");
+            }
+        }
+        catch
+        {
+        }
+        return (null, null);
     }
 
     private static (string? Host, string? Provider) ParseRemote(string output)
