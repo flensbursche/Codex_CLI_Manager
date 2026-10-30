@@ -847,6 +847,7 @@ internal sealed class UpdateProgressWindow : IDisposable
     {
         System.Windows.Forms.Application.EnableVisualStyles();
         using var icon = AppIcon.Create();
+        using var iconBitmap = icon.ToBitmap();
         using var form = new System.Windows.Forms.Form
         {
             Text = title,
@@ -860,13 +861,22 @@ internal sealed class UpdateProgressWindow : IDisposable
             ControlBox = false,
             ShowInTaskbar = true
         };
+        var productIcon = new System.Windows.Forms.PictureBox
+        {
+            Image = iconBitmap,
+            Left = 24,
+            Top = 25,
+            Width = 48,
+            Height = 48,
+            SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom
+        };
         var heading = new System.Windows.Forms.Label
         {
             Text = "Codex CLI Manager",
             AutoSize = false,
-            Left = 24,
+            Left = 88,
             Top = 18,
-            Width = 370,
+            Width = 306,
             Height = 24,
             Font = new System.Drawing.Font("Segoe UI", 11, System.Drawing.FontStyle.Bold)
         };
@@ -874,21 +884,21 @@ internal sealed class UpdateProgressWindow : IDisposable
         {
             Text = initialStatus,
             AutoSize = false,
-            Left = 24,
+            Left = 88,
             Top = 49,
-            Width = 370,
+            Width = 306,
             Height = 22
         };
         var activity = new System.Windows.Forms.ProgressBar
         {
-            Left = 24,
+            Left = 88,
             Top = 79,
-            Width = 370,
+            Width = 306,
             Height = 9,
             Style = System.Windows.Forms.ProgressBarStyle.Marquee,
             MarqueeAnimationSpeed = 28
         };
-        form.Controls.AddRange([heading, status, activity]);
+        form.Controls.AddRange([productIcon, heading, status, activity]);
         _form = form;
         _status = status;
         _ready.Set();
