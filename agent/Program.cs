@@ -1325,7 +1325,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.10.2";
+    public const string Version = "0.10.3";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);
@@ -1768,34 +1768,11 @@ internal static class PowerShellHost
         return null;
     }
 
-    internal static string ResolveTerminalExecutablePath(string executable)
+    internal static string BuildTerminalBridgeCommand(string executable, string encodedInitialization)
     {
-        if (!executable.Contains(' ')) return executable;
-
-        // Windows Terminal reparses the command following `--` and can turn a
-        // quoted Store package path into `C:\Program "Files\...`. Prefer the
-        // per-user execution alias, which has no spaces and still starts the
-        // selected PowerShell 7 package.
-        var executionAlias = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Microsoft", "WindowsApps", Path.GetFileName(executable));
-        if (!executionAlias.Contains(' ') && File.Exists(executionAlias)) return executionAlias;
-
-        var buffer = new StringBuilder(4096);
-        var length = GetShortPathName(executable, buffer, (uint)buffer.Capacity);
-        if (length > 0 && length < (uint)buffer.Capacity)
-        {
-            var shortPath = buffer.ToString();
-            if (!shortPath.Contains(' ') && File.Exists(shortPath)) return shortPath;
-        }
-
-        // PowerShell's installer registers pwsh.exe on PATH. A command name is
-        // safer here than handing Windows Terminal an absolute path it mangles.
-        return Path.GetFileName(executable);
+        var escapedExecutable = executable.Replace("'", "''", StringComparison.Ordinal);
+        return $"& '{escapedExecutable}' -NoLogo -NoExit -EncodedCommand '{encodedInitialization}'";
     }
-
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern uint GetShortPathName(string longPath, StringBuilder shortPath, uint bufferLength);
 
     private static Version PackageVersion(string packageName, string prefix)
     {
@@ -1869,6 +1846,10 @@ internal static class TerminalHost
             WorkingDirectory = workingDirectory
         };
 
+        var initialization = "$env:NO_COLOR=$null; $env:TERM=$null; $env:COLORTERM=$null";
+        if (!string.IsNullOrWhiteSpace(command)) initialization += $"; {command}";
+        var encodedInitialization = Convert.ToBase64String(Encoding.Unicode.GetBytes(initialization));
+
         if (windowsTerminal)
         {
             startInfo.ArgumentList.Add("-w");
@@ -1880,15 +1861,23 @@ internal static class TerminalHost
             startInfo.ArgumentList.Add(workingDirectory);
             if (string.IsNullOrWhiteSpace(command)) return startInfo;
             startInfo.ArgumentList.Add("--");
-            startInfo.ArgumentList.Add(PowerShellHost.ResolveTerminalExecutablePath(shell.Path));
+            // Windows Terminal reparses the command after `--` and mangles
+            // absolute Store paths containing spaces. Start the exact detected
+            // shell through inbox Windows PowerShell with an encoded bridge;
+            // all arguments seen by Windows Terminal are then space-free.
+            startInfo.ArgumentList.Add("powershell.exe");
+            startInfo.ArgumentList.Add("-NoLogo");
+            startInfo.ArgumentList.Add("-NoProfile");
+            startInfo.ArgumentList.Add("-EncodedCommand");
+            var bridge = PowerShellHost.BuildTerminalBridgeCommand(shell.Path, encodedInitialization);
+            startInfo.ArgumentList.Add(Convert.ToBase64String(Encoding.Unicode.GetBytes(bridge)));
+            return startInfo;
         }
 
         startInfo.ArgumentList.Add("-NoLogo");
         startInfo.ArgumentList.Add("-NoExit");
-        var initialization = "$env:NO_COLOR=$null; $env:TERM=$null; $env:COLORTERM=$null";
-        if (!string.IsNullOrWhiteSpace(command)) initialization += $"; {command}";
         startInfo.ArgumentList.Add("-EncodedCommand");
-        startInfo.ArgumentList.Add(Convert.ToBase64String(Encoding.Unicode.GetBytes(initialization)));
+        startInfo.ArgumentList.Add(encodedInitialization);
         return startInfo;
     }
 

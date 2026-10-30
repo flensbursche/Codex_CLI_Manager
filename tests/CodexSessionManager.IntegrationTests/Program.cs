@@ -53,16 +53,19 @@ static Task TestWindowsTerminalArgumentsAsync()
     var expected = new[]
     {
         "-w", "new", "new-tab", "--profile", "{test-profile}", "--startingDirectory", @"C:\DEV\Project With Spaces",
-        "--", PowerShellHost.ResolveTerminalExecutablePath(shell.Path), "-NoLogo", "-NoExit", "-EncodedCommand"
+        "--", "powershell.exe", "-NoLogo", "-NoProfile", "-EncodedCommand"
     };
     Assert(arguments.Length == expected.Length + 1, "Unexpected Windows Terminal argument count.");
     Assert(arguments.Take(expected.Length).SequenceEqual(expected), $"Windows Terminal arguments differ: {string.Join(" | ", arguments)}");
-    var initialization = Encoding.Unicode.GetString(Convert.FromBase64String(arguments[^1]));
+    var bridge = Encoding.Unicode.GetString(Convert.FromBase64String(arguments[^1]));
+    Assert(bridge.Contains($"& '{shell.Path}'", StringComparison.Ordinal), "The bridge does not launch the exact detected PowerShell executable.");
+    Assert(!bridge.Contains(@"WindowsApps\pwsh.exe'", StringComparison.OrdinalIgnoreCase), "The broken WindowsApps root alias is still used.");
+    var encodedInitialization = bridge.Split("-EncodedCommand '", StringSplitOptions.None)[1].TrimEnd('\'');
+    var initialization = Encoding.Unicode.GetString(Convert.FromBase64String(encodedInitialization));
     Assert(initialization.Contains("$env:NO_COLOR=$null", StringComparison.Ordinal), "Color environment cleanup is missing.");
     Assert(initialization.EndsWith("Write-Output 'resume-test'", StringComparison.Ordinal), "Resume command is missing from encoded initialization.");
     Assert(!startInfo.UseShellExecute, "Terminal launch must use an exact native argument list.");
-    Assert(!arguments[8].Contains(' '), $"Windows Terminal received a space-containing PowerShell path: {arguments[8]}");
-    Assert(!arguments[8].Contains("Program Files", StringComparison.OrdinalIgnoreCase), "The Store package path can be mangled by Windows Terminal.");
+    Assert(arguments.Skip(8).All(argument => !argument.Contains(' ')), "Windows Terminal still receives a space-containing launcher argument.");
     return Task.CompletedTask;
 }
 
@@ -133,9 +136,9 @@ static Task TestPowerShellPackageResolutionAsync()
         "PowerShell resolution did not prefer the real package executable over the WindowsApps alias.");
     Assert(!packagedExecutable.Contains(@"Microsoft\WindowsApps\Microsoft.PowerShell_8wekyb3d8bbwe", StringComparison.OrdinalIgnoreCase),
         "PowerShell resolution still returned the WindowsApps execution alias.");
-    var terminalExecutable = PowerShellHost.ResolveTerminalExecutablePath(packagedExecutable);
-    Assert(File.Exists(terminalExecutable), "Windows Terminal PowerShell executable does not exist.");
-    Assert(!terminalExecutable.Contains(' '), "Windows Terminal PowerShell executable still contains spaces and can be misquoted.");
+    var bridge = PowerShellHost.BuildTerminalBridgeCommand(packagedExecutable, Convert.ToBase64String(Encoding.Unicode.GetBytes("exit")));
+    Assert(bridge.Contains(packagedExecutable, StringComparison.Ordinal), "The terminal bridge does not retain the exact detected package path.");
+    Assert(!bridge.Contains(@"Microsoft\WindowsApps\pwsh.exe", StringComparison.OrdinalIgnoreCase), "The terminal bridge still uses the broken WindowsApps root alias.");
     return Task.CompletedTask;
 }
 

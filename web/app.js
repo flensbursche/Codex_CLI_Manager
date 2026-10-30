@@ -1,5 +1,5 @@
 const app = document.querySelector("#app");
-const state = { sessions: [], projects: [], project: null, view: "all", pendingProjectSessionId: null, sessionsLoading: false };
+const state = { sessions: [], projects: [], project: null, view: "all", pendingProjectSessionId: null, sessionsLoading: false, draggedSessionId: null };
 let actionToken = "";
 let companionInfo = { supportsAutostart: false, autostartEnabled: false };
 let language = "de";
@@ -77,7 +77,7 @@ function header() {
   const autostart = companionInfo.supportsAutostart ? `<button class="menu-row switch-row" id="autostart-toggle" role="switch" aria-label="${t("autostart")}" aria-checked="${companionInfo.autostartEnabled}"><span>${t("autostart")}</span><i class="toggle-switch"><b></b></i></button>` : "";
   const darkMode = document.documentElement.dataset.theme === "dark";
   return `<header class="top">
-    <a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=18" alt=""></span><strong>Codex CLI Manager</strong></a>
+    <a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=19" alt=""></span><strong>Codex CLI Manager</strong></a>
     <span class="live"><i class="dot"></i>${t("live")}</span>
     <button class="header-update" id="header-update" type="button" hidden></button>
     <span class="spacer"></span>
@@ -256,9 +256,9 @@ function listPage() {
       <main class="list-layout ${sidebarCollapsed ? "sidebar-collapsed" : ""}">
         <aside class="sidebar">
           <nav class="sidebar-primary" id="sidebar-primary">
-            <button class="active" data-view="all"><span class="nav-icon">${icons.sessions}</span><span>${t("sessions")}</span></button>
-            <button data-view="favorites"><span class="nav-icon">${icons.favorite}</span><span>${t("favorites")}</span></button>
-            <button data-view="archived"><span class="nav-icon">${icons.archive}</span><span>${t("archive")}</span></button>
+            <button class="active" data-view="all" aria-label="${t("sessions")}" title="${t("sessions")}"><span class="nav-icon">${icons.sessions}</span><span>${t("sessions")}</span></button>
+            <button data-view="favorites" aria-label="${t("favorites")}" title="${t("favorites")}"><span class="nav-icon">${icons.favorite}</span><span>${t("favorites")}</span></button>
+            <button data-view="archived" aria-label="${t("archive")}" title="${t("archive")}"><span class="nav-icon">${icons.archive}</span><span>${t("archive")}</span></button>
           </nav>
           <div class="rail-divider"></div>
           <div class="side-title">${t("projects")}</div>
@@ -387,11 +387,11 @@ function renderProjects() {
   const entries = state.projects.map((project) => ({ ...project, ...(stats.get(project.id) || { count: 0, updatedAt: 0 }) })).sort((a, b) => b.updatedAt - a.updatedAt || a.name.localeCompare(b.name));
   const projects = document.querySelector("#projects");
   projects.innerHTML = entries.map(projectButton).join("");
-  projects.querySelectorAll("button").forEach((button) => {
+  projects.querySelectorAll("[data-project-id]").forEach((button) => {
     button.onclick = () => { state.project = button.dataset.projectId; state.view = "project"; renderSidebarNav(); renderProjects(); renderSessions(); };
-    button.ondragover = (event) => { event.preventDefault(); button.classList.add("drop-target"); };
+    button.ondragover = (event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; button.classList.add("drop-target"); };
     button.ondragleave = () => button.classList.remove("drop-target");
-    button.ondrop = (event) => { event.preventDefault(); button.classList.remove("drop-target"); const threadId = event.dataTransfer.getData("text/codex-thread"); if (threadId) void assignSessionToProject(threadId, button.dataset.projectId); };
+    button.ondrop = (event) => { event.preventDefault(); button.classList.remove("drop-target"); const threadId = event.dataTransfer.getData("text/codex-thread") || state.draggedSessionId; if (threadId) void assignSessionToProject(threadId, button.dataset.projectId); };
   });
 }
 
@@ -406,27 +406,29 @@ function bindProjectCreator() {
   toggle.onclick = () => { if (form.hidden) openCreator(); else { form.hidden = true; resetPendingAssignment(); } };
   toggle.ondragover = (event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; toggle.classList.add("drop-target"); };
   toggle.ondragleave = () => toggle.classList.remove("drop-target");
-  toggle.ondrop = (event) => { event.preventDefault(); toggle.classList.remove("drop-target"); const threadId = event.dataTransfer.getData("text/codex-thread"); if (threadId) openCreator(threadId); };
+  toggle.ondrop = (event) => { event.preventDefault(); toggle.classList.remove("drop-target"); const threadId = event.dataTransfer.getData("text/codex-thread") || state.draggedSessionId; if (threadId) openCreator(threadId); };
   input.oninput = () => { clearInput.hidden = !input.value; };
   clearInput.onclick = () => { input.value = ""; clearInput.hidden = true; input.focus(); };
   form.onsubmit = async (event) => { event.preventDefault(); const name = input.value.trim(); if (!name) return; const pendingThreadId = state.pendingProjectSessionId; const project = await fetchJson("/api/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) }); state.projects.push(project); if (pendingThreadId) await assignSessionToProject(pendingThreadId, project.id); input.value = ""; clearInput.hidden = true; form.hidden = true; resetPendingAssignment(); renderProjects(); };
 }
 
 async function assignSessionToProject(threadId, projectId) {
-  const result = await fetchJson(`/api/projects/${encodeURIComponent(projectId)}/sessions/${encodeURIComponent(threadId)}`, { method: "POST" });
-  const project = state.projects.find((item) => item.id === result.projectId); const session = state.sessions.find((item) => item.id === threadId);
-  if (session && project) { session.projectId = project.id; session.project = project.name; }
-  renderProjects(); renderSessions();
+  try {
+    const result = await fetchJson(`/api/projects/${encodeURIComponent(projectId)}/sessions/${encodeURIComponent(threadId)}`, { method: "POST" });
+    const project = state.projects.find((item) => item.id === result.projectId); const session = state.sessions.find((item) => item.id === threadId);
+    if (session && project) { session.projectId = project.id; session.project = project.name; }
+    renderProjects(); renderSessions(); showListStatus(t("sessionAssigned"), "success");
+  } catch (error) { showListError(error.message); }
 }
 
 function bindSessionDragging() {
   const unassign = document.querySelector("#project-unassign-drop");
   unassign.ondragover = (event) => { event.preventDefault(); unassign.classList.add("drop-target"); };
   unassign.ondragleave = () => unassign.classList.remove("drop-target");
-  unassign.ondrop = (event) => { event.preventDefault(); unassign.classList.remove("drop-target"); unassign.hidden = true; const threadId = event.dataTransfer.getData("text/codex-thread"); if (threadId) void removeSessionFromProject(threadId); };
+  unassign.ondrop = (event) => { event.preventDefault(); unassign.classList.remove("drop-target"); unassign.hidden = true; const threadId = event.dataTransfer.getData("text/codex-thread") || state.draggedSessionId; if (threadId) void removeSessionFromProject(threadId); };
   document.querySelectorAll("article.session-row").forEach((row) => {
-    row.ondragstart = (event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/codex-thread", row.dataset.id); row.classList.add("dragging"); unassign.hidden = !state.sessions.find((session) => session.id === row.dataset.id)?.projectId; };
-    row.ondragend = () => { row.classList.remove("dragging"); unassign.hidden = true; unassign.classList.remove("drop-target"); document.querySelectorAll(".projects .drop-target, .project-create-toggle.drop-target").forEach((target) => target.classList.remove("drop-target")); };
+    row.ondragstart = (event) => { state.draggedSessionId = row.dataset.id; event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", row.dataset.id); event.dataTransfer.setData("text/codex-thread", row.dataset.id); row.classList.add("dragging"); unassign.hidden = !state.sessions.find((session) => session.id === row.dataset.id)?.projectId; };
+    row.ondragend = () => { state.draggedSessionId = null; row.classList.remove("dragging"); unassign.hidden = true; unassign.classList.remove("drop-target"); document.querySelectorAll(".projects .drop-target, .project-create-toggle.drop-target").forEach((target) => target.classList.remove("drop-target")); };
   });
 }
 
@@ -653,7 +655,8 @@ function bindCopyButtons() {
 
 async function runAction(action, threadId, button) {
   const errorBox = document.querySelector("#action-error"); if (errorBox) { errorBox.classList.remove("success"); errorBox.style.display = "none"; }
-  const previous = button?.textContent; if (button) { button.disabled = true; button.textContent = t("startingAction"); }
+  const pendingLabel = action === "archive" ? t("archivingAction") : action === "unarchive" ? t("restoringAction") : action === "resume" ? t("startingAction") : t("openingAction");
+  const previous = button?.textContent; if (button) { button.disabled = true; button.textContent = pendingLabel; }
   try {
     await fetchJson(`/api/${action}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ threadId }) });
     if (action === "archive" || action === "unarchive") window.location.href = "/";
