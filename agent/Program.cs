@@ -1418,9 +1418,6 @@ internal sealed class CodexClient
             throw new InvalidOperationException("Diese Session ist nachweislich geöffnet und kann nicht doppelt gestartet werden.");
 
         var thread = await ReadThreadAsync(threadId, cancellation);
-        var updatedAt = thread["updatedAt"]?.GetValue<long>() ?? 0;
-        if (updatedAt > DateTimeOffset.UtcNow.Subtract(TimeSpan.FromMinutes(3)).ToUnixTimeMilliseconds())
-            throw new InvalidOperationException("Die Session war gerade noch aktiv. Bitte kurz warten und den Status erneut prüfen.");
         var cwd = thread["cwd"]?.GetValue<string>();
         if (string.IsNullOrWhiteSpace(cwd) || !Directory.Exists(cwd))
             throw new DirectoryNotFoundException($"Projektordner nicht gefunden: {cwd}");
