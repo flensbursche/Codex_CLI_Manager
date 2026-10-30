@@ -27,6 +27,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.UseUrls(AppUrl);
 builder.Services.AddSingleton<ProjectStore>();
 builder.Services.AddSingleton<TerminalSettingsStore>();
+builder.Services.AddSingleton<LanguageSettingsStore>();
 builder.Services.AddSingleton<CodexClient>();
 var app = builder.Build();
 var actionToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
@@ -101,6 +102,14 @@ app.MapPost("/api/terminal-settings", (TerminalSettingsRequest request, Terminal
     catch (Exception error) { return Results.Problem(error.Message, statusCode: 400); }
 });
 
+app.MapGet("/api/language", (LanguageSettingsStore settings) => Results.Ok(new { data = settings.GetView() }));
+
+app.MapPost("/api/language", (LanguageRequest request, LanguageSettingsStore settings) =>
+{
+    try { return Results.Ok(new { data = settings.Save(request.Language) }); }
+    catch (Exception error) { return Results.Problem(error.Message, statusCode: 400); }
+});
+
 app.MapGet("/api/sessions", async (bool? archived, CodexClient codex, CancellationToken cancellation) =>
 {
     try { return Results.Ok(new { data = await codex.ListThreadsAsync(archived ?? false, cancellation) }); }
@@ -166,12 +175,13 @@ app.MapFallback(async context =>
 
 if (openBrowserOnStart)
     app.Lifetime.ApplicationStarted.Register(() => Process.Start(new ProcessStartInfo(AppUrl) { UseShellExecute = true }));
-using var trayIcon = new TrayIconHost(AppUrl, app.Lifetime.StopApplication);
+using var trayIcon = new TrayIconHost(AppUrl, app.Lifetime.StopApplication, app.Services.GetRequiredService<LanguageSettingsStore>());
 await app.RunAsync();
 
 internal sealed record ActionRequest(string ThreadId);
 internal sealed record CreateProjectRequest(string Name);
 internal sealed record TerminalSettingsRequest(string Terminal, string Shell);
+internal sealed record LanguageRequest(string Language);
 
 internal sealed class ProjectStore
 {
@@ -273,14 +283,124 @@ internal sealed class ProjectStore
     private sealed record StoredProject(string Id, string Name, long CreatedAt);
 }
 
+internal sealed class LanguageSettingsStore
+{
+    private static readonly JsonSerializerOptions StorageJson = new(JsonSerializerDefaults.Web) { WriteIndented = true };
+    private readonly object _sync = new();
+    private readonly string _path = Path.Combine(UserInstallation.InstallDirectory, "language.json");
+    private string _language;
+
+    public LanguageSettingsStore() => _language = Load();
+
+    public event Action? Changed;
+
+    public string Current
+    {
+        get { lock (_sync) return _language; }
+    }
+
+    public JsonObject GetView() => new()
+    {
+        ["language"] = Current,
+        ["supported"] = new JsonArray("de", "en", "da")
+    };
+
+    public JsonObject Save(string? value)
+    {
+        var language = Normalize(value);
+        lock (_sync)
+        {
+            _language = language;
+            Directory.CreateDirectory(UserInstallation.InstallDirectory);
+            var temporary = _path + ".tmp";
+            File.WriteAllText(temporary, JsonSerializer.Serialize(new StoredLanguage(language), StorageJson), new UTF8Encoding(false));
+            File.Move(temporary, _path, overwrite: true);
+        }
+        Changed?.Invoke();
+        return GetView();
+    }
+
+    public string Text(string key) => TrayTranslations.Get(Current, key);
+    public string Format(string key, params object[] arguments) => string.Format(System.Globalization.CultureInfo.CurrentCulture, Text(key), arguments);
+
+    private string Load()
+    {
+        try
+        {
+            if (File.Exists(_path))
+            {
+                var stored = JsonSerializer.Deserialize<StoredLanguage>(File.ReadAllText(_path), StorageJson);
+                if (stored is not null) return Normalize(stored.Language);
+            }
+        }
+        catch
+        {
+        }
+        var detected = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.ToLowerInvariant();
+        return detected is "de" or "da" ? detected : "en";
+    }
+
+    private static string Normalize(string? value)
+    {
+        var normalized = (value ?? "").Trim().ToLowerInvariant();
+        if (normalized is not ("de" or "en" or "da")) throw new ArgumentException("Unsupported language.");
+        return normalized;
+    }
+
+    private sealed record StoredLanguage(string Language);
+}
+
+internal static class TrayTranslations
+{
+    private static readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> Values =
+        new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["de"] = new Dictionary<string, string>
+            {
+                ["open"] = "Codex Manager öffnen", ["monitor"] = "Monitor", ["updates"] = "Nach Updates suchen",
+                ["about"] = "About", ["exit"] = "Beenden", ["searching"] = "Suche nach Updates …",
+                ["noUpdates"] = "Keine Updates", ["current"] = "Codex CLI Manager {0} ist aktuell.",
+                ["install"] = "Update {0} installieren", ["available"] = "Version {0} ist verfügbar.\n\nJetzt herunterladen, installieren und den Manager neu starten?",
+                ["updateTitle"] = "Codex CLI Manager aktualisieren", ["downloading"] = "Update {0} wird geladen …",
+                ["failed"] = "Update fehlgeschlagen", ["aboutTitle"] = "About Codex CLI Manager",
+                ["aboutBody"] = "Codex CLI Manager\nVersion {0}\n\nLokaler .NET-Manager für Codex CLI Sessions.\n\ngithub.com/flensbursche/Codex_CLI_Manager"
+            },
+            ["en"] = new Dictionary<string, string>
+            {
+                ["open"] = "Open Codex Manager", ["monitor"] = "Monitor", ["updates"] = "Check for updates",
+                ["about"] = "About", ["exit"] = "Exit", ["searching"] = "Checking for updates …",
+                ["noUpdates"] = "No updates", ["current"] = "Codex CLI Manager {0} is up to date.",
+                ["install"] = "Install update {0}", ["available"] = "Version {0} is available.\n\nDownload, install, and restart the manager now?",
+                ["updateTitle"] = "Update Codex CLI Manager", ["downloading"] = "Downloading update {0} …",
+                ["failed"] = "Update failed", ["aboutTitle"] = "About Codex CLI Manager",
+                ["aboutBody"] = "Codex CLI Manager\nVersion {0}\n\nLocal .NET manager for Codex CLI sessions.\n\ngithub.com/flensbursche/Codex_CLI_Manager"
+            },
+            ["da"] = new Dictionary<string, string>
+            {
+                ["open"] = "Åbn Codex Manager", ["monitor"] = "Monitor", ["updates"] = "Søg efter opdateringer",
+                ["about"] = "Om", ["exit"] = "Afslut", ["searching"] = "Søger efter opdateringer …",
+                ["noUpdates"] = "Ingen opdateringer", ["current"] = "Codex CLI Manager {0} er opdateret.",
+                ["install"] = "Installer opdatering {0}", ["available"] = "Version {0} er tilgængelig.\n\nDownload, installer og genstart manageren nu?",
+                ["updateTitle"] = "Opdater Codex CLI Manager", ["downloading"] = "Downloader opdatering {0} …",
+                ["failed"] = "Opdatering mislykkedes", ["aboutTitle"] = "Om Codex CLI Manager",
+                ["aboutBody"] = "Codex CLI Manager\nVersion {0}\n\nLokal .NET-manager til Codex CLI-sessioner.\n\ngithub.com/flensbursche/Codex_CLI_Manager"
+            }
+        };
+
+    public static string Get(string language, string key) =>
+        Values.TryGetValue(language, out var selected) && selected.TryGetValue(key, out var value)
+            ? value
+            : Values["en"].TryGetValue(key, out var fallback) ? fallback : key;
+}
+
 internal sealed class TrayIconHost : IDisposable
 {
     private readonly Thread _thread;
     private readonly ManualResetEventSlim _ready = new();
 
-    public TrayIconHost(string appUrl, Action stopApplication)
+    public TrayIconHost(string appUrl, Action stopApplication, LanguageSettingsStore language)
     {
-        _thread = new Thread(() => Run(appUrl, stopApplication))
+        _thread = new Thread(() => Run(appUrl, stopApplication, language))
         {
             IsBackground = true,
             Name = "Codex CLI Manager Tray"
@@ -290,16 +410,17 @@ internal sealed class TrayIconHost : IDisposable
         _ready.Wait(TimeSpan.FromSeconds(5));
     }
 
-    private void Run(string appUrl, Action stopApplication)
+    private void Run(string appUrl, Action stopApplication, LanguageSettingsStore language)
     {
+        var trayThreadId = Environment.CurrentManagedThreadId;
         System.Windows.Forms.Application.EnableVisualStyles();
         using var menu = new System.Windows.Forms.ContextMenuStrip();
-        var openBrowser = menu.Items.Add("Codex Manager öffnen");
-        var openPowerShell = menu.Items.Add("Monitor");
-        var update = menu.Items.Add("Nach Updates suchen");
+        var openBrowser = menu.Items.Add("");
+        var openPowerShell = menu.Items.Add("");
+        var update = menu.Items.Add("");
         menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
-        var about = menu.Items.Add("About");
-        var exit = menu.Items.Add("Beenden");
+        var about = menu.Items.Add("");
+        var exit = menu.Items.Add("");
         using var trayIcon = AppIcon.Create();
         using var icon = new System.Windows.Forms.NotifyIcon
         {
@@ -312,41 +433,41 @@ internal sealed class TrayIconHost : IDisposable
         openPowerShell.Click += (_, _) => TerminalHost.OpenPowerShell(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
         about.Click += (_, _) => System.Windows.Forms.MessageBox.Show(
-            $"Codex CLI Manager\nVersion {ProductInfo.Version}\n\nLokaler .NET-Manager für Codex CLI Sessions.\n\ngithub.com/flensbursche/Codex_CLI_Manager",
-            "About Codex CLI Manager",
+            language.Format("aboutBody", ProductInfo.Version),
+            language.Text("aboutTitle"),
             System.Windows.Forms.MessageBoxButtons.OK,
             System.Windows.Forms.MessageBoxIcon.Information);
         update.Click += async (_, _) =>
         {
             update.Enabled = false;
-            update.Text = "Suche nach Updates …";
+            update.Text = language.Text("searching");
             try
             {
                 var available = update.Tag as UpdateInfo ?? await UpdateService.CheckForUpdateAsync(CancellationToken.None);
                 if (available is null)
                 {
-                    update.Text = "Nach Updates suchen";
+                    update.Text = language.Text("updates");
                     System.Windows.Forms.MessageBox.Show(
-                        $"Codex CLI Manager {ProductInfo.Version} ist aktuell.",
-                        "Keine Updates",
+                        language.Format("current", ProductInfo.Version),
+                        language.Text("noUpdates"),
                         System.Windows.Forms.MessageBoxButtons.OK,
                         System.Windows.Forms.MessageBoxIcon.Information);
                     return;
                 }
 
                 var answer = System.Windows.Forms.MessageBox.Show(
-                    $"Version {available.Version} ist verfügbar.\n\nJetzt herunterladen, installieren und den Manager neu starten?",
-                    "Codex CLI Manager aktualisieren",
+                    language.Format("available", available.Version),
+                    language.Text("updateTitle"),
                     System.Windows.Forms.MessageBoxButtons.YesNo,
                     System.Windows.Forms.MessageBoxIcon.Information);
                 if (answer != System.Windows.Forms.DialogResult.Yes)
                 {
-                    update.Text = $"Update {available.Version} installieren";
+                    update.Text = language.Format("install", available.Version);
                     update.Tag = available;
                     return;
                 }
 
-                update.Text = $"Update {available.Version} wird geladen …";
+                update.Text = language.Format("downloading", available.Version);
                 await UpdateService.DownloadAndLaunchAsync(available, CancellationToken.None);
                 icon.Visible = false;
                 stopApplication();
@@ -354,11 +475,11 @@ internal sealed class TrayIconHost : IDisposable
             }
             catch (Exception error)
             {
-                update.Text = "Nach Updates suchen";
+                update.Text = language.Text("updates");
                 update.Tag = null;
                 System.Windows.Forms.MessageBox.Show(
                     error.Message,
-                    "Update fehlgeschlagen",
+                    language.Text("failed"),
                     System.Windows.Forms.MessageBoxButtons.OK,
                     System.Windows.Forms.MessageBoxIcon.Error);
             }
@@ -383,15 +504,32 @@ internal sealed class TrayIconHost : IDisposable
                 var available = await UpdateService.CheckForUpdateAsync(CancellationToken.None);
                 if (available is null) return;
                 update.Tag = available;
-                update.Text = $"Update {available.Version} installieren";
+                update.Text = language.Format("install", available.Version);
             }
             catch
             {
             }
         };
+        void ApplyLanguage()
+        {
+            if (Environment.CurrentManagedThreadId != trayThreadId)
+            {
+                if (!menu.IsHandleCreated) return;
+                try { menu.BeginInvoke((Action)ApplyLanguage); } catch { }
+                return;
+            }
+            openBrowser.Text = language.Text("open");
+            openPowerShell.Text = language.Text("monitor");
+            update.Text = update.Tag is UpdateInfo available ? language.Format("install", available.Version) : language.Text("updates");
+            about.Text = language.Text("about");
+            exit.Text = language.Text("exit");
+        }
+        language.Changed += ApplyLanguage;
+        ApplyLanguage();
         updateTimer.Start();
         _ready.Set();
         System.Windows.Forms.Application.Run();
+        language.Changed -= ApplyLanguage;
         icon.Visible = false;
     }
 
@@ -564,9 +702,10 @@ internal static class UpdateService
         }
         catch (Exception error)
         {
+            var language = new LanguageSettingsStore();
             System.Windows.Forms.MessageBox.Show(
                 error.Message,
-                "Update fehlgeschlagen",
+                language.Text("failed"),
                 System.Windows.Forms.MessageBoxButtons.OK,
                 System.Windows.Forms.MessageBoxIcon.Error);
         }

@@ -173,6 +173,40 @@ summary {
   gap: 7px;
 }
 
+.language-control {
+  flex: 0 0 auto;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 5px 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  background: var(--panel);
+}
+
+.language-control:hover {
+  background: var(--soft);
+}
+
+.language-control svg {
+  width: 16px;
+  height: 16px;
+}
+
+.language-control select {
+  width: 42px;
+  height: 34px;
+  padding: 0 2px;
+  border: 0;
+  outline: 0;
+  color: var(--text);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .terminal-settings-toggle svg {
   width: 16px;
   height: 16px;

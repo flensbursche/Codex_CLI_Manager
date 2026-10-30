@@ -19,6 +19,7 @@ Ein lokales Windows-Cockpit zum Finden, Sortieren, Öffnen und Verwalten gespeic
 - startet ohne Administratorrechte automatisch mit Windows
 - erkennt neue GitHub Releases und installiert sie über das Tray-Menü
 - aktualisiert die Sessionliste ohne Seitenreload über Server-Sent Events
+- bietet eine gemeinsame, lokal gespeicherte Sprachauswahl für Deutsch, Englisch und Dänisch
 
 ## Installation unter Windows
 

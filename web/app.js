@@ -2,12 +2,47 @@ const app = document.querySelector("#app");
 const state = { sessions: [], projects: [], project: null, view: "all" };
 let actionToken = "";
 let companionInfo = { supportsAutostart: false, autostartEnabled: false };
+let language = "de";
 let sessionEvents;
+const languageLocales = { de: "de-DE", en: "en-GB", da: "da-DK" };
+const messages = {
+  de: {
+    live: "Live", autostart: "Autostart", on: "An", off: "Aus", terminalSettings: "Terminal Settings", darkMode: "Dark Mode", lightMode: "Light Mode", language: "Sprache",
+    localSetting: "Lokale Einstellung", terminal: "Terminal", close: "Schließen", terminalWindow: "Terminal-Fenster", automatic: "Automatisch", powershellConsole: "PowerShell-Konsole", powershellVersion: "PowerShell-Version", activeWith: "Aktiv: {0} mit {1}", found: "Gefunden", notFound: "Nicht gefunden", version: "Version {0}", cancel: "Abbrechen", save: "Speichern",
+    sessions: "Sessions", favorites: "Favoriten", archive: "Archiv", projects: "Projekte", newProject: "Neues Projekt", projectName: "Projektname", clearProjectName: "Projektname leeren", createProject: "Projekt anlegen",
+    sessionSearch: "Session suchen", clearSearch: "Suche leeren", filter: "Filter", allSources: "Alle Quellen", internalOff: "Interne aus", internalOn: "Interne an", anyPeriod: "Jeder Zeitraum", periodHours: "{0} Stunden", periodDays: "{0} Tage", allSessions: "Alle Sessions", active: "Aktiv", activity: "Aktivität", created: "Erstellt", project: "Projekt", title: "Titel", location: "Speicherort", loading: "Lädt …",
+    emptyResponse: "Leere Antwort vom lokalen Companion ({0}). Bitte die Seite neu laden.", invalidResponse: "Ungültige Antwort vom lokalen Companion ({0}). Bitte die Seite neu laden.", requestFailed: "Anfrage fehlgeschlagen.", sessionsLoadFailed: "Sessions konnten nicht geladen werden", retry: "Erneut versuchen",
+    justNow: "gerade eben", minutesAgo: "vor {0} Min.", hoursAgo: "vor {0} Std.", yesterday: "gestern", yesterdayGroup: "Gestern", daysAgo: "vor {0} Tagen", justEnded: "Gerade beendet", today: "Heute", thisWeek: "Diese Woche", lastWeek: "Letzte Woche", thisMonth: "Dieser Monat", older: "Älter",
+    sessionCountOne: "{0} Session", sessionCountMany: "{0} Sessions", noSessions: "Keine Sessions für diese Filter gefunden.", noProject: "Ohne Projekt", details: "Details", openDesktop: "In Codex Desktop öffnen", alreadyOpen: "Session ist bereits geöffnet", resume: "Session fortsetzen", removeFavorite: "Aus Favoriten entfernen", addFavorite: "Zu Favoriten hinzufügen", running: "Läuft",
+    backSessions: "← Sessions", sessionLoading: "Session wird geladen …", unnamedSession: "Unbenannte Session", status: "Status", ready: "Bereit", source: "Quelle", model: "Modell", branch: "Branch", archived: "Archiviert", yes: "Ja", no: "Nein", opened: "Geöffnet", continue: "Fortsetzen", archiveAction: "Archivieren", openInDesktop: "In Desktop öffnen", storageLocations: "Speicherorte", sessionFile: "Session-Datei", projectFolder: "Projektordner", overview: "Übersicht", technicalMetadata: "Technische Metadaten", connecting: "Verbindung zum lokalen Companion wird hergestellt …"
+  },
+  en: {
+    live: "Live", autostart: "Autostart", on: "On", off: "Off", terminalSettings: "Terminal Settings", darkMode: "Dark Mode", lightMode: "Light Mode", language: "Language",
+    localSetting: "Local setting", terminal: "Terminal", close: "Close", terminalWindow: "Terminal window", automatic: "Automatic", powershellConsole: "PowerShell console", powershellVersion: "PowerShell version", activeWith: "Active: {0} with {1}", found: "Found", notFound: "Not found", version: "Version {0}", cancel: "Cancel", save: "Save",
+    sessions: "Sessions", favorites: "Favorites", archive: "Archive", projects: "Projects", newProject: "New project", projectName: "Project name", clearProjectName: "Clear project name", createProject: "Create project",
+    sessionSearch: "Search sessions", clearSearch: "Clear search", filter: "Filter", allSources: "All sources", internalOff: "Internal off", internalOn: "Internal on", anyPeriod: "Any time", periodHours: "{0} hours", periodDays: "{0} days", allSessions: "All sessions", active: "Active", activity: "Activity", created: "Created", project: "Project", title: "Title", location: "Location", loading: "Loading …",
+    emptyResponse: "Empty response from the local companion ({0}). Please reload the page.", invalidResponse: "Invalid response from the local companion ({0}). Please reload the page.", requestFailed: "Request failed.", sessionsLoadFailed: "Sessions could not be loaded", retry: "Try again",
+    justNow: "just now", minutesAgo: "{0} min. ago", hoursAgo: "{0} hr. ago", yesterday: "yesterday", yesterdayGroup: "Yesterday", daysAgo: "{0} days ago", justEnded: "Just ended", today: "Today", thisWeek: "This week", lastWeek: "Last week", thisMonth: "This month", older: "Older",
+    sessionCountOne: "{0} session", sessionCountMany: "{0} sessions", noSessions: "No sessions match these filters.", noProject: "No project", details: "Details", openDesktop: "Open in Codex Desktop", alreadyOpen: "Session is already open", resume: "Resume session", removeFavorite: "Remove from favorites", addFavorite: "Add to favorites", running: "Running",
+    backSessions: "← Sessions", sessionLoading: "Loading session …", unnamedSession: "Unnamed session", status: "Status", ready: "Ready", source: "Source", model: "Model", branch: "Branch", archived: "Archived", yes: "Yes", no: "No", opened: "Open", continue: "Resume", archiveAction: "Archive", openInDesktop: "Open in Desktop", storageLocations: "Locations", sessionFile: "Session file", projectFolder: "Project folder", overview: "Overview", technicalMetadata: "Technical metadata", connecting: "Connecting to the local companion …"
+  },
+  da: {
+    live: "Live", autostart: "Autostart", on: "Til", off: "Fra", terminalSettings: "Terminalindstillinger", darkMode: "Mørk tilstand", lightMode: "Lys tilstand", language: "Sprog",
+    localSetting: "Lokal indstilling", terminal: "Terminal", close: "Luk", terminalWindow: "Terminalvindue", automatic: "Automatisk", powershellConsole: "PowerShell-konsol", powershellVersion: "PowerShell-version", activeWith: "Aktiv: {0} med {1}", found: "Fundet", notFound: "Ikke fundet", version: "Version {0}", cancel: "Annuller", save: "Gem",
+    sessions: "Sessioner", favorites: "Favoritter", archive: "Arkiv", projects: "Projekter", newProject: "Nyt projekt", projectName: "Projektnavn", clearProjectName: "Ryd projektnavn", createProject: "Opret projekt",
+    sessionSearch: "Søg sessioner", clearSearch: "Ryd søgning", filter: "Filter", allSources: "Alle kilder", internalOff: "Interne fra", internalOn: "Interne til", anyPeriod: "Alle perioder", periodHours: "{0} timer", periodDays: "{0} dage", allSessions: "Alle sessioner", active: "Aktiv", activity: "Aktivitet", created: "Oprettet", project: "Projekt", title: "Titel", location: "Placering", loading: "Indlæser …",
+    emptyResponse: "Tomt svar fra den lokale companion ({0}). Genindlæs siden.", invalidResponse: "Ugyldigt svar fra den lokale companion ({0}). Genindlæs siden.", requestFailed: "Forespørgslen mislykkedes.", sessionsLoadFailed: "Sessionerne kunne ikke indlæses", retry: "Prøv igen",
+    justNow: "lige nu", minutesAgo: "for {0} min. siden", hoursAgo: "for {0} timer siden", yesterday: "i går", yesterdayGroup: "I går", daysAgo: "for {0} dage siden", justEnded: "Lige afsluttet", today: "I dag", thisWeek: "Denne uge", lastWeek: "Sidste uge", thisMonth: "Denne måned", older: "Ældre",
+    sessionCountOne: "{0} session", sessionCountMany: "{0} sessioner", noSessions: "Ingen sessioner matcher disse filtre.", noProject: "Intet projekt", details: "Detaljer", openDesktop: "Åbn i Codex Desktop", alreadyOpen: "Sessionen er allerede åben", resume: "Fortsæt session", removeFavorite: "Fjern fra favoritter", addFavorite: "Føj til favoritter", running: "Kører",
+    backSessions: "← Sessioner", sessionLoading: "Indlæser session …", unnamedSession: "Unavngiven session", status: "Status", ready: "Klar", source: "Kilde", model: "Model", branch: "Branch", archived: "Arkiveret", yes: "Ja", no: "Nej", opened: "Åben", continue: "Fortsæt", archiveAction: "Arkivér", openInDesktop: "Åbn i Desktop", storageLocations: "Placeringer", sessionFile: "Sessionsfil", projectFolder: "Projektmappe", overview: "Oversigt", technicalMetadata: "Tekniske metadata", connecting: "Opretter forbindelse til den lokale companion …"
+  }
+};
+const t = (key, ...values) => { const template = messages[language]?.[key] ?? messages.en[key] ?? key; return values.reduce((text, value, index) => text.replaceAll(`{${index}}`, value), template); };
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
-const relative = (timestamp) => { const ms = Date.now() - timestamp; if (ms < 60000) return "gerade eben"; const minutes = Math.round(ms / 60000); if (minutes < 60) return `vor ${minutes} Min.`; const hours = Math.round(minutes / 60); if (hours < 24) return `vor ${hours} Std.`; const days = Math.round(hours / 24); if (days === 1) return "gestern"; if (days < 14) return `vor ${days} Tagen`; return new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeStyle: "short" }).format(timestamp); };
-const sessionTime = (session) => { const age = Date.now() - Number(session.updatedAt || 0); return !session.active && age >= 0 && age <= 3 * 60000 ? "Gerade beendet" : relative(session.updatedAt); };
-const directoryLabel = (value) => { const path = String(value || "Ohne Projekt"); return value && !/[\\/]$/.test(path) ? `${path}\\` : path; };
-const formatValue = (value) => { if (value === null || value === undefined || value === "") return "–"; if (typeof value === "boolean") return value ? "Ja" : "Nein"; if (typeof value === "object") return JSON.stringify(value, null, 2); return String(value); };
+const relative = (timestamp) => { const ms = Date.now() - timestamp; if (ms < 60000) return t("justNow"); const minutes = Math.round(ms / 60000); if (minutes < 60) return t("minutesAgo", minutes); const hours = Math.round(minutes / 60); if (hours < 24) return t("hoursAgo", hours); const days = Math.round(hours / 24); if (days === 1) return t("yesterday"); if (days < 14) return t("daysAgo", days); return new Intl.DateTimeFormat(languageLocales[language], { dateStyle: "medium", timeStyle: "short" }).format(timestamp); };
+const sessionTime = (session) => { const age = Date.now() - Number(session.updatedAt || 0); return !session.active && age >= 0 && age <= 3 * 60000 ? t("justEnded") : relative(session.updatedAt); };
+const directoryLabel = (value) => { const path = String(value || t("noProject")); return value && !/[\\/]$/.test(path) ? `${path}\\` : path; };
+const formatValue = (value) => { if (value === null || value === undefined || value === "") return "–"; if (typeof value === "boolean") return value ? t("yes") : t("no"); if (typeof value === "object") return JSON.stringify(value, null, 2); return String(value); };
 const tablerIcon = (paths) => `<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 const icons = {
   sessions: tablerIcon('<path d="M9 6h11M9 12h11M9 18h11"/><path d="M5 6v.01M5 12v.01M5 18v.01"/>'),
@@ -20,6 +55,7 @@ const icons = {
   settings: tablerIcon('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.55V21h-4v-.08A1.7 1.7 0 0 0 8.97 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.52-1.03H3v-4h.08A1.7 1.7 0 0 0 4.6 8.94a1.7 1.7 0 0 0-.34-1.88L4.2 7l2.83-2.83.06.06a1.7 1.7 0 0 0 1.88.34A1.7 1.7 0 0 0 10 3.05V3h4v.05a1.7 1.7 0 0 0 1.03 1.52 1.7 1.7 0 0 0 1.88-.34l.06-.06L19.8 7l-.06.06a1.7 1.7 0 0 0-.34 1.88A1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15z"/>'),
   moon: tablerIcon('<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'),
   sun: tablerIcon('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"/>'),
+  globe: tablerIcon('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/>'),
   filter: tablerIcon('<path d="M4 6h16M7 12h10M10 18h4"/>'),
   plus: tablerIcon('<path d="M12 5v14M5 12h14"/>'),
   close: tablerIcon('<path d="M6 6l12 12M18 6L6 18"/>')
@@ -28,16 +64,28 @@ const theme = localStorage.getItem("codex-manager-theme") || "light";
 document.documentElement.dataset.theme = theme;
 
 function header() {
-  const autostart = companionInfo.supportsAutostart ? `<button class="quiet-button" id="autostart-toggle">Autostart: ${companionInfo.autostartEnabled ? "An" : "Aus"}</button>` : "";
+  const autostart = companionInfo.supportsAutostart ? `<button class="quiet-button" id="autostart-toggle">${t("autostart")}: ${companionInfo.autostartEnabled ? t("on") : t("off")}</button>` : "";
   const darkMode = document.documentElement.dataset.theme === "light";
-  return `<header class="top"><a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=3" alt=""></span><strong>Codex CLI Manager</strong></a><span class="live"><i class="dot"></i>Live</span><span class="spacer"></span>${autostart}<button class="quiet-button terminal-settings-toggle" id="terminal-settings-toggle">${icons.settings}<span>Terminal Settings</span></button><button class="quiet-button icon-button" id="theme-toggle" aria-label="${darkMode ? "Dark Mode" : "Light Mode"}" title="${darkMode ? "Dark Mode" : "Light Mode"}">${darkMode ? icons.moon : icons.sun}</button></header>`;
+  const themeLabel = darkMode ? t("darkMode") : t("lightMode");
+  return `<header class="top"><a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=3" alt=""></span><strong>Codex CLI Manager</strong></a><span class="live"><i class="dot"></i>${t("live")}</span><span class="spacer"></span>${autostart}<label class="language-control" title="${t("language")}">${icons.globe}<select id="language-select" aria-label="${t("language")}"><option value="de" ${language === "de" ? "selected" : ""}>DE</option><option value="en" ${language === "en" ? "selected" : ""}>EN</option><option value="da" ${language === "da" ? "selected" : ""}>DK</option></select></label><button class="quiet-button terminal-settings-toggle" id="terminal-settings-toggle">${icons.settings}<span>${t("terminalSettings")}</span></button><button class="quiet-button icon-button" id="theme-toggle" aria-label="${themeLabel}" title="${themeLabel}">${darkMode ? icons.moon : icons.sun}</button></header>`;
 }
 
 function bindTheme() {
-  document.querySelector("#theme-toggle").onclick = () => { const next = document.documentElement.dataset.theme === "light" ? "dark" : "light"; const button = document.querySelector("#theme-toggle"); const label = next === "light" ? "Dark Mode" : "Light Mode"; document.documentElement.dataset.theme = next; localStorage.setItem("codex-manager-theme", next); button.innerHTML = next === "light" ? icons.moon : icons.sun; button.setAttribute("aria-label", label); button.title = label; };
+  document.querySelector("#theme-toggle").onclick = () => { const next = document.documentElement.dataset.theme === "light" ? "dark" : "light"; const button = document.querySelector("#theme-toggle"); const label = next === "light" ? t("darkMode") : t("lightMode"); document.documentElement.dataset.theme = next; localStorage.setItem("codex-manager-theme", next); button.innerHTML = next === "light" ? icons.moon : icons.sun; button.setAttribute("aria-label", label); button.title = label; };
   const autostart = document.querySelector("#autostart-toggle");
-  if (autostart) autostart.onclick = async () => { autostart.disabled = true; try { const result = await fetchJson(`/api/autostart/${!companionInfo.autostartEnabled}`, { method: "POST" }); companionInfo.autostartEnabled = result.enabled; autostart.textContent = `Autostart: ${result.enabled ? "An" : "Aus"}`; } finally { autostart.disabled = false; } };
+  if (autostart) autostart.onclick = async () => { autostart.disabled = true; try { const result = await fetchJson(`/api/autostart/${!companionInfo.autostartEnabled}`, { method: "POST" }); companionInfo.autostartEnabled = result.enabled; autostart.textContent = `${t("autostart")}: ${result.enabled ? t("on") : t("off")}`; } finally { autostart.disabled = false; } };
+  document.querySelector("#language-select").onchange = changeLanguage;
   document.querySelector("#terminal-settings-toggle").onclick = openTerminalSettings;
+}
+
+async function changeLanguage(event) {
+  const select = event.currentTarget; select.disabled = true;
+  try {
+    const result = await fetchJson("/api/language", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ language: select.value }) });
+    language = result.language; document.documentElement.lang = language;
+    const match = window.location.pathname.match(/^\/session\/([A-Za-z0-9_-]+)$/);
+    if (match) void sessionPage(match[1]); else listPage();
+  } catch (error) { select.disabled = false; window.alert(error.message); }
 }
 
 async function openTerminalSettings() {
@@ -51,13 +99,13 @@ async function openTerminalSettings() {
   dialog.className = "terminal-dialog";
   dialog.id = "terminal-settings-dialog";
   dialog.innerHTML = `<form class="terminal-settings-form">
-    <header><div><span class="eyebrow">Lokale Einstellung</span><h2>Terminal</h2></div><button class="dialog-close" type="button" aria-label="Schließen">${icons.close}</button></header>
-    <label><span>Terminal-Fenster</span><select id="terminal-choice"><option value="auto">Automatisch</option><option value="windows-terminal" ${detected.windowsTerminal.available ? "" : "disabled"}>Windows Terminal</option><option value="console">PowerShell-Konsole</option></select></label>
-    <label><span>PowerShell-Version</span><select id="shell-choice"><option value="auto">Automatisch</option><option value="powershell7" ${detected.powershell7.available ? "" : "disabled"}>PowerShell 7</option><option value="windows-powershell" ${detected.windowsPowerShell.available ? "" : "disabled"}>Windows PowerShell 5.1</option></select></label>
-    <div class="terminal-resolution">Aktiv: <strong>${esc(settings.resolvedTerminal)}</strong> mit <strong>${esc(settings.resolvedShell)}</strong></div>
+    <header><div><span class="eyebrow">${t("localSetting")}</span><h2>${t("terminal")}</h2></div><button class="dialog-close" type="button" aria-label="${t("close")}">${icons.close}</button></header>
+    <label><span>${t("terminalWindow")}</span><select id="terminal-choice"><option value="auto">${t("automatic")}</option><option value="windows-terminal" ${detected.windowsTerminal.available ? "" : "disabled"}>Windows Terminal</option><option value="console">${t("powershellConsole")}</option></select></label>
+    <label><span>${t("powershellVersion")}</span><select id="shell-choice"><option value="auto">${t("automatic")}</option><option value="powershell7" ${detected.powershell7.available ? "" : "disabled"}>PowerShell 7</option><option value="windows-powershell" ${detected.windowsPowerShell.available ? "" : "disabled"}>Windows PowerShell 5.1</option></select></label>
+    <div class="terminal-resolution">${t("activeWith", `<strong>${esc(settings.resolvedTerminal)}</strong>`, `<strong>${esc(settings.resolvedShell)}</strong>`)}</div>
     <div class="terminal-detected">${[detected.windowsTerminal, detected.powershell7, detected.windowsPowerShell].map(terminalDetectionRow).join("")}</div>
     <div class="terminal-settings-error" id="terminal-settings-error"></div>
-    <footer><button class="secondary" type="button" data-close>Abbrechen</button><button class="primary" type="submit">Speichern</button></footer>
+    <footer><button class="secondary" type="button" data-close>${t("cancel")}</button><button class="primary" type="submit">${t("save")}</button></footer>
   </form>`;
   document.body.append(dialog);
   const terminalChoice = dialog.querySelector("#terminal-choice"); const shellChoice = dialog.querySelector("#shell-choice");
@@ -77,7 +125,7 @@ async function openTerminalSettings() {
 }
 
 function terminalDetectionRow(item) {
-  const stateLabel = item.available ? item.version ? `Version ${item.version}` : "Gefunden" : "Nicht gefunden";
+  const stateLabel = item.available ? item.version ? t("version", item.version) : t("found") : t("notFound");
   return `<div class="terminal-detection ${item.available ? "available" : "missing"}"><i></i><div><strong>${esc(item.name)}</strong><span>${esc(stateLabel)}</span>${item.path ? `<code title="${esc(item.path)}">${esc(item.path)}</code>` : ""}</div></div>`;
 }
 
@@ -87,11 +135,11 @@ async function fetchJson(url, options) {
   if ((request.method || "GET").toUpperCase() === "POST") request.headers["X-Codex-Manager-Token"] = actionToken;
   const response = await fetch(url, request);
   const body = await response.text();
-  if (!body) throw new Error(`Leere Antwort vom lokalen Companion (${response.status}). Bitte die Seite neu laden.`);
+  if (!body) throw new Error(t("emptyResponse", response.status));
   let result;
   try { result = JSON.parse(body); }
-  catch { throw new Error(`Ungültige Antwort vom lokalen Companion (${response.status}). Bitte die Seite neu laden.`); }
-  if (!response.ok) throw new Error(result.error || result.detail || result.title || "Anfrage fehlgeschlagen.");
+  catch { throw new Error(t("invalidResponse", response.status)); }
+  if (!response.ok) throw new Error(result.error || result.detail || result.title || t("requestFailed"));
   return result.data;
 }
 
@@ -102,37 +150,37 @@ function listPage() {
       <main class="list-layout">
         <aside class="sidebar">
           <nav class="sidebar-primary" id="sidebar-primary">
-            <button class="active" data-view="all"><span class="nav-icon">${icons.sessions}</span><span>Sessions</span></button>
-            <button data-view="favorites"><span class="nav-icon">${icons.favorite}</span><span>Favoriten</span></button>
-            <button data-view="archived"><span class="nav-icon">${icons.archive}</span><span>Archiv</span></button>
+            <button class="active" data-view="all"><span class="nav-icon">${icons.sessions}</span><span>${t("sessions")}</span></button>
+            <button data-view="favorites"><span class="nav-icon">${icons.favorite}</span><span>${t("favorites")}</span></button>
+            <button data-view="archived"><span class="nav-icon">${icons.archive}</span><span>${t("archive")}</span></button>
           </nav>
           <div class="rail-divider"></div>
-          <div class="side-title">Projekte</div>
+          <div class="side-title">${t("projects")}</div>
           <div class="project-create">
-            <button class="project-create-toggle" id="project-create-toggle" type="button"><span>${icons.plus}</span>Neues Projekt</button>
+            <button class="project-create-toggle" id="project-create-toggle" type="button"><span>${icons.plus}</span>${t("newProject")}</button>
             <form class="project-create-form" id="project-create-form" hidden>
-              <label class="project-name-field"><input id="project-name" maxlength="64" placeholder="Projektname" autocomplete="off"><button class="input-clear project-name-clear" id="project-name-clear" type="button" aria-label="Projektname leeren" title="Projektname leeren" hidden>${icons.close}</button></label>
-              <button type="submit" aria-label="Projekt anlegen">${icons.plus}</button>
+              <label class="project-name-field"><input id="project-name" maxlength="64" placeholder="${t("projectName")}" autocomplete="off"><button class="input-clear project-name-clear" id="project-name-clear" type="button" aria-label="${t("clearProjectName")}" title="${t("clearProjectName")}" hidden>${icons.close}</button></label>
+              <button type="submit" aria-label="${t("createProject")}">${icons.plus}</button>
             </form>
           </div>
           <nav class="projects" id="projects"></nav>
         </aside>
         <section class="main">
           <div class="searchbar">
-            <label class="search">⌕<input id="search" placeholder="Session suchen" autofocus><button class="input-clear" id="search-clear" type="button" aria-label="Suche leeren" title="Suche leeren" hidden>${icons.close}</button></label>
+            <label class="search">⌕<input id="search" placeholder="${t("sessionSearch")}" autofocus><button class="input-clear" id="search-clear" type="button" aria-label="${t("clearSearch")}" title="${t("clearSearch")}" hidden>${icons.close}</button></label>
             <details class="filter-disclosure">
-              <summary><span class="filter-icon">${icons.filter}</span>Filter</summary>
+              <summary><span class="filter-icon">${icons.filter}</span>${t("filter")}</summary>
               <div class="filters">
-                <select id="source"><option value="all">Alle Quellen</option></select>
-                <select id="internal"><option value="hide">Interne aus</option><option value="show">Interne an</option></select>
-                <select id="period"><option value="0">Jeder Zeitraum</option><option value="1">24 Stunden</option><option value="7">7 Tage</option><option value="30">30 Tage</option><option value="90">90 Tage</option></select>
-                <select id="pinned"><option value="all">Alle Sessions</option><option value="yes">Favoriten</option></select>
-                <select id="archive"><option value="active">Aktiv</option><option value="archived">Archiv</option></select>
-                <select id="sort"><option value="updated">Aktivität</option><option value="created">Erstellt</option><option value="project">Projekt</option><option value="title">Titel</option><option value="path">Speicherort</option></select>
+                <select id="source"><option value="all">${t("allSources")}</option></select>
+                <select id="internal"><option value="hide">${t("internalOff")}</option><option value="show">${t("internalOn")}</option></select>
+                <select id="period"><option value="0">${t("anyPeriod")}</option><option value="1">${t("periodHours", 24)}</option><option value="7">${t("periodDays", 7)}</option><option value="30">${t("periodDays", 30)}</option><option value="90">${t("periodDays", 90)}</option></select>
+                <select id="pinned"><option value="all">${t("allSessions")}</option><option value="yes">${t("favorites")}</option></select>
+                <select id="archive"><option value="active">${t("active")}</option><option value="archived">${t("archive")}</option></select>
+                <select id="sort"><option value="updated">${t("activity")}</option><option value="created">${t("created")}</option><option value="project">${t("project")}</option><option value="title">${t("title")}</option><option value="path">${t("location")}</option></select>
               </div>
             </details>
           </div>
-          <div class="count" id="count">Lädt …</div>
+          <div class="count" id="count">${t("loading")}</div>
           <div class="sessions" id="sessions"></div>
         </section>
       </main>
@@ -170,8 +218,8 @@ async function loadSessions({ preserveProject = false, silent = false } = {}) {
     renderSidebarNav(); renderSources(); renderProjects(); renderSessions();
   } catch (error) {
     if (silent) return;
-    document.querySelector("#count").textContent = "Sessions konnten nicht geladen werden";
-    document.querySelector("#sessions").innerHTML = `<div class="empty">${esc(error.message)}<br><button class="retry-load" id="retry-load">Erneut versuchen</button></div>`;
+    document.querySelector("#count").textContent = t("sessionsLoadFailed");
+    document.querySelector("#sessions").innerHTML = `<div class="empty">${esc(error.message)}<br><button class="retry-load" id="retry-load">${t("retry")}</button></div>`;
     document.querySelector("#retry-load").onclick = () => loadSessions();
   }
 }
@@ -189,7 +237,7 @@ function connectSessionEvents() {
 function renderSources() {
   const select = document.querySelector("#source"); const selected = select.value;
   const sources = [...new Set(sessionsWithoutInternalFilter().map((session) => session.source).filter(Boolean))].sort();
-  select.innerHTML = `<option value="all">Alle Quellen</option>${sources.map((source) => `<option value="${esc(source)}">${esc(source)}</option>`).join("")}`;
+  select.innerHTML = `<option value="all">${t("allSources")}</option>${sources.map((source) => `<option value="${esc(source)}">${esc(source)}</option>`).join("")}`;
   select.value = sources.includes(selected) ? selected : "all";
 }
 
@@ -250,13 +298,13 @@ function selectView(view) {
 function activityGroup(timestamp) {
   const value = Number(timestamp) || 0; const now = new Date(); const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const day = 86400000; const weekStart = today - ((now.getDay() + 6) % 7) * day; const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-  if (value >= Date.now() - 3600000) return "Gerade eben";
-  if (value >= today) return "Heute";
-  if (value >= today - day) return "Gestern";
-  if (value >= weekStart) return "Diese Woche";
-  if (value >= weekStart - 7 * day) return "Letzte Woche";
-  if (value >= monthStart) return "Dieser Monat";
-  return "Älter";
+  if (value >= Date.now() - 3600000) return "justNow";
+  if (value >= today) return "today";
+  if (value >= today - day) return "yesterdayGroup";
+  if (value >= weekStart) return "thisWeek";
+  if (value >= weekStart - 7 * day) return "lastWeek";
+  if (value >= monthStart) return "thisMonth";
+  return "older";
 }
 
 function isInternalSession(session) {
@@ -285,26 +333,26 @@ function sessionBundles(sessions) {
 function renderSessions() {
   const sessions = filteredSessions(); const sort = document.querySelector("#sort").value; const bundles = sessionBundles(sessions);
   if (sort === "updated") bundles.sort((a, b) => b.updatedAt - a.updatedAt);
-  document.querySelector("#count").textContent = `${bundles.length} Session${bundles.length === 1 ? "" : "s"}`;
-  const groups = ["Gerade eben", "Heute", "Gestern", "Diese Woche", "Letzte Woche", "Dieser Monat", "Älter"];
-  document.querySelector("#sessions").innerHTML = !bundles.length ? '<div class="empty">Keine Sessions für diese Filter gefunden.</div>' : sort === "updated" ? groups.map((group) => { const items = bundles.filter((bundle) => activityGroup(bundle.updatedAt) === group); return items.length ? `<section class="session-group"><h2>${group}</h2>${items.map((bundle) => sessionRow(bundle.master, bundle.shadows)).join("")}</section>` : ""; }).join("") : bundles.map((bundle) => sessionRow(bundle.master, bundle.shadows)).join("");
+  document.querySelector("#count").textContent = t(bundles.length === 1 ? "sessionCountOne" : "sessionCountMany", bundles.length);
+  const groups = ["justNow", "today", "yesterdayGroup", "thisWeek", "lastWeek", "thisMonth", "older"];
+  document.querySelector("#sessions").innerHTML = !bundles.length ? `<div class="empty">${t("noSessions")}</div>` : sort === "updated" ? groups.map((group) => { const items = bundles.filter((bundle) => activityGroup(bundle.updatedAt) === group); return items.length ? `<section class="session-group"><h2>${t(group)}</h2>${items.map((bundle) => sessionRow(bundle.master, bundle.shadows)).join("")}</section>` : ""; }).join("") : bundles.map((bundle) => sessionRow(bundle.master, bundle.shadows)).join("");
   document.querySelectorAll(".session-favorite").forEach((button) => button.onclick = () => toggleFavorite(button.dataset.id, button));
   document.querySelectorAll(".session-launch").forEach((button) => button.onclick = () => openFromList(button.dataset.id, button.dataset.action, button));
   bindSessionDragging();
 }
 
 function sessionRow(session, shadows = []) {
-  const action = session.desktop ? "open-desktop" : "resume"; const disabled = session.active && !session.desktop; const label = session.desktop ? "In Codex Desktop öffnen" : disabled ? "Session ist bereits geöffnet" : "Session fortsetzen";
+  const action = session.desktop ? "open-desktop" : "resume"; const disabled = session.active && !session.desktop; const label = session.desktop ? t("openDesktop") : disabled ? t("alreadyOpen") : t("resume");
   const source = session.desktop ? "ChatGPT Desktop" : "CLI";
   const sourceIcon = session.desktop ? icons.desktop : icons.terminal;
   const shadowList = shadows.length ? `<div class="shadow-sessions">${shadows.map(shadowSessionRow).join("")}</div>` : "";
-  const favoriteLabel = session.pinned ? "Aus Favoriten entfernen" : "Zu Favoriten hinzufügen";
-  return `<article class="session-row ${session.active ? "active-session" : ""}" data-id="${session.id}" draggable="true"><div class="session-copy"><div class="session-context"><code title="${esc(session.cwd)}">${esc(directoryLabel(session.cwd))}</code><div class="session-meta"><time>${sessionTime(session)}</time><button class="session-favorite ${session.pinned ? "active" : ""}" data-id="${session.id}" aria-label="${favoriteLabel}" aria-pressed="${session.pinned ? "true" : "false"}" title="${favoriteLabel}">${icons.favorite}</button></div></div><div class="session-body"><div class="session-summary"><strong class="session-title" title="${esc(session.title)}">${esc(session.title)}</strong>${session.preview ? `<span class="session-prompt">${esc(session.preview)}</span>` : ""}</div><div class="session-actions"><a class="session-details" href="/session/${encodeURIComponent(session.id)}">Details</a><button class="session-launch ${session.desktop ? "desktop" : ""}" data-id="${session.id}" data-action="${action}" ${disabled ? "disabled" : ""} aria-label="${label}" title="${source}: ${label}"><span class="launch-source">${sourceIcon}</span><span class="launch-divider"></span><span class="launch-play">${icons.play}</span></button></div></div>${shadowList}</div></article>`;
+  const favoriteLabel = session.pinned ? t("removeFavorite") : t("addFavorite");
+  return `<article class="session-row ${session.active ? "active-session" : ""}" data-id="${session.id}" draggable="true"><div class="session-copy"><div class="session-context"><code title="${esc(session.cwd)}">${esc(directoryLabel(session.cwd))}</code><div class="session-meta"><time>${sessionTime(session)}</time><button class="session-favorite ${session.pinned ? "active" : ""}" data-id="${session.id}" aria-label="${favoriteLabel}" aria-pressed="${session.pinned ? "true" : "false"}" title="${favoriteLabel}">${icons.favorite}</button></div></div><div class="session-body"><div class="session-summary"><strong class="session-title" title="${esc(session.title)}">${esc(session.title)}</strong>${session.preview ? `<span class="session-prompt">${esc(session.preview)}</span>` : ""}</div><div class="session-actions"><a class="session-details" href="/session/${encodeURIComponent(session.id)}">${t("details")}</a><button class="session-launch ${session.desktop ? "desktop" : ""}" data-id="${session.id}" data-action="${action}" ${disabled ? "disabled" : ""} aria-label="${label}" title="${source}: ${label}"><span class="launch-source">${sourceIcon}</span><span class="launch-divider"></span><span class="launch-play">${icons.play}</span></button></div></div>${shadowList}</div></article>`;
 }
 
 function shadowSessionRow(session) {
   const usesChrome = /(^|\s)@Chrome\b/i.test(session.preview || ""); const sourceIcon = usesChrome ? icons.chrome : session.desktop ? icons.desktop : icons.terminal; const sourceLabel = usesChrome ? "Chrome" : session.desktop ? "Desktop" : "CLI";
-  const status = session.active ? '<span class="shadow-status active"><i></i>Läuft</span>' : `<span class="shadow-status">${sessionTime(session)}</span>`;
+  const status = session.active ? `<span class="shadow-status active"><i></i>${t("running")}</span>` : `<span class="shadow-status">${sessionTime(session)}</span>`;
   return `<div class="shadow-session"><span class="shadow-branch">↳</span><span class="shadow-title" title="${esc(session.title)}">${esc(session.title)}</span><span class="shadow-kind">${sourceIcon}${sourceLabel}</span>${status}</div>`;
 }
 
@@ -333,17 +381,17 @@ async function openFromList(threadId, action, button) {
 }
 
 async function sessionPage(id) {
-  app.innerHTML = `<div class="shell">${header()}<main class="session-page"><div class="session-content"><a class="back" href="/">← Alle Sessions</a><div class="page-loading">Session wird geladen …</div></div></main></div>`; bindTheme();
+  app.innerHTML = `<div class="shell">${header()}<main class="session-page"><div class="session-content"><a class="back" href="/">${t("backSessions")}</a><div class="page-loading">${t("sessionLoading")}</div></div></main></div>`; bindTheme();
   try { const session = await fetchJson(`/api/session/${encodeURIComponent(id)}`); renderSessionDetail(session); }
-  catch (error) { document.querySelector(".session-content").innerHTML = `<a class="back" href="/">← Alle Sessions</a><div class="empty">${esc(error.message)}</div>`; }
+  catch (error) { document.querySelector(".session-content").innerHTML = `<a class="back" href="/">${t("backSessions")}</a><div class="empty">${esc(error.message)}</div>`; }
 }
 
 function renderSessionDetail(session) {
-  const content = document.querySelector(".session-content"); const title = session.name || session.title || session.first_user_message || "Unbenannte Session"; const description = session.preview || session.first_user_message || "";
-  const summary = [["Status", session.active ? "Aktiv" : "Bereit"], ["Projekt", session.project], ["Quelle", session.threadSource || session.thread_source || session.source], ["Modell", session.model || session.modelProvider || session.model_provider], ["Branch", session.branch || session.git_branch], ["Archiviert", session.archived ? "Ja" : "Nein"]];
+  const content = document.querySelector(".session-content"); const title = session.name || session.title || session.first_user_message || t("unnamedSession"); const description = session.preview || session.first_user_message || "";
+  const summary = [[t("status"), session.active ? t("active") : t("ready")], [t("project"), session.project], [t("source"), session.threadSource || session.thread_source || session.source], [t("model"), session.model || session.modelProvider || session.model_provider], [t("branch"), session.branch || session.git_branch], [t("archived"), session.archived ? t("yes") : t("no")]];
   const excluded = new Set(["first_user_message", "preview"]); const metadata = Object.entries(session).filter(([key]) => !excluded.has(key)).sort(([a], [b]) => a.localeCompare(b));
-  content.innerHTML = `<a class="back" href="/">← Sessions</a><section class="session-head"><div><span class="eyebrow">Codex Session</span><h1>${esc(title)}</h1><p>${esc(description)}</p><div class="action-error" id="action-error"></div></div><div class="actions"><button class="primary" data-action="resume" ${session.active ? "disabled" : ""}>${session.active ? "Geöffnet" : "Fortsetzen"}</button><button class="secondary" data-action="open-project">VS Code</button><button class="danger" data-action="archive">Archivieren</button></div></section><section class="section"><h2>Speicherorte</h2><div class="path-grid"><div class="path-card"><span>Session-Datei</span><code>${esc(session.storagePath || session.path || session.rollout_path || session.storage_path || "–")}</code></div><div class="path-card"><span>Projektordner</span><code>${esc(session.cwd || "–")}</code></div></div></section><section class="section"><h2>Übersicht</h2><div class="summary-grid">${summary.map(([key, value]) => `<div class="summary-item"><span>${esc(key)}</span><strong>${esc(formatValue(value))}</strong></div>`).join("")}</div></section><details class="metadata-disclosure"><summary>Technische Metadaten</summary><div class="metadata">${metadata.map(([key, value]) => `<div class="metadata-row"><div class="metadata-key">${esc(key)}</div><div class="metadata-value"><pre>${esc(formatValue(value))}</pre></div></div>`).join("")}</div></details>`;
-  if (session.desktop) { const desktopButton = content.querySelector('[data-action="resume"]'); desktopButton.dataset.action = "open-desktop"; desktopButton.disabled = false; desktopButton.textContent = "In Desktop öffnen"; }
+  content.innerHTML = `<a class="back" href="/">${t("backSessions")}</a><section class="session-head"><div><span class="eyebrow">Codex Session</span><h1>${esc(title)}</h1><p>${esc(description)}</p><div class="action-error" id="action-error"></div></div><div class="actions"><button class="primary" data-action="resume" ${session.active ? "disabled" : ""}>${session.active ? t("opened") : t("continue")}</button><button class="secondary" data-action="open-project">VS Code</button><button class="danger" data-action="archive">${t("archiveAction")}</button></div></section><section class="section"><h2>${t("storageLocations")}</h2><div class="path-grid"><div class="path-card"><span>${t("sessionFile")}</span><code>${esc(session.storagePath || session.path || session.rollout_path || session.storage_path || "–")}</code></div><div class="path-card"><span>${t("projectFolder")}</span><code>${esc(session.cwd || "–")}</code></div></div></section><section class="section"><h2>${t("overview")}</h2><div class="summary-grid">${summary.map(([key, value]) => `<div class="summary-item"><span>${esc(key)}</span><strong>${esc(formatValue(value))}</strong></div>`).join("")}</div></section><details class="metadata-disclosure"><summary>${t("technicalMetadata")}</summary><div class="metadata">${metadata.map(([key, value]) => `<div class="metadata-row"><div class="metadata-key">${esc(key)}</div><div class="metadata-value"><pre>${esc(formatValue(value))}</pre></div></div>`).join("")}</div></details>`;
+  if (session.desktop) { const desktopButton = content.querySelector('[data-action="resume"]'); desktopButton.dataset.action = "open-desktop"; desktopButton.disabled = false; desktopButton.textContent = t("openInDesktop"); }
   content.querySelectorAll("[data-action]").forEach((button) => button.onclick = () => runAction(button.dataset.action, session.id));
 }
 
@@ -358,10 +406,12 @@ async function initialize() {
     const bootstrap = await fetchJson("/api/bootstrap");
     actionToken = bootstrap.token;
     companionInfo = bootstrap;
+    const languageSettings = await fetchJson("/api/language");
+    language = languageSettings.language; document.documentElement.lang = language;
     const match = window.location.pathname.match(/^\/session\/([A-Za-z0-9_-]+)$/);
     if (match) sessionPage(match[1]); else listPage();
   } catch (error) {
-    app.innerHTML = `<div class="empty">Verbindung zum lokalen Companion wird hergestellt …</div>`;
+    app.innerHTML = `<div class="empty">${t("connecting")}</div>`;
     window.setTimeout(initialize, 1000);
   }
 }

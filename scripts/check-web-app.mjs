@@ -3,7 +3,7 @@ import vm from "node:vm";
 
 const script = await readFile(new URL("../web/app.js", import.meta.url), "utf8");
 new vm.Script(script);
-for (const feature of ['session.internal === true', 'open-desktop', 'session-launch', 'session-details', 'session-actions', 'session-favorite', 'toggleFavorite(threadId, button)', 'project-create-form', 'project-name-clear', 'assignSessionToProject(threadId, projectId)', 'text/codex-thread', 'search-clear', 'Suche leeren', 'Gerade eben', 'Gerade beendet', 'sessionTime(session)', 'sessionBundles(sessions)', 'shadow-sessions', 'ChatGPT Desktop', 'session-context', 'new EventSource("/api/events")', 'openTerminalSettings()', '/api/terminal-settings', 'window.setTimeout(initialize, 1000)', 'Terminal Settings', 'class="quiet-button icon-button"']) {
+for (const feature of ['session.internal === true', 'open-desktop', 'session-launch', 'session-details', 'session-actions', 'session-favorite', 'toggleFavorite(threadId, button)', 'project-create-form', 'project-name-clear', 'assignSessionToProject(threadId, projectId)', 'text/codex-thread', 'search-clear', 'sessionTime(session)', 'sessionBundles(sessions)', 'shadow-sessions', 'ChatGPT Desktop', 'session-context', 'new EventSource("/api/events")', 'openTerminalSettings()', '/api/terminal-settings', '/api/language', 'window.setTimeout(initialize, 1000)', 'terminalSettings: "Terminal Settings"', 'terminalSettings: "Terminalindstillinger"', 'class="quiet-button icon-button"', 'id="language-select"']) {
   if (!script.includes(feature)) throw new Error(`Web-Feature fehlt: ${feature}`);
 }
 const agent = await readFile(new URL("../agent/Program.cs", import.meta.url), "utf8");
@@ -11,7 +11,11 @@ if (!agent.includes("thread-writer-locks")) throw new Error("Aktive Codex-Thread
 if (!agent.includes("AttachShadowSessions(items)")) throw new Error("Agent-erzeugte Schatten-Sessions werden keinem Master zugeordnet.");
 if (!agent.includes("CodexStateStore.SetPinned(threadId, pinned)")) throw new Error("Favoriten werden nicht im Codex-State gespeichert.");
 if (!agent.includes("projects.Assign(threadId, projectId)")) throw new Error("Sessions können keinem Projekt zugeordnet werden.");
-if (!agent.includes('menu.Items.Add("Codex Manager öffnen")')) throw new Error("Der Tray-Menüpunkt ist nicht eindeutig beschriftet.");
+if (!agent.includes('LanguageSettingsStore')) throw new Error("Die gemeinsame Sprachspeicherung fehlt.");
+if (!agent.includes('app.MapGet("/api/language"')) throw new Error("Der Sprach-Endpunkt fehlt.");
+for (const language of ["de", "en", "da"]) {
+  if (!agent.includes(`["${language}"]`) || !script.includes(`${language}: {`)) throw new Error(`Übersetzung fehlt: ${language}`);
+}
 if (!agent.includes("TerminalHost.OpenPowerShell(cwd, command)")) throw new Error("Session-Resume verwendet nicht Windows Terminal.");
 if (!agent.includes('"Microsoft.WindowsTerminal_8wekyb3d8bbwe"')) throw new Error("Windows Terminal wird nicht über seinen App-Alias gestartet.");
 if (!agent.includes('"{574e775e-4f2a-5b96-ac1e-a2962a402336}"')) throw new Error("Das normale PowerShell-Profil von Windows Terminal wird nicht explizit verwendet.");
@@ -23,8 +27,8 @@ if (agent.includes("codex --no-daemon resume")) throw new Error("Session-Resume 
 if (agent.includes('startInfo.ArgumentList.Add("-NoProfile")')) throw new Error("Session-Resume unterdrückt weiterhin das PowerShell-Profil.");
 if (!agent.includes("ExtractAssociatedIcon(executable)")) throw new Error("Das Tray verwendet nicht das eigene App-Icon.");
 if (!agent.includes('app.MapGet("/api/terminal-settings"')) throw new Error("Die Terminal-Erkennung und -Auswahl fehlt.");
-if (!agent.includes('menu.Items.Add("Nach Updates suchen")')) throw new Error("Der Tray-Updater fehlt.");
-if (!agent.includes('menu.Items.Add("About")')) throw new Error("Der About-Menüpunkt fehlt.");
+if (!agent.includes('["updates"] = "Nach Updates suchen"')) throw new Error("Der übersetzte Tray-Updater fehlt.");
+if (!agent.includes('["about"] = "About"')) throw new Error("Der übersetzte About-Menüpunkt fehlt.");
 if (!agent.includes('CheckForUpdateAsync')) throw new Error("Die GitHub-Release-Prüfung fehlt.");
 if (!agent.includes('SHA256.HashDataAsync')) throw new Error("Update-Pakete werden nicht per SHA-256 geprüft.");
 if (!agent.includes('TryApplyStagedUpdate(args)')) throw new Error("Der separate Update-Helfer fehlt.");

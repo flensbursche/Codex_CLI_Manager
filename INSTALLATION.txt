@@ -15,6 +15,7 @@ http://127.0.0.1:4180/
 Die App wird für den aktuell angemeldeten Benutzer in den Autostart eingetragen.
 Dafür sind weder Administratorrechte noch ein Windows-Dienst erforderlich.
 Der Autostart kann in der Browseroberfläche jederzeit deaktiviert werden.
+Die Oberfläche und das Tray-Menü können auf DE, EN oder DK umgestellt werden.
 
 Updates
 -------
