@@ -36,6 +36,7 @@ if (!agent.includes('app.MapGet("/api/terminal-settings"')) throw new Error("Die
 if (!agent.includes('"wwwroot", "locales"')) throw new Error("Tray und Web verwenden nicht dieselben Locale-Dateien.");
 if (!agent.includes('CheckForUpdateAsync')) throw new Error("Die GitHub-Release-Prüfung fehlt.");
 if (!agent.includes('releases/latest') || agent.includes('api.github.com/repos/')) throw new Error("Die Update-Prüfung ist weiterhin vom anonymen GitHub-API-Limit abhängig.");
+if (!agent.includes('releases/latest/download/') || !agent.includes('ReadReleaseTag')) throw new Error("Der API-freie Fallback für die Update-Prüfung fehlt.");
 if (!agent.includes('SHA256.HashDataAsync')) throw new Error("Update-Pakete werden nicht per SHA-256 geprüft.");
 if (!agent.includes('TryApplyStagedUpdate(args)')) throw new Error("Der separate Update-Helfer fehlt.");
 if (agent.includes("AllocConsole")) throw new Error("Die rohe Win32-Konsole ist weiterhin aktiv.");
@@ -70,6 +71,7 @@ if (!Array.isArray(history.releases) || !history.releases.some((release) => rele
 const appIcon = await readFile(new URL("../web/app-icon.svg", import.meta.url), "utf8");
 if (!appIcon.includes('fill="#ff6537"') || !appIcon.includes('stroke="#fff"')) throw new Error("Das gemeinsame orange-weiße App-Icon fehlt.");
 if (!script.includes('class="mark"><img src="/app-icon.svg?v=3"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
+if (!script.includes("git: brandIcon(") || !styles.includes("color: #f05032")) throw new Error("Das echte Git-Markenlogo fehlt.");
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 const project = await readFile(new URL("../agent/CodexSessionManager.Agent.csproj", import.meta.url), "utf8");
 const projectVersion = project.match(/<Version>([^<]+)<\/Version>/)?.[1];

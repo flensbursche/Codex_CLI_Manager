@@ -23,6 +23,7 @@ const gitStateLabel = (git) => git.conflicts ? t("gitConflicts", git.conflicts) 
 const gitSummary = (git) => git?.linked ? [git.branch, gitStateLabel(git)].filter(Boolean).join(" · ") : t("notGitRepository");
 const formatValue = (value) => { if (value === null || value === undefined || value === "") return "–"; if (typeof value === "boolean") return value ? t("yes") : t("no"); if (typeof value === "object") return JSON.stringify(value, null, 2); return String(value); };
 const tablerIcon = (paths) => `<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+const brandIcon = (path) => `<svg viewBox="0 0 24 24" width="19" height="19" fill="currentColor" aria-hidden="true"><path d="${path}"/></svg>`;
 const icons = {
   sessions: tablerIcon('<path d="M9 6h11M9 12h11M9 18h11"/><path d="M5 6v.01M5 12v.01M5 18v.01"/>'),
   favorite: tablerIcon('<path d="M12 17.75l-6.172 3.245 1.179-6.873-5-4.867 6.9-1.002L12 2l3.086 6.253 6.9 1.002-4.993 4.867 1.179 6.873z"/>'),
@@ -44,7 +45,7 @@ const icons = {
   copy: tablerIcon('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>'),
   edit: tablerIcon('<path d="M4 20h4l10.5-10.5a2.8 2.8 0 0 0-4-4L4 16v4zM13.5 6.5l4 4"/>'),
   unlink: tablerIcon('<path d="M10 13a5 5 0 0 0 7.07.07l2-2a5 5 0 0 0-7.07-7.07l-1.15 1.15"/><path d="M14 11a5 5 0 0 0-7.07-.07l-2 2A5 5 0 0 0 12 20l1.15-1.15"/><path d="M4 4l16 16"/>'),
-  git: tablerIcon('<path d="M10.62 2.94l10.44 10.44a2.12 2.12 0 0 1 0 3l-4.68 4.68a2.12 2.12 0 0 1-3 0L2.94 10.62a2.12 2.12 0 0 1 0-3l4.68-4.68a2.12 2.12 0 0 1 3 0z"/><circle cx="8.5" cy="8.5" r="1.5"/><circle cx="15.5" cy="15.5" r="1.5"/><path d="M9.6 9.6l4.8 4.8M12 12V8.5M12 12h3.5"/>'),
+  git: brandIcon('M23.546 10.93L13.067.452a1.55 1.55 0 0 0-2.188 0L8.708 2.625l2.76 2.76a1.84 1.84 0 0 1 2.327 2.34l2.658 2.66a1.84 1.84 0 1 1-1.104 1.044l-2.477-2.478v6.525a1.84 1.84 0 1 1-1.525-.05V8.835a1.84 1.84 0 0 1-.992-2.402L7.638 3.716.453 10.93a1.55 1.55 0 0 0 0 2.188l10.477 10.43a1.55 1.55 0 0 0 2.186 0l10.43-10.43a1.55 1.55 0 0 0 0-2.188z'),
   history: tablerIcon('<path d="M12 8v4l2 2"/><path d="M3.05 11a9 9 0 1 0 .5-3M3 4v4h4"/>'),
   info: tablerIcon('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.01"/>'),
   refresh: tablerIcon('<path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"/>')

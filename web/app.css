@@ -1388,6 +1388,7 @@ summary {
 }
 
 .session-git {
+  position: relative;
   width: 21px;
   height: 21px;
   flex: 0 0 auto;
@@ -1395,24 +1396,36 @@ summary {
   place-items: center;
   border: 0;
   background: transparent;
+  color: #f05032;
 }
 
 .session-git svg {
   width: 19px;
   height: 19px;
-  stroke-width: 1.65;
 }
 
-.session-git.clean {
-  color: var(--success);
+.session-git::after {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--faint);
+  box-shadow: 0 0 0 2px var(--panel);
+  content: "";
 }
 
-.session-git.dirty {
-  color: var(--warning);
+.session-git.clean::after {
+  background: var(--success);
 }
 
-.session-git.conflict {
-  color: var(--danger);
+.session-git.dirty::after {
+  background: var(--warning);
+}
+
+.session-git.conflict::after {
+  background: var(--danger);
 }
 
 .pin {

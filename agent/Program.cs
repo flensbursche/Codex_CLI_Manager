@@ -271,13 +271,13 @@ internal sealed class UpdateStatusStore
 
     public async Task<JsonObject> GetAsync(bool refresh, CancellationToken cancellation)
     {
-        if (!refresh && _cached is not null && DateTimeOffset.UtcNow - _checkedAt < TimeSpan.FromMinutes(15))
-            return (JsonObject)_cached.DeepClone();
+        if (IsCacheFresh(refresh))
+            return (JsonObject)_cached!.DeepClone();
         await _gate.WaitAsync(cancellation);
         try
         {
-            if (!refresh && _cached is not null && DateTimeOffset.UtcNow - _checkedAt < TimeSpan.FromMinutes(15))
-                return (JsonObject)_cached.DeepClone();
+            if (IsCacheFresh(refresh))
+                return (JsonObject)_cached!.DeepClone();
             try
             {
                 var update = await UpdateService.CheckForUpdateAsync(cancellation);
@@ -306,6 +306,14 @@ internal sealed class UpdateStatusStore
         {
             _gate.Release();
         }
+    }
+
+    private bool IsCacheFresh(bool refresh)
+    {
+        if (refresh || _cached is null) return false;
+        var isError = _cached["status"]?.GetValue<string>() == "error";
+        var maximumAge = isError ? TimeSpan.FromSeconds(30) : TimeSpan.FromMinutes(15);
+        return DateTimeOffset.UtcNow - _checkedAt < maximumAge;
     }
 }
 
@@ -863,7 +871,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.9.0";
+    public const string Version = "0.9.1";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);
@@ -878,24 +886,8 @@ internal static class UpdateService
 
     public static async Task<UpdateInfo?> CheckForUpdateAsync(CancellationToken cancellation)
     {
-        using var response = await LatestReleaseClient.GetAsync($"https://github.com/{Repository}/releases/latest", cancellation);
-        if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return null;
-        if (response.StatusCode is not System.Net.HttpStatusCode.MovedPermanently
-            and not System.Net.HttpStatusCode.Redirect
-            and not System.Net.HttpStatusCode.TemporaryRedirect
-            and not System.Net.HttpStatusCode.PermanentRedirect)
-        {
-            response.EnsureSuccessStatusCode();
-            throw new InvalidOperationException("GitHub hat keine aktuelle Release-Version zurückgegeben.");
-        }
-
-        var location = response.Headers.Location ?? throw new InvalidOperationException("Das GitHub Release hat keine Versionsnummer.");
-        var releasePath = location.IsAbsoluteUri ? location.AbsolutePath : location.OriginalString.Split('?', 2)[0];
-        var tagPrefix = $"/{Repository}/releases/tag/";
-        if (!releasePath.StartsWith(tagPrefix, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("GitHub hat eine unerwartete Release-Adresse zurückgegeben.");
-        var tag = Uri.UnescapeDataString(releasePath[tagPrefix.Length..].Trim('/'));
-        if (string.IsNullOrWhiteSpace(tag)) throw new InvalidOperationException("Das GitHub Release hat keine Versionsnummer.");
+        var tag = await ResolveLatestTagAsync(cancellation);
+        if (tag is null) return null;
         var latest = ParseVersion(tag);
         if (latest <= ParseVersion(ProductInfo.Version)) return null;
 
@@ -905,6 +897,51 @@ internal static class UpdateService
         ValidateDownloadUrl(packageUrl);
         ValidateDownloadUrl(checksumUrl);
         return new UpdateInfo(latest.ToString(3), packageUrl, checksumUrl);
+    }
+
+    private static async Task<string?> ResolveLatestTagAsync(CancellationToken cancellation)
+    {
+        var sources = new[]
+        {
+            $"https://github.com/{Repository}/releases/latest",
+            $"https://github.com/{Repository}/releases/latest/download/{PackageName}.sha256"
+        };
+        var failures = new List<string>();
+        foreach (var source in sources)
+        {
+            try
+            {
+                using var response = await LatestReleaseClient.GetAsync(source, HttpCompletionOption.ResponseHeadersRead, cancellation);
+                if (response.StatusCode == System.Net.HttpStatusCode.NotFound) continue;
+                var tag = ReadReleaseTag(response.Headers.Location);
+                if (tag is not null) return tag;
+                failures.Add($"HTTP {(int)response.StatusCode}");
+            }
+            catch (OperationCanceledException) when (!cancellation.IsCancellationRequested)
+            {
+                failures.Add("Zeitüberschreitung");
+            }
+            catch (HttpRequestException error)
+            {
+                failures.Add(error.StatusCode is null ? "Netzwerkfehler" : $"HTTP {(int)error.StatusCode}");
+            }
+        }
+        if (failures.Count == 0) return null;
+        throw new InvalidOperationException($"Die Release-Information ist vorübergehend nicht erreichbar ({string.Join(", ", failures.Distinct())}). Bitte später erneut prüfen.");
+    }
+
+    private static string? ReadReleaseTag(Uri? location)
+    {
+        if (location is null) return null;
+        var path = location.IsAbsoluteUri ? location.AbsolutePath : location.OriginalString.Split('?', 2)[0];
+        foreach (var marker in new[] { $"/{Repository}/releases/tag/", $"/{Repository}/releases/download/" })
+        {
+            if (!path.StartsWith(marker, StringComparison.OrdinalIgnoreCase)) continue;
+            var remainder = path[marker.Length..].Trim('/');
+            var tag = Uri.UnescapeDataString(remainder.Split('/', 2)[0]);
+            return string.IsNullOrWhiteSpace(tag) ? null : tag;
+        }
+        return null;
     }
 
     public static async Task DownloadAndLaunchAsync(UpdateInfo update, CancellationToken cancellation)
