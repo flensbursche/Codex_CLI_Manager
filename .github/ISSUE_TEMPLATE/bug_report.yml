@@ -11,7 +11,7 @@ body:
     id: version
     attributes:
       label: Version
-      placeholder: z. B. 0.9.5
+      placeholder: z. B. 0.9.6
     validations:
       required: true
   - type: textarea
