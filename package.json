@@ -1,36 +1,12 @@
 {
   "name": "codex-cli-manager",
   "private": true,
-  "version": "0.6.2",
+  "version": "0.7.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
     "build": "node scripts/check-web-app.mjs && dotnet build agent/CodexSessionManager.Agent.csproj",
-    "preview": "vite preview --host 0.0.0.0",
     "test": "node scripts/check-web-app.mjs",
-    "legacy:build": "tsc -b && vite build",
-    "legacy:test": "vitest run --passWithNoTests",
-    "test:app-server": "node scripts/smoke-app-server.mjs",
-    "check:config": "node scripts/validate-config.mjs",
     "check:web": "node scripts/check-web-app.mjs",
-    "tauri": "tauri",
-    "docker:up": "docker compose up --build"
-  },
-  "dependencies": {
-    "@tabler/icons-react": "^3.35.0",
-    "@tauri-apps/api": "^2.8.0",
-    "@tanstack/react-query": "^5.90.0",
-    "@tanstack/react-table": "^8.21.3",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
-  },
-  "devDependencies": {
-    "@tauri-apps/cli": "^2.8.4",
-    "@types/react": "^19.2.2",
-    "@types/react-dom": "^19.2.2",
-    "@vitejs/plugin-react": "^5.1.0",
-    "typescript": "^5.9.3",
-    "vite": "^7.2.0",
-    "vitest": "^4.0.0"
+    "publish:windows": "dotnet publish agent/CodexSessionManager.Agent.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o dist/windows-x64"
   }
 }

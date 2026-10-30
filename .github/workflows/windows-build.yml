@@ -7,7 +7,7 @@ on:
       - "v*"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -17,15 +17,38 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
+      - name: Validate release version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          [xml]$project = Get-Content agent/CodexSessionManager.Agent.csproj
+          $version = $project.Project.PropertyGroup.Version
+          if ("v$version" -ne $env:RELEASE_TAG) {
+            throw "Tag $env:RELEASE_TAG passt nicht zur App-Version $version."
+          }
       - name: Check browser companion
         run: node scripts/check-web-app.mjs
       - name: Publish self-contained Windows companion
         run: dotnet publish agent/CodexSessionManager.Agent.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
       - name: Package
         shell: pwsh
-        run: Compress-Archive -Path publish/* -DestinationPath CodexSessionManager-Setup-win-x64.zip
+        run: |
+          Compress-Archive -Path publish/* -DestinationPath CodexSessionManager-Setup-win-x64.zip
+          $hash = (Get-FileHash CodexSessionManager-Setup-win-x64.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  CodexSessionManager-Setup-win-x64.zip" | Set-Content CodexSessionManager-Setup-win-x64.zip.sha256 -Encoding ascii -NoNewline
       - uses: actions/upload-artifact@v4
         with:
           name: CodexSessionManager-Setup-win-x64
-          path: CodexSessionManager-Setup-win-x64.zip
+          path: |
+            CodexSessionManager-Setup-win-x64.zip
+            CodexSessionManager-Setup-win-x64.zip.sha256
           if-no-files-found: error
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create $env:RELEASE_TAG CodexSessionManager-Setup-win-x64.zip CodexSessionManager-Setup-win-x64.zip.sha256 --verify-tag --generate-notes --title "Codex CLI Manager $env:RELEASE_TAG"

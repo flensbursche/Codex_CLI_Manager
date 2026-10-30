@@ -16,6 +16,12 @@ Die App wird für den aktuell angemeldeten Benutzer in den Autostart eingetragen
 Dafür sind weder Administratorrechte noch ein Windows-Dienst erforderlich.
 Der Autostart kann in der Browseroberfläche jederzeit deaktiviert werden.
 
+Updates
+-------
+Über "Nach Updates suchen" im Tray-Menü prüft die App veröffentlichte
+GitHub Releases. Ein verfügbares Update wird heruntergeladen, geprüft,
+installiert und der Manager anschließend neu gestartet.
+
 Voraussetzungen
 ---------------
 - Windows 10 oder Windows 11 (x64)

@@ -1,6 +1,0 @@
-services:
-  codex-session-manager:
-    build: .
-    ports:
-      - "4173:80"
-    restart: unless-stopped
