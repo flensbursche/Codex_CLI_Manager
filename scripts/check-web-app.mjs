@@ -19,6 +19,7 @@ if (!agent.includes("FindRepositoryRoot(directory)") || !agent.includes('["unava
 if (!agent.includes("ReadRemoteFromConfig(repositoryRoot)") || !agent.includes('["provider"] = provider')) throw new Error("Der Remote-Anbieter blockierter Repositories wird nicht aus der Git-Konfiguration erkannt.");
 if (!agent.includes("ApplySessionHealth(item, processSnapshot)") || !agent.includes('["processScanAvailable"] = processes.Available') || !agent.includes("SessionHealthEvaluator.Evaluate") || !agent.includes('signals.ProcessCount > 1 ? "duplicate"')) throw new Error("Der mehrsignalige Session Health Check fehlt.");
 if (!agent.includes("CodexStateStore.QueryThreads(archived)") || !agent.includes("BuildThreadListQuery") || !agent.includes("codexCompatibility = CodexStateStore.GetCompatibility()")) throw new Error("Der kontrollierte Codex-Kompatibilitätsmodus fehlt.");
+if (!agent.includes("AcceptanceEnvironment.InstanceMutexName") || !agent.includes("AcceptanceEnvironment.UpdateSignalName") || !agent.includes("AcceptanceEnvironment.DataRoot")) throw new Error("Der isolierte Release-Acceptance-Modus fehlt.");
 if (!agent.includes('LanguageSettingsStore')) throw new Error("Die gemeinsame Sprachspeicherung fehlt.");
 if (!agent.includes("TrayMenuRenderer") || !agent.includes("TrayMenuPalette.Current()") || !agent.includes("TrayMenuGlyphs.Terminal") || !agent.includes("ApplyRoundedRegion(menu, 12)")) throw new Error("Das gestaltete, abgerundete Tray-Menü mit eigenen Symbolen fehlt.");
 if (!agent.includes('app.MapGet("/api/language"')) throw new Error("Der Sprach-Endpunkt fehlt.");
@@ -84,9 +85,18 @@ const history = JSON.parse(await readFile(new URL("../web/version-history.json",
 if (!Array.isArray(history.releases) || !history.releases.some((release) => release.released && release.tag)) throw new Error("Die aus Git erzeugte Versionshistorie fehlt.");
 const roadmap = JSON.parse(await readFile(new URL("../web/roadmap.json", import.meta.url), "utf8"));
 if (roadmap.version !== "1.0" || !Array.isArray(roadmap.items) || roadmap.items.length < 5) throw new Error("Die erweiterbare 1.0-Roadmap fehlt.");
+for (const item of ["release-hardening", "code-signing"])
+  if (!roadmap.items.some((entry) => entry.id === item)) throw new Error(`1.0-Roadmap-Eintrag fehlt: ${item}`);
+const acceptance = await readFile(new URL("./test-release.ps1", import.meta.url), "utf8");
+for (const feature of ["Test-PackageChecksum", "Get-AuthenticodeSignature", "CODEX_MANAGER_TERMINAL_SMOKE_MARKER", "--apply-update", "-DisposableMachine"])
+  if (!acceptance.includes(feature)) throw new Error(`Release-Akzeptanztest fehlt: ${feature}`);
+const releaseWorkflow = await readFile(new URL("../.github/workflows/windows-build.yml", import.meta.url), "utf8");
+if (!releaseWorkflow.includes("azure/artifact-signing-action@v2") || !releaseWorkflow.includes("REQUIRE_SIGNED_RELEASES") || !releaseWorkflow.includes("Get-AuthenticodeSignature")) throw new Error("Die optionale, prüfbare Artifact-Signing-Pipeline fehlt.");
+const acceptanceWorkflow = await readFile(new URL("../.github/workflows/windows-acceptance.yml", import.meta.url), "utf8");
+if (!acceptanceWorkflow.includes("codex-manager-ui") || !acceptanceWorkflow.includes("test-release.ps1")) throw new Error("Der interaktive Windows-Acceptance-Workflow fehlt.");
 const appIcon = await readFile(new URL("../web/app-icon.svg", import.meta.url), "utf8");
 if (!appIcon.includes('fill="#ff6537"') || !appIcon.includes('stroke="#fff"')) throw new Error("Das gemeinsame orange-weiße App-Icon fehlt.");
-if (!script.includes('class="mark"><img src="/app-icon.svg?v=15"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
+if (!script.includes('class="mark"><img src="/app-icon.svg?v=16"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
 const shareMenuIndex = script.indexOf('id="share-repository"');
 const aboutMenuIndex = script.indexOf('href="/about"', shareMenuIndex);
 const updateMenuIndex = script.indexOf('id="menu-update"', aboutMenuIndex);

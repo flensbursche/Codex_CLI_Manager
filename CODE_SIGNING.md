@@ -23,4 +23,22 @@ Ein selbstsigniertes Zertifikat eignet sich nur für lokale Tests oder verwaltet
 - Azure Artifact Signing, Microsoft Store oder klassisches OV-Zertifikat
 - gewünschter öffentlicher Publisher-Name
 
-Sobald diese Identität eingerichtet ist, kann die Signierung ohne Änderungen an der App-Architektur zwischen Publish und Packaging in den bestehenden Release-Workflow eingefügt werden.
+Der Release-Workflow ist inzwischen für Azure Artifact Signing vorbereitet. Ohne konfigurierte Publisher-Identität bleiben Releases bewusst unsigniert. Für die Aktivierung werden folgende GitHub-Einstellungen benötigt:
+
+Repository-Variablen:
+
+- `ARTIFACT_SIGNING_ENABLED=true`
+- `ARTIFACT_SIGNING_ENDPOINT`, zum Beispiel `https://eus.codesigning.azure.net/`
+- `ARTIFACT_SIGNING_ACCOUNT`
+- `ARTIFACT_SIGNING_PROFILE`
+- `REQUIRE_SIGNED_RELEASES=true`, sobald kein unsigniertes Release mehr zulässig sein soll
+
+Repository-Secrets für die OIDC-Anmeldung:
+
+- `AZURE_CLIENT_ID`
+- `AZURE_TENANT_ID`
+- `AZURE_SUBSCRIPTION_ID`
+
+Die Pipeline meldet sich über `azure/login` an, signiert ausschließlich `publish/CodexSessionManager.exe`, verwendet SHA-256 und den RFC-3161-Zeitstempel von Microsoft und prüft die Signatur vor dem Verpacken erneut mit `Get-AuthenticodeSignature`.
+
+Die Richtlinie sollte in zwei Schritten aktiviert werden: zunächst `ARTIFACT_SIGNING_ENABLED`, nach einem erfolgreich geprüften Testrelease zusätzlich `REQUIRE_SIGNED_RELEASES`. Dadurch kann kein späteres Release versehentlich wieder unsigniert veröffentlicht werden.

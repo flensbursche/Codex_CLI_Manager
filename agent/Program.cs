@@ -17,7 +17,7 @@ if (!args.Contains("--portable", StringComparer.OrdinalIgnoreCase) && !UserInsta
 }
 UpdateService.ScheduleStagingCleanup();
 var openBrowserOnStart = !args.Contains("--no-browser", StringComparer.OrdinalIgnoreCase);
-using var singleInstance = new Mutex(true, "Local\\CodexSessionManager.Agent", out var isFirstInstance);
+using var singleInstance = new Mutex(true, AcceptanceEnvironment.InstanceMutexName, out var isFirstInstance);
 if (!isFirstInstance)
 {
     Process.Start(new ProcessStartInfo(AppEndpoint.Read()) { UseShellExecute = true });
@@ -62,7 +62,7 @@ app.Use(async (context, next) =>
 app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = new PhysicalFileProvider(webRoot) });
 app.UseStaticFiles(new StaticFileOptions { FileProvider = new PhysicalFileProvider(webRoot) });
 
-app.MapGet("/api/bootstrap", () => Results.Ok(new { data = new { token = actionToken, version = ProductInfo.Version, runtime = ".NET Companion", supportsAutostart = true, autostartEnabled = AutoStartManager.IsEnabled(), installationPath = UserInstallation.InstallDirectory, codexCompatibility = CodexStateStore.GetCompatibility() } }));
+app.MapGet("/api/bootstrap", () => Results.Ok(new { data = new { token = actionToken, version = ProductInfo.Version, runtime = ".NET Companion", supportsAutostart = !AcceptanceEnvironment.Enabled, autostartEnabled = AutoStartManager.IsEnabled(), installationPath = UserInstallation.InstallDirectory, codexCompatibility = CodexStateStore.GetCompatibility() } }));
 app.MapGet("/api/health", () => Results.Ok(new { ok = true, runtime = ".NET Companion" }));
 app.MapGet("/api/events", async (HttpContext context, IHostApplicationLifetime lifetime, CancellationToken cancellation) =>
 {
@@ -221,6 +221,36 @@ internal sealed record CreateProjectRequest(string Name);
 internal sealed record TerminalSettingsRequest(string Terminal, string Shell);
 internal sealed record LanguageRequest(string Language);
 internal sealed record SessionTitleRequest(string? Title);
+
+internal static class AcceptanceEnvironment
+{
+    private const string IdVariable = "CODEX_MANAGER_ACCEPTANCE_ID";
+    private const string RootVariable = "CODEX_MANAGER_ACCEPTANCE_ROOT";
+    public static string? Id { get; } = ResolveId();
+    public static bool Enabled => Id is not null;
+    public static string InstanceMutexName => Enabled
+        ? $"Local\\CodexSessionManager.Agent.Acceptance.{Id}"
+        : "Local\\CodexSessionManager.Agent";
+    public static string UpdateSignalName => Enabled
+        ? $"Local\\CodexSessionManager.UpdateShutdown.Acceptance.{Id}"
+        : "Local\\CodexSessionManager.UpdateShutdown";
+    public static string? DataRoot { get; } = ResolveDataRoot();
+
+    private static string? ResolveId()
+    {
+        var value = Environment.GetEnvironmentVariable(IdVariable);
+        return Guid.TryParse(value, out var parsed) ? parsed.ToString("N") : null;
+    }
+
+    private static string? ResolveDataRoot()
+    {
+        if (!Enabled) return null;
+        var value = Environment.GetEnvironmentVariable(RootVariable);
+        if (string.IsNullOrWhiteSpace(value) || !Path.IsPathFullyQualified(value))
+            throw new InvalidOperationException($"{RootVariable} muss im Acceptance-Modus ein absoluter Pfad sein.");
+        return Path.GetFullPath(value).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+    }
+}
 
 internal static class AppEndpoint
 {
@@ -1178,7 +1208,7 @@ internal sealed class UpdateProgressWindow : IDisposable
 
 internal sealed class UpdateShutdownListener : IDisposable
 {
-    private const string SignalName = "Local\\CodexSessionManager.UpdateShutdown";
+    private static string SignalName => AcceptanceEnvironment.UpdateSignalName;
     private readonly EventWaitHandle _signal = new(false, EventResetMode.AutoReset, SignalName);
     private readonly CancellationTokenRegistration _stopping;
     private readonly Task _listener;
@@ -1286,7 +1316,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.9.15";
+    public const string Version = "0.10.0";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);
@@ -1423,7 +1453,9 @@ internal static class UpdateService
             stageDuration.Restart();
             progress.Report(language.Text("restarting"));
             Thread.Sleep(400);
-            Process.Start(new ProcessStartInfo(installedExecutable) { UseShellExecute = true });
+            var restart = new ProcessStartInfo(installedExecutable) { UseShellExecute = true };
+            if (AcceptanceEnvironment.Enabled) restart.ArgumentList.Add("--no-browser");
+            Process.Start(restart);
             EnsureMinimumStage(stageDuration, 1100);
         }
         catch (Exception error)
@@ -1860,7 +1892,8 @@ internal static class TerminalHost
 
 internal static class UserInstallation
 {
-    public static string InstallDirectory => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CodexSessionManager");
+    public static string InstallDirectory => AcceptanceEnvironment.DataRoot
+        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CodexSessionManager");
     private static string InstalledExecutable => Path.Combine(InstallDirectory, "CodexSessionManager.exe");
 
     public static bool IsInstalledLocation() =>
@@ -1890,12 +1923,14 @@ internal static class AutoStartManager
 
     public static bool IsEnabled()
     {
+        if (AcceptanceEnvironment.Enabled) return false;
         using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: false);
         return key?.GetValue(ValueName) is string value && !string.IsNullOrWhiteSpace(value);
     }
 
     public static void Enable(string? executable = null)
     {
+        if (AcceptanceEnvironment.Enabled) return;
         executable ??= Environment.ProcessPath ?? throw new InvalidOperationException("Pfad zur Anwendung konnte nicht ermittelt werden.");
         using var key = Registry.CurrentUser.CreateSubKey(RunKey, writable: true);
         key.SetValue(ValueName, $"\"{executable}\" --background", RegistryValueKind.String);
@@ -1903,6 +1938,7 @@ internal static class AutoStartManager
 
     public static void Disable()
     {
+        if (AcceptanceEnvironment.Enabled) return;
         using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: true);
         key?.DeleteValue(ValueName, throwOnMissingValue: false);
     }
@@ -2722,27 +2758,33 @@ internal static class CodexStateStore
     }
 
     public static JsonArray QueryThreads(bool archived)
+        => QueryThreads(DatabasePath, archived);
+
+    internal static JsonArray QueryThreads(string databasePath, bool archived)
     {
         HashSet<string> columns;
         try
         {
-            columns = ReadThreadColumns();
+            columns = ReadThreadColumns(databasePath);
         }
         catch (Exception error) when (error is FileNotFoundException or InvalidOperationException)
         {
             return [];
         }
         if (!columns.Contains("id")) return [];
-        return Query(BuildThreadListQuery(columns, archived));
+        return Query(databasePath, BuildThreadListQuery(columns, archived));
     }
 
     public static JsonObject GetCompatibility()
+        => GetCompatibility(DatabasePath);
+
+    internal static JsonObject GetCompatibility(string databasePath)
     {
-        if (!File.Exists(DatabasePath))
+        if (!File.Exists(databasePath))
             return new JsonObject { ["mode"] = "unavailable", ["canReadSessions"] = false, ["message"] = "Codex-Datenbank wurde nicht gefunden." };
         try
         {
-            var columns = ReadThreadColumns();
+            var columns = ReadThreadColumns(databasePath);
             var missing = ThreadColumns.Where(column => !columns.Contains(column)).ToArray();
             var canRead = columns.Contains("id");
             return new JsonObject
@@ -2769,10 +2811,10 @@ internal static class CodexStateStore
         return $"select {select} from threads{where} order by {order} limit 1000";
     }
 
-    private static HashSet<string> ReadThreadColumns()
+    private static HashSet<string> ReadThreadColumns(string databasePath)
     {
         var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var node in Query("pragma table_info(threads)"))
+        foreach (var node in Query(databasePath, "pragma table_info(threads)"))
             if (node is JsonObject row && row["name"]?.GetValue<string>() is { Length: > 0 } name)
                 columns.Add(name);
         return columns;
@@ -2781,14 +2823,17 @@ internal static class CodexStateStore
     private static string LimitCompatibilityMessage(string value) => value.Length <= 400 ? value : value[..400];
 
     public static JsonArray Query(string sql)
+        => Query(DatabasePath, sql);
+
+    internal static JsonArray Query(string databasePath, string sql)
     {
-        if (!File.Exists(DatabasePath)) throw new FileNotFoundException("Codex-Datenbank wurde nicht gefunden.", DatabasePath);
+        if (!File.Exists(databasePath)) throw new FileNotFoundException("Codex-Datenbank wurde nicht gefunden.", databasePath);
         var result = new JsonArray();
         IntPtr database = IntPtr.Zero;
         IntPtr statement = IntPtr.Zero;
         try
         {
-            Check(sqlite3_open_v2(DatabasePath, out database, OpenReadOnly, null), database, "Codex-Datenbank konnte nicht geöffnet werden");
+            Check(sqlite3_open_v2(databasePath, out database, OpenReadOnly, null), database, "Codex-Datenbank konnte nicht geöffnet werden");
             Check(sqlite3_prepare_v2(database, sql, -1, out statement, IntPtr.Zero), database, "Codex-Abfrage konnte nicht vorbereitet werden");
             while (true)
             {

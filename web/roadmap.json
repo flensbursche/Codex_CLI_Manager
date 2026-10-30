@@ -9,6 +9,12 @@
       "description": { "de": "Geprüfte Downloads, sichtbarer Fortschritt und sicherer Neustart.", "en": "Verified downloads, visible progress, and safe restarts.", "da": "Kontrollerede downloads, synlig fremdrift og sikker genstart." }
     },
     {
+      "id": "release-hardening",
+      "status": "next",
+      "title": { "de": "Windows-Release-Akzeptanz", "en": "Windows release acceptance", "da": "Windows-releasegodkendelse" },
+      "description": { "de": "Das verpackte Release auf einer sauberen Windows-VM vollständig durch Installation, Terminalstart, Update und Neustart prüfen.", "en": "Validate the packaged release end to end on a clean Windows VM through installation, terminal launch, update, and restart.", "da": "Valider den pakkede release fra ende til anden på en ren Windows-VM gennem installation, terminalstart, opdatering og genstart." }
+    },
+    {
       "id": "git-integration",
       "status": "done",
       "title": { "de": "Git-Integration", "en": "Git integration", "da": "Git-integration" },
@@ -16,9 +22,15 @@
     },
     {
       "id": "session-health",
-      "status": "next",
+      "status": "done",
       "title": { "de": "Session Health Check", "en": "Session health check", "da": "Session-sundhedstjek" },
       "description": { "de": "Aktive, unklare, hängende und verwaiste Sessions zuverlässig unterscheiden.", "en": "Reliably distinguish active, uncertain, stuck, and orphaned sessions.", "da": "Skeln pålideligt mellem aktive, uklare, fastlåste og forældreløse sessioner." }
+    },
+    {
+      "id": "code-signing",
+      "status": "planned",
+      "title": { "de": "Authenticode-Signierung", "en": "Authenticode signing", "da": "Authenticode-signering" },
+      "description": { "de": "Die vorbereitete Artifact-Signing-Pipeline nach Auswahl und Prüfung der Publisher-Identität verbindlich aktivieren.", "en": "Enforce the prepared Artifact Signing pipeline after selecting and verifying the publisher identity.", "da": "Håndhæv den forberedte Artifact Signing-pipeline efter valg og kontrol af udgiveridentiteten." }
     },
     {
       "id": "safe-recovery",

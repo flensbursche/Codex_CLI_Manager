@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -16,6 +17,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ("Update process shutdown", TestUpdateProcessShutdownAsync),
     ("Update URL and release tag validation", TestUpdateUrlsAsync),
     ("Codex schema compatibility query", TestCodexSchemaCompatibilityAsync),
+    ("Codex schema fixture matrix", TestCodexSchemaFixtureMatrixAsync),
     ("Codex state read-only compatibility", TestCodexStateCompatibilityAsync)
 };
 
@@ -282,6 +284,61 @@ static Task TestCodexSchemaCompatibilityAsync()
     return Task.CompletedTask;
 }
 
+static Task TestCodexSchemaFixtureMatrixAsync()
+{
+    var root = CreateTestRoot();
+    try
+    {
+        var fullPath = Path.Combine(root, "current.sqlite");
+        SqliteFixture.Create(fullPath, """
+            create table threads (
+              id text primary key, rollout_path text, cwd text, name text, title text, preview text,
+              first_user_message text, created_at_ms integer, updated_at_ms integer, recency_at_ms integer,
+              source text, thread_source text, model_provider text, model text, git_branch text,
+              is_pinned integer, archived integer, originator text
+            );
+            insert into threads values (
+              '11111111-1111-1111-1111-111111111111', 'rollout.jsonl', 'C:\\DEV\\fixture', 'Fixture',
+              'Current schema', 'Preview', 'First prompt', 1000, 2000, 3000, 'cli', 'cli',
+              'openai', 'codex', 'main', 1, 0, 'fixture'
+            );
+            """);
+        var full = CodexStateStore.GetCompatibility(fullPath);
+        Assert(full["mode"]?.GetValue<string>() == "full" && full["canReadSessions"]?.GetValue<bool>() == true,
+            "Current Codex fixture was not classified as fully readable.");
+        var fullRows = CodexStateStore.QueryThreads(fullPath, archived: false);
+        Assert(fullRows.Count == 1 && fullRows[0]?["title"]?.GetValue<string>() == "Current schema",
+            "Current Codex fixture did not return its session data.");
+
+        var reducedPath = Path.Combine(root, "reduced.sqlite");
+        SqliteFixture.Create(reducedPath, """
+            create table threads (id text primary key, cwd text, updated_at_ms integer);
+            insert into threads values ('22222222-2222-2222-2222-222222222222', 'C:\\DEV\\legacy', 1500);
+            """);
+        var reduced = CodexStateStore.GetCompatibility(reducedPath);
+        Assert(reduced["mode"]?.GetValue<string>() == "limited" && reduced["canReadSessions"]?.GetValue<bool>() == true,
+            "Reduced Codex fixture did not enter controlled limited mode.");
+        var reducedRows = CodexStateStore.QueryThreads(reducedPath, archived: false);
+        Assert(reducedRows.Count == 1 && reducedRows[0]?["title"] is null,
+            "Reduced Codex fixture did not substitute missing optional fields.");
+        Assert(CodexStateStore.QueryThreads(reducedPath, archived: true).Count == 0,
+            "Reduced Codex fixture exposed archived sessions without an archive column.");
+
+        var incompatiblePath = Path.Combine(root, "incompatible.sqlite");
+        SqliteFixture.Create(incompatiblePath, "create table conversations (key text primary key);");
+        var incompatible = CodexStateStore.GetCompatibility(incompatiblePath);
+        Assert(incompatible["mode"]?.GetValue<string>() == "limited" && incompatible["canReadSessions"]?.GetValue<bool>() == false,
+            "Incompatible Codex fixture did not fail closed in limited mode.");
+        Assert(CodexStateStore.QueryThreads(incompatiblePath, archived: false).Count == 0,
+            "Incompatible Codex fixture unexpectedly returned sessions.");
+    }
+    finally
+    {
+        DeleteTestRoot(root);
+    }
+    return Task.CompletedTask;
+}
+
 static Task TestCodexStateCompatibilityAsync()
 {
     var compatibility = CodexStateStore.GetCompatibility();
@@ -333,4 +390,45 @@ static async Task AssertThrowsAsync<TException>(Func<Task> action) where TExcept
     try { await action(); }
     catch (TException) { return; }
     throw new InvalidOperationException($"Expected {typeof(TException).Name} was not thrown.");
+}
+
+internal static class SqliteFixture
+{
+    private const int Ok = 0;
+    private const int OpenReadWrite = 2;
+    private const int OpenCreate = 4;
+
+    public static void Create(string path, string sql)
+    {
+        IntPtr database = IntPtr.Zero;
+        IntPtr error = IntPtr.Zero;
+        try
+        {
+            var open = sqlite3_open_v2(path, out database, OpenReadWrite | OpenCreate, null);
+            if (open != Ok) throw new InvalidOperationException($"Fixture database could not be opened: {Message(database)}");
+            var execute = sqlite3_exec(database, sql, IntPtr.Zero, IntPtr.Zero, out error);
+            if (execute != Ok)
+                throw new InvalidOperationException($"Fixture SQL failed: {Marshal.PtrToStringUTF8(error) ?? Message(database)}");
+        }
+        finally
+        {
+            if (error != IntPtr.Zero) sqlite3_free(error);
+            if (database != IntPtr.Zero) sqlite3_close_v2(database);
+        }
+    }
+
+    private static string Message(IntPtr database) => database == IntPtr.Zero
+        ? "unknown SQLite error"
+        : Marshal.PtrToStringUTF8(sqlite3_errmsg(database)) ?? "unknown SQLite error";
+
+    [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+    private static extern int sqlite3_open_v2(string filename, out IntPtr database, int flags, string? virtualFileSystem);
+    [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+    private static extern int sqlite3_exec(IntPtr database, string sql, IntPtr callback, IntPtr context, out IntPtr errorMessage);
+    [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+    private static extern int sqlite3_close_v2(IntPtr database);
+    [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+    private static extern IntPtr sqlite3_errmsg(IntPtr database);
+    [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+    private static extern void sqlite3_free(IntPtr pointer);
 }

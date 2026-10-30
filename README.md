@@ -65,7 +65,24 @@ Die vorbereitete Produktionsstrategie für Authenticode, Azure Artifact Signing 
 
 Der GitHub-Workflow `Windows companion` läuft manuell oder bei Tags mit dem Präfix `v`. Ein Tag wie `v0.9.0` erzeugt ein GitHub Release mit `CodexSessionManager-Setup-win-x64.zip` und SHA-256-Prüfsumme. Installierte Clients erkennen dieses Release ohne Abhängigkeit vom anonymen GitHub-API-Limit und bieten es im Tray-Menü an.
 
-Pushes und Pull Requests gegen `main` führen den Web-Smoke-Test, einen .NET-Release-Build und ausführbare Windows-Integrationstests aus. Die Integrationstests starten eine echte PowerShell mit kodiertem Initialisierungsbefehl, prüfen Windows-Terminal-Argumente, benannte Session-Mutexe, exklusive Dateilocks, die Health-Zustandsmatrix sowie Prüfsumme, Dateikopie und Pfadschutz des Updaters. Auf einem interaktiven lokalen Windows-Desktop starten sie zusätzlich ein echtes Windows-Terminal-Fenster und verifizieren die Ausführung per Marker; nur dieser GUI-Test wird auf dem headless GitHub-Runner übersprungen. Das ergänzende Smoke-Testskript bleibt bewusst eine schnelle Strukturprüfung.
+Pushes und Pull Requests gegen `main` führen den Web-Smoke-Test, einen .NET-Release-Build und ausführbare Windows-Integrationstests aus. Die Integrationstests starten eine echte PowerShell mit kodiertem Initialisierungsbefehl, prüfen Windows-Terminal-Argumente, benannte Session-Mutexe, exklusive Dateilocks, die Health-Zustandsmatrix, mehrere echte SQLite-Schemavarianten sowie Prüfsumme, Dateikopie und Pfadschutz des Updaters. Auf einem interaktiven lokalen Windows-Desktop starten sie zusätzlich ein echtes Windows-Terminal-Fenster und verifizieren die Ausführung per Marker; nur dieser GUI-Test wird auf dem headless GitHub-Runner übersprungen. Das ergänzende Smoke-Testskript bleibt bewusst eine schnelle Strukturprüfung.
+
+### Release-Akzeptanz
+
+`scripts/test-release.ps1` prüft das tatsächlich verpackte ZIP statt nur des Build-Ausgabeverzeichnisses. Der isolierte Modus verifiziert SHA-256, optionale Authenticode-Signatur, ZIP-Pfadschutz, Programmstart, Health- und Session-API sowie den echten Update-Helfer mit Prozessbeendigung, Dateiersetzung, Neustart und persistenten Projekt- und Spracheinstellungen, ohne die normale Installation oder den Autostart zu verändern:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/test-release.ps1 `
+  -PackagePath ./CodexSessionManager-Setup-win-x64.zip `
+  -ChecksumPath ./CodexSessionManager-Setup-win-x64.zip.sha256 `
+  -ExpectedVersion 0.10.0 `
+  -InteractiveTerminal `
+  -ReportPath ./release-acceptance.json
+```
+
+Mit `-PreviousPackagePath` testet das Skript zusätzlich Erstinstallation, Update, Neustart und den Erhalt eigener Daten. Dieser Modus verändert bewusst die Benutzerinstallation und ist deshalb nur zusammen mit `-DisposableMachine` auf einer zurücksetzbaren Windows-VM erlaubt. Der manuell startbare Workflow `Windows release acceptance` führt genau diesen Ablauf auf einem Self-hosted Runner mit dem Label `codex-manager-ui` aus und legt einen JSON-Prüfbericht als Artefakt ab. Für die Kompatibilitätsmatrix wird derselbe Ablauf auf vorbereiteten Runner-Images mit unterschiedlichen Codex-Versionen und echten anonymisierten Session-Daten ausgeführt.
+
+Die Release-Pipeline kann die EXE vor dem Verpacken optional über Azure Artifact Signing signieren und prüft die Authenticode-Signatur anschließend erneut. Die benötigten Variablen, OIDC-Secrets und die Richtlinie zum Erzwingen signierter Releases stehen in [CODE_SIGNING.md](CODE_SIGNING.md).
 
 Ein normaler Push auf `main` veröffentlicht absichtlich kein Client-Update. Release-Versionen werden so angelegt:
 
