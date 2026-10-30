@@ -33,6 +33,7 @@ const sessionTime = (session) => { const age = Date.now() - Number(session.updat
 const directoryLabel = (value) => { const path = String(value || t("noProject")); return value && !/[\\/]$/.test(path) ? `${path}\\` : path; };
 const gitStateLabel = (git) => git.unavailable ? t("gitUnavailable") : git.conflicts ? t("gitConflicts", git.conflicts) : git.dirty ? t("gitDirty", git.changedFiles) : t("gitClean");
 const gitSummary = (git) => git?.linked ? [git.branch, gitStateLabel(git)].filter(Boolean).join(" · ") : t("notGitRepository");
+const healthStateLabel = (health) => t(`health${String(health?.state || "closed").replace(/^./, (value) => value.toUpperCase())}`);
 const formatValue = (value) => { if (value === null || value === undefined || value === "") return "–"; if (typeof value === "boolean") return value ? t("yes") : t("no"); if (typeof value === "object") return JSON.stringify(value, null, 2); return String(value); };
 const tablerIcon = (paths) => `<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 const brandIcon = (path) => `<svg viewBox="0 0 24 24" width="19" height="19" fill="currentColor" aria-hidden="true"><path d="${path}"/></svg>`;
@@ -63,7 +64,8 @@ const icons = {
   history: tablerIcon('<path d="M12 8v4l2 2"/><path d="M3.05 11a9 9 0 1 0 .5-3M3 4v4h4"/>'),
   info: tablerIcon('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.01"/>'),
   share: tablerIcon('<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5l6.8-4M8.6 13.5l6.8 4"/>'),
-  refresh: tablerIcon('<path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"/>')
+  refresh: tablerIcon('<path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"/>'),
+  activity: tablerIcon('<path d="M3 12h4l2-7 4 14 2-7h6"/>')
 };
 const colorScheme = window.matchMedia("(prefers-color-scheme: dark)");
 let themePreference = localStorage.getItem("codex-manager-theme") || "auto";
@@ -75,7 +77,7 @@ function header() {
   const autostart = companionInfo.supportsAutostart ? `<button class="menu-row switch-row" id="autostart-toggle" role="switch" aria-checked="${companionInfo.autostartEnabled}"><span>${t("autostart")}</span><i class="toggle-switch"><b></b></i></button>` : "";
   const darkMode = document.documentElement.dataset.theme === "dark";
   return `<header class="top">
-    <a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=10" alt=""></span><strong>Codex CLI Manager</strong></a>
+    <a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=11" alt=""></span><strong>Codex CLI Manager</strong></a>
     <span class="live"><i class="dot"></i>${t("live")}</span>
     <button class="header-update" id="header-update" type="button" hidden></button>
     <span class="spacer"></span>
@@ -480,7 +482,18 @@ function sessionRow(session, shadows = [], query = "") {
   const favoriteLabel = session.pinned ? t("removeFavorite") : t("addFavorite");
   const projectRemove = session.projectId ? `<button class="session-project-remove" data-id="${session.id}" aria-label="${t("removeFromProject")}" title="${t("removeFromProject")}">${icons.unlink}</button>` : "";
   const utility = `<div class="session-utility">${projectRemove}<button class="session-favorite ${session.pinned ? "active" : ""}" data-id="${session.id}" aria-label="${favoriteLabel}" aria-pressed="${session.pinned ? "true" : "false"}" title="${favoriteLabel}">${icons.favorite}</button></div>`;
-  return `<article class="session-row ${session.active ? "active-session" : ""}" data-id="${session.id}" draggable="true"><div class="session-copy"><div class="session-context"><button class="session-path-copy copy-value" type="button" data-copy="${esc(session.cwd)}" title="${t("copyPath")}"><code>${highlight(directoryLabel(session.cwd), query)}</code>${icons.copy}</button><time class="session-time">${sessionTime(session)}</time></div><div class="session-body"><div class="session-summary"><div class="session-title-line"><strong class="session-title" title="${esc(session.title)}">${highlight(session.title, query)}</strong>${gitIndicator(session.git)}</div>${session.customTitle ? `<span class="session-original-title">${t("originalTitle")}: ${highlight(session.originalTitle, query)}</span>` : ""}${session.preview ? `<span class="session-prompt">${highlight(session.preview, query)}</span>` : ""}</div><div class="session-actions">${utility}<a class="session-details" href="/session/${encodeURIComponent(session.id)}">${t("details")}</a><button class="session-launch ${session.desktop ? "desktop" : ""}" data-id="${session.id}" data-action="${action}" ${disabled ? "disabled" : ""} aria-label="${label}" title="${source}: ${label}"><span class="launch-source">${sourceIcon}</span><span class="launch-divider"></span><span class="launch-play">${icons.play}</span></button></div></div>${shadowList}</div></article>`;
+  const healthState = session.health?.state || (session.active ? "uncertain" : "closed");
+  const healthClass = healthState === "closed" ? "" : `active-session health-${healthState}`;
+  return `<article class="session-row ${healthClass}" data-id="${session.id}" draggable="true">
+    <div class="session-copy">
+      <div class="session-context"><button class="session-path-copy copy-value" type="button" data-copy="${esc(session.cwd)}" title="${t("copyPath")}"><code>${highlight(directoryLabel(session.cwd), query)}</code>${icons.copy}</button><time class="session-time">${sessionTime(session)}</time></div>
+      <div class="session-body">
+        <div class="session-summary"><div class="session-title-line"><strong class="session-title" title="${esc(session.title)}">${highlight(session.title, query)}</strong>${sessionHealthIndicator(session.health)}${gitIndicator(session.git)}</div>${session.customTitle ? `<span class="session-original-title">${t("originalTitle")}: ${highlight(session.originalTitle, query)}</span>` : ""}${session.preview ? `<span class="session-prompt">${highlight(session.preview, query)}</span>` : ""}</div>
+        <div class="session-actions">${utility}<a class="session-details" href="/session/${encodeURIComponent(session.id)}">${t("details")}</a><button class="session-launch ${session.desktop ? "desktop" : ""}" data-id="${session.id}" data-action="${action}" ${disabled ? "disabled" : ""} aria-label="${label}" title="${source}: ${label}"><span class="launch-source">${sourceIcon}</span><span class="launch-divider"></span><span class="launch-play">${icons.play}</span></button></div>
+      </div>
+      ${shadowList}
+    </div>
+  </article>`;
 }
 
 function gitIndicator(git) {
@@ -495,6 +508,18 @@ function gitIndicator(git) {
   const providerClass = git.provider === "github" ? "provider-github" : git.provider === "gitlab" ? "provider-gitlab" : "";
   const providerIcon = git.provider === "github" ? icons.github : git.provider === "gitlab" ? icons.gitlab : icons.git;
   return `<span class="session-git ${stateClass} ${providerClass}" tabindex="0" aria-label="${esc(details)}">${providerIcon}<span class="git-tooltip" role="tooltip">${esc(details)}</span></span>`;
+}
+
+function sessionHealthIndicator(health) {
+  if (!health || health.state === "closed" || health.state === "healthy") return "";
+  const processes = health.processScanAvailable ? t("healthProcesses", health.processCount || 0) : t("healthProcessScanUnavailable");
+  const signals = [
+    health.writerLock ? t("healthWriterLock") : "",
+    health.managerMutex ? t("healthManagerMutex") : "",
+    health.launching ? t("healthLaunchingSignal") : ""
+  ].filter(Boolean);
+  const details = [healthStateLabel(health), processes, ...signals].join("\n");
+  return `<span class="session-health ${esc(health.state)}" tabindex="0" aria-label="${esc(details)}">${icons.activity}<span class="git-tooltip" role="tooltip">${esc(details)}</span></span>`;
 }
 
 function shadowSessionRow(session, query = "") {
@@ -549,8 +574,9 @@ async function sessionPage(id) {
 
 function renderSessionDetail(session) {
   const content = document.querySelector(".session-content"); const title = session.title || session.name || session.first_user_message || t("unnamedSession"); const description = session.preview || session.first_user_message || "";
-  const sessionStatus = session.openState === "uncertain" ? t("statusUncertain") : session.active ? t("sessionOpen") : t("ready");
-  const summary = [[t("status"), sessionStatus], [t("project"), session.project], [t("source"), session.threadSource || session.thread_source || session.source], [t("model"), session.model || session.modelProvider || session.model_provider], [t("branch"), session.git?.branch || session.branch || session.git_branch], [t("gitStatus"), gitSummary(session.git)], [t("lastCommit"), session.git?.lastCommitShort ? `${session.git.lastCommitShort} · ${session.git.lastCommitSubject || ""}` : ""], [t("archived"), session.archived ? t("yes") : t("no")]];
+  const sessionStatus = session.health ? healthStateLabel(session.health) : session.openState === "uncertain" ? t("statusUncertain") : session.active ? t("sessionOpen") : t("ready");
+  const healthSignals = session.health ? [session.health.processScanAvailable ? t("healthProcesses", session.health.processCount || 0) : t("healthProcessScanUnavailable"), session.health.writerLock ? t("healthWriterLock") : "", session.health.managerMutex ? t("healthManagerMutex") : "", session.health.launching ? t("healthLaunchingSignal") : ""].filter(Boolean).join(" · ") : "";
+  const summary = [[t("status"), sessionStatus], [t("healthSignals"), healthSignals], [t("project"), session.project], [t("source"), session.threadSource || session.thread_source || session.source], [t("model"), session.model || session.modelProvider || session.model_provider], [t("branch"), session.git?.branch || session.branch || session.git_branch], [t("gitStatus"), gitSummary(session.git)], [t("lastCommit"), session.git?.lastCommitShort ? `${session.git.lastCommitShort} · ${session.git.lastCommitSubject || ""}` : ""], [t("archived"), session.archived ? t("yes") : t("no")]];
   const excluded = new Set(["first_user_message", "preview"]); const metadata = Object.entries(session).filter(([key]) => !excluded.has(key)).sort(([a], [b]) => a.localeCompare(b));
   const sessionPath = session.storagePath || session.path || session.rollout_path || session.storage_path || "";
   const projectPath = session.cwd || "";

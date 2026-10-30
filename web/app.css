@@ -1149,6 +1149,16 @@ summary {
     0 0 16px rgba(79, 134, 173, 0.22);
 }
 
+.session-row.health-uncertain {
+  border-color: color-mix(in srgb, var(--warning) 72%, var(--line));
+  box-shadow: 0 0 14px color-mix(in srgb, var(--warning) 18%, transparent);
+}
+
+.session-row.health-duplicate {
+  border-color: color-mix(in srgb, var(--danger) 78%, var(--line));
+  box-shadow: 0 0 14px color-mix(in srgb, var(--danger) 20%, transparent);
+}
+
 .shadow-sessions {
   margin-top: 10px;
   padding-top: 7px;
@@ -1425,6 +1435,29 @@ summary {
   color: #f05032;
 }
 
+.session-health {
+  position: relative;
+  width: 21px;
+  height: 21px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: var(--warning);
+}
+
+.session-health.duplicate {
+  color: var(--danger);
+}
+
+.session-health.starting {
+  color: var(--accent);
+}
+
+.session-health svg {
+  width: 18px;
+  height: 18px;
+}
+
 .session-git svg {
   width: 19px;
   height: 19px;
@@ -1518,7 +1551,9 @@ mark.search-match {
 }
 
 .session-git:hover .git-tooltip,
-.session-git:focus-visible .git-tooltip {
+.session-git:focus-visible .git-tooltip,
+.session-health:hover .git-tooltip,
+.session-health:focus-visible .git-tooltip {
   visibility: visible;
   opacity: 1;
   transform: translate(-50%, 0);

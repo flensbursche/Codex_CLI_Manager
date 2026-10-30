@@ -1048,7 +1048,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.9.10";
+    public const string Version = "0.9.11";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);
@@ -1902,16 +1902,12 @@ internal sealed class CodexClient
             """);
         var normalized = new JsonArray();
         var items = new List<JsonObject>();
-        var activeProcessSessions = DetectActiveProcessSessions();
+        var processSnapshot = DetectActiveProcessSessions();
         foreach (var node in data)
             if (node is JsonObject thread)
             {
                 var item = NormalizeDatabaseThread(thread);
-                var id = item["id"]?.GetValue<string>();
-                var processDetected = id is not null && activeProcessSessions.Contains(id);
-                var lockDetected = id is not null && IsSessionActive(id);
-                item["active"] = processDetected || lockDetected;
-                item["openState"] = processDetected && lockDetected ? "open" : processDetected || lockDetected ? "uncertain" : "closed";
+                ApplySessionHealth(item, processSnapshot);
                 normalized.Add(item);
                 items.Add(item);
             }
@@ -1988,10 +1984,7 @@ internal sealed class CodexClient
         _projects.Apply(detail);
         _metadata.Apply(detail);
         await _git.ApplyAsync([detail], cancellation);
-        var processDetected = DetectActiveProcessSessions().Contains(threadId);
-        var lockDetected = IsSessionActive(threadId);
-        detail["active"] = processDetected || lockDetected;
-        detail["openState"] = processDetected && lockDetected ? "open" : processDetected || lockDetected ? "uncertain" : "closed";
+        ApplySessionHealth(detail, DetectActiveProcessSessions());
         return detail;
     }
 
@@ -2014,7 +2007,7 @@ internal sealed class CodexClient
 
     public async Task ResumeAsync(string threadId, CancellationToken cancellation)
     {
-        if (IsSessionActive(threadId) || DetectActiveProcessSessions().Contains(threadId) || !_launchingSessions.TryAdd(threadId, 0))
+        if (IsSessionActive(threadId) || DetectActiveProcessSessions().Counts.ContainsKey(threadId) || !_launchingSessions.TryAdd(threadId, 0))
             throw new InvalidOperationException("Diese Session ist bereits geöffnet.");
         JsonObject thread;
         try { thread = await ReadThreadAsync(threadId, cancellation); }
@@ -2041,10 +2034,43 @@ internal sealed class CodexClient
 
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _launchingSessions = new();
 
+    private void ApplySessionHealth(JsonObject session, ProcessSessionSnapshot processes)
+    {
+        var threadId = session["id"]?.GetValue<string>();
+        if (string.IsNullOrWhiteSpace(threadId)) return;
+        var processCount = processes.Counts.TryGetValue(threadId, out var detectedProcesses) ? detectedProcesses : 0;
+        var writerLock = IsCodexWriterLocked(threadId);
+        var managerMutex = HasSessionMutex(threadId);
+        var launching = _launchingSessions.ContainsKey(threadId);
+        var state = processCount > 1 ? "duplicate"
+            : launching && processCount == 0 && !writerLock && !managerMutex ? "starting"
+            : processCount > 0 && (writerLock || managerMutex) ? "healthy"
+            : processCount > 0 || writerLock || managerMutex ? "uncertain"
+            : "closed";
+        var active = state is not "closed";
+        session["active"] = active;
+        session["openState"] = state is "healthy" or "duplicate" ? "open" : active ? "uncertain" : "closed";
+        session["health"] = new JsonObject
+        {
+            ["state"] = state,
+            ["processScanAvailable"] = processes.Available,
+            ["processCount"] = processCount,
+            ["writerLock"] = writerLock,
+            ["managerMutex"] = managerMutex,
+            ["launching"] = launching,
+            ["checkedAt"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        };
+    }
+
     private bool IsSessionActive(string threadId)
     {
         if (_launchingSessions.ContainsKey(threadId)) return true;
         if (IsCodexWriterLocked(threadId)) return true;
+        return HasSessionMutex(threadId);
+    }
+
+    private static bool HasSessionMutex(string threadId)
+    {
         try
         {
             using var activeMutex = Mutex.OpenExisting(SessionMutexName(threadId));
@@ -2071,27 +2097,57 @@ internal sealed class CodexClient
         catch (UnauthorizedAccessException) { return true; }
     }
 
-    private static HashSet<string> DetectActiveProcessSessions()
+    private static ProcessSessionSnapshot DetectActiveProcessSessions()
     {
-        var active = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var parents = new Dictionary<int, int>();
+        var matches = new Dictionary<int, HashSet<string>>();
         try
         {
             var locatorType = Type.GetTypeFromProgID("WbemScripting.SWbemLocator");
-            if (locatorType is null) return active;
+            if (locatorType is null) return new(false, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
             dynamic locator = Activator.CreateInstance(locatorType)!;
             dynamic services = locator.ConnectServer(".", @"root\cimv2");
-            dynamic processes = services.ExecQuery("SELECT CommandLine FROM Win32_Process WHERE CommandLine IS NOT NULL");
+            dynamic processes = services.ExecQuery("SELECT ProcessId, ParentProcessId, CommandLine FROM Win32_Process");
             foreach (dynamic process in processes)
             {
-                string? commandLine = process.CommandLine as string;
-                if (string.IsNullOrWhiteSpace(commandLine) || !commandLine.Contains("resume", StringComparison.OrdinalIgnoreCase)) continue;
-                foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(commandLine, @"(?:^|\s)resume\s+['""]?(?<id>[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12})", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
-                    active.Add(match.Groups["id"].Value);
+                try
+                {
+                    int processId = Convert.ToInt32((object)process.ProcessId);
+                    parents[processId] = Convert.ToInt32((object)process.ParentProcessId);
+                    string? commandLine = process.CommandLine as string;
+                    if (string.IsNullOrWhiteSpace(commandLine) || !commandLine.Contains("resume", StringComparison.OrdinalIgnoreCase)) continue;
+                    foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(commandLine, @"(?:^|\s)resume\s+['""]?(?<id>[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12})", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                    {
+                        if (!matches.TryGetValue(processId, out var threadIds)) matches[processId] = threadIds = new(StringComparer.OrdinalIgnoreCase);
+                        threadIds.Add(match.Groups["id"].Value);
+                    }
+                }
+                catch
+                {
+                }
             }
+
+            var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (processId, threadIds) in matches)
+                foreach (var threadId in threadIds)
+                {
+                    var ancestor = parents.TryGetValue(processId, out var parent) ? parent : 0;
+                    var nested = false;
+                    var visited = new HashSet<int>();
+                    while (ancestor > 0 && visited.Add(ancestor))
+                    {
+                        if (matches.TryGetValue(ancestor, out var ancestorThreads) && ancestorThreads.Contains(threadId)) { nested = true; break; }
+                        ancestor = parents.TryGetValue(ancestor, out parent) ? parent : 0;
+                    }
+                    if (!nested) counts[threadId] = counts.TryGetValue(threadId, out var count) ? count + 1 : 1;
+                }
+            return new(true, counts);
         }
         catch { }
-        return active;
+        return new(false, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
     }
+
+    private sealed record ProcessSessionSnapshot(bool Available, IReadOnlyDictionary<string, int> Counts);
 
     public async Task OpenProjectAsync(string threadId, CancellationToken cancellation)
     {
