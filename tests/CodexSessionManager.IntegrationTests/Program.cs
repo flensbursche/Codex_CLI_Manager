@@ -5,6 +5,7 @@ using System.Text;
 var tests = new (string Name, Func<Task> Run)[]
 {
     ("Windows Terminal arguments", TestWindowsTerminalArgumentsAsync),
+    ("Windows Terminal profile-only arguments", TestWindowsTerminalProfileLaunchAsync),
     ("Windows Terminal process launch", TestWindowsTerminalLaunchAsync),
     ("PowerShell package resolution", TestPowerShellPackageResolutionAsync),
     ("PowerShell process launch", TestPowerShellLaunchAsync),
@@ -58,6 +59,20 @@ static Task TestWindowsTerminalArgumentsAsync()
     Assert(initialization.Contains("$env:NO_COLOR=$null", StringComparison.Ordinal), "Color environment cleanup is missing.");
     Assert(initialization.EndsWith("Write-Output 'resume-test'", StringComparison.Ordinal), "Resume command is missing from encoded initialization.");
     Assert(!startInfo.UseShellExecute, "Terminal launch must use an exact native argument list.");
+    return Task.CompletedTask;
+}
+
+static Task TestWindowsTerminalProfileLaunchAsync()
+{
+    var shell = new ShellResolution("powershell7", "PowerShell 7", @"C:\Program Files\WindowsApps\Microsoft.PowerShell_7.6.9.0_x64__8wekyb3d8bbwe\pwsh.exe", "7", "{test-profile}");
+    var startInfo = TerminalHost.CreateStartInfo(true, @"C:\terminal\wt.exe", shell, @"C:\Users\Test User", command: null);
+    var expected = new[]
+    {
+        "-w", "new", "new-tab", "--profile", "{test-profile}", "--startingDirectory", @"C:\Users\Test User"
+    };
+    Assert(startInfo.ArgumentList.SequenceEqual(expected), $"Profile-only terminal arguments differ: {string.Join(" | ", startInfo.ArgumentList)}");
+    Assert(!startInfo.ArgumentList.Contains("--"), "A plain tray launch must let Windows Terminal start its configured profile command.");
+    Assert(!startInfo.ArgumentList.Contains("-EncodedCommand"), "A plain tray launch must not override the configured PowerShell profile command.");
     return Task.CompletedTask;
 }
 

@@ -1286,7 +1286,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.9.14";
+    public const string Version = "0.9.15";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);
@@ -1817,6 +1817,7 @@ internal static class TerminalHost
             startInfo.ArgumentList.Add(shell.ProfileId);
             startInfo.ArgumentList.Add("--startingDirectory");
             startInfo.ArgumentList.Add(workingDirectory);
+            if (string.IsNullOrWhiteSpace(command)) return startInfo;
             startInfo.ArgumentList.Add("--");
             startInfo.ArgumentList.Add(PowerShellHost.ResolveTerminalExecutablePath(shell.Path));
         }
