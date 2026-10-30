@@ -15,11 +15,12 @@ if (!agent.includes("projects.Assign(threadId, projectId)")) throw new Error("Se
 if (!agent.includes("projects.Unassign(threadId)")) throw new Error("Sessions können nicht aus Projekten entfernt werden.");
 if (!agent.includes("IsUnchangedAutoImport") || !agent.includes("JsonNode.DeepEquals")) throw new Error("Der fehlerhafte Projekt-Auto-Import wird nicht sicher bereinigt.");
 if (!agent.includes("GitStatusService") || !agent.includes('"--porcelain=v2"') || !agent.includes("CacheDuration") || !agent.includes('["remote", "-v"]')) throw new Error("Der gecachte Git-Status samt Remote-Anbieter fehlt.");
+if (!agent.includes("FindRepositoryRoot(directory)") || !agent.includes('["unavailable"] = true')) throw new Error("Repositories mit blockiertem Git-Status werden nicht als Warnung erkannt.");
 if (!agent.includes('LanguageSettingsStore')) throw new Error("Die gemeinsame Sprachspeicherung fehlt.");
 if (!agent.includes('app.MapGet("/api/language"')) throw new Error("Der Sprach-Endpunkt fehlt.");
 for (const language of ["de", "en", "da"]) {
   const locale = JSON.parse(await readFile(new URL(`../web/locales/${language}.json`, import.meta.url), "utf8"));
-  for (const key of ["sessions", "sessionSearchCountMany", "terminalSettings", "versionHistory", "gitStatus", "gitClean", "removeFromProject", "sessionOpen", "copyPath", "editTitle", "roadmap", "shareRepository", "aboutAndHistory", "updateBadge", "tray.open", "tray.updates", "tray.aboutHistory"])
+  for (const key of ["sessions", "sessionSearchCountMany", "terminalSettings", "versionHistory", "gitStatus", "gitClean", "gitUnavailable", "removeFromProject", "sessionOpen", "copyPath", "editTitle", "roadmap", "shareRepository", "aboutAndHistory", "updateBadge", "tray.open", "tray.updates", "tray.aboutHistory"])
     if (!locale[key]) throw new Error(`Übersetzung fehlt: ${language}.${key}`);
 }
 if (!agent.includes("TerminalHost.OpenPowerShell(cwd, command)")) throw new Error("Session-Resume verwendet nicht Windows Terminal.");
@@ -78,7 +79,7 @@ const roadmap = JSON.parse(await readFile(new URL("../web/roadmap.json", import.
 if (roadmap.version !== "1.0" || !Array.isArray(roadmap.items) || roadmap.items.length < 5) throw new Error("Die erweiterbare 1.0-Roadmap fehlt.");
 const appIcon = await readFile(new URL("../web/app-icon.svg", import.meta.url), "utf8");
 if (!appIcon.includes('fill="#ff6537"') || !appIcon.includes('stroke="#fff"')) throw new Error("Das gemeinsame orange-weiße App-Icon fehlt.");
-if (!script.includes('class="mark"><img src="/app-icon.svg?v=7"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
+if (!script.includes('class="mark"><img src="/app-icon.svg?v=8"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
 if (!script.includes('id="header-update"') || !script.includes('headerUpdate.hidden = result.status !== "available"')) throw new Error("Der sichtbare Update-Hinweis neben Live fehlt.");
 if (!script.includes("git: brandIcon(") || !styles.includes("color: #f05032")) throw new Error("Das echte Git-Markenlogo fehlt.");
 if (!script.includes("github: brandIcon(") || !script.includes("gitlab: brandIcon(") || !script.includes("providerIcon")) throw new Error("Die Anbieterlogos für GitHub- und GitLab-Remotes fehlen.");

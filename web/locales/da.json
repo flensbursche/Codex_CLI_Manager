@@ -108,6 +108,7 @@
   "gitClean": "Git ren",
   "gitDirty": "Git: {0} åbne ændringer",
   "gitConflicts": "Git: {0} konflikter",
+  "gitUnavailable": "Git-status er ikke tilgængelig",
   "gitAhead": "{0} foran",
   "gitBehind": "{0} bagud",
   "gitMoreChanges": "+ {0} flere ændringer",

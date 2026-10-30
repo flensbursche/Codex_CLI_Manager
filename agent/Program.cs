@@ -1048,7 +1048,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.9.7";
+    public const string Version = "0.9.8";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);
@@ -1639,7 +1639,18 @@ internal sealed class GitStatusService
     private static async Task<JsonObject?> InspectAsync(string directory, CancellationToken cancellation)
     {
         var status = await RunAsync(directory, ["status", "--porcelain=v2", "--branch", "--untracked-files=normal"], cancellation);
-        if (status.ExitCode != 0) return null;
+        if (status.ExitCode != 0)
+        {
+            var repositoryRoot = FindRepositoryRoot(directory);
+            if (repositoryRoot is null) return null;
+            return new JsonObject
+            {
+                ["linked"] = true,
+                ["unavailable"] = true,
+                ["repositoryRoot"] = repositoryRoot,
+                ["error"] = Limit(status.Error.Trim(), 800)
+            };
+        }
 
         string? branch = null;
         var ahead = 0;
@@ -1694,6 +1705,22 @@ internal sealed class GitStatusService
             ["lastCommitAt"] = commitParts.Length > 2 ? commitParts[2] : null,
             ["lastCommitSubject"] = commitParts.Length > 3 ? Limit(commitParts[3], 200) : null
         };
+    }
+
+    private static string? FindRepositoryRoot(string directory)
+    {
+        try
+        {
+            for (var current = new DirectoryInfo(directory); current is not null; current = current.Parent)
+            {
+                var marker = Path.Combine(current.FullName, ".git");
+                if (Directory.Exists(marker) || File.Exists(marker)) return current.FullName;
+            }
+        }
+        catch
+        {
+        }
+        return null;
     }
 
     private static (string? Host, string? Provider) ParseRemote(string output)

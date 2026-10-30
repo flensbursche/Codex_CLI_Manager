@@ -1475,6 +1475,10 @@ mark.search-match {
   background: var(--danger);
 }
 
+.session-git.unavailable::after {
+  background: var(--danger);
+}
+
 .git-tooltip {
   position: absolute;
   z-index: 40;

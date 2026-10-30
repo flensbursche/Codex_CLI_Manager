@@ -108,6 +108,7 @@
   "gitClean": "Git clean",
   "gitDirty": "Git: {0} open changes",
   "gitConflicts": "Git: {0} conflicts",
+  "gitUnavailable": "Git status unavailable",
   "gitAhead": "{0} ahead",
   "gitBehind": "{0} behind",
   "gitMoreChanges": "+ {0} more changes",
