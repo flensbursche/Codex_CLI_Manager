@@ -373,8 +373,7 @@ function renderSessions() {
 }
 
 function sessionRow(session, shadows = []) {
-  const recoverable = !session.desktop && session.active && session.openState === "uncertain";
-  const action = session.desktop ? "open-desktop" : recoverable ? "resume-force" : "resume"; const disabled = session.active && !session.desktop && !recoverable; const label = session.desktop ? t("openDesktop") : recoverable ? t("reconnect") : disabled ? t("alreadyOpen") : t("resume");
+  const action = session.desktop ? "open-desktop" : "resume"; const disabled = session.active && !session.desktop; const label = session.desktop ? t("openDesktop") : disabled ? t("alreadyOpen") : t("resume");
   const source = session.desktop ? "ChatGPT Desktop" : "CLI";
   const sourceIcon = session.desktop ? icons.desktop : icons.terminal;
   const shadowList = shadows.length ? `<div class="shadow-sessions">${shadows.map(shadowSessionRow).join("")}</div>` : "";
@@ -401,11 +400,10 @@ async function toggleFavorite(threadId, button) {
 }
 
 async function openFromList(threadId, action, button) {
-  if (action === "resume-force" && !window.confirm(t("reconnectConfirm"))) return;
   button.disabled = true;
   try {
     await fetchJson(`/api/${action}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ threadId }) });
-    if (action === "resume" || action === "resume-force") { const session = state.sessions.find((item) => item.id === threadId); if (session) session.active = true; renderSessions(); }
+    if (action === "resume") { const session = state.sessions.find((item) => item.id === threadId); if (session) session.active = true; renderSessions(); }
     else button.disabled = false;
   } catch (error) {
     button.disabled = false; button.title = error.message;
@@ -426,8 +424,7 @@ function renderSessionDetail(session) {
   const excluded = new Set(["first_user_message", "preview"]); const metadata = Object.entries(session).filter(([key]) => !excluded.has(key)).sort(([a], [b]) => a.localeCompare(b));
   const sessionPath = session.storagePath || session.path || session.rollout_path || session.storage_path || "";
   const projectPath = session.cwd || "";
-  const recoverable = !session.desktop && session.active && session.openState === "uncertain";
-  content.innerHTML = `<a class="back" href="/">${t("backSessions")}</a><section class="session-head"><div><span class="eyebrow">Codex Session</span><div class="detail-title-row"><h1>${esc(title)}</h1><button class="edit-title" id="edit-title" type="button" aria-label="${t("editTitle")}" title="${t("editTitle")}">${icons.edit}</button></div>${session.customTitle ? `<p class="original-title"><span>${t("originalTitle")}</span>${esc(session.originalTitle)}</p>` : ""}<form class="title-editor" id="title-editor" hidden><input id="title-input" maxlength="160" value="${esc(title)}" aria-label="${t("titlePlaceholder")}"><button class="primary" type="submit">${t("save")}</button>${session.customTitle ? `<button class="secondary" id="reset-title" type="button">${t("resetTitle")}</button>` : ""}<button class="secondary" id="cancel-title" type="button">${t("cancel")}</button></form><p>${esc(description)}</p><div class="action-error" id="action-error"></div></div><div class="actions"><button class="primary" data-action="${recoverable ? "resume-force" : "resume"}" ${session.active && !recoverable ? "disabled" : ""}>${recoverable ? t("reconnect") : session.active ? t("opened") : t("continue")}</button><button class="secondary" data-action="open-project">VS Code</button><button class="danger" data-action="archive">${t("archiveAction")}</button></div></section><section class="section"><h2>${t("storageLocations")}</h2><div class="path-grid">${pathCard(t("sessionFile"), sessionPath)}${pathCard(t("projectFolder"), projectPath)}</div></section><section class="section"><h2>${t("overview")}</h2><div class="summary-grid">${summary.map(([key, value]) => `<div class="summary-item"><span>${esc(key)}</span><strong>${esc(formatValue(value))}</strong></div>`).join("")}</div></section><details class="metadata-disclosure"><summary>${t("technicalMetadata")}</summary><div class="metadata">${metadata.map(([key, value]) => `<div class="metadata-row"><div class="metadata-key">${esc(key)}</div><div class="metadata-value"><pre>${esc(formatValue(value))}</pre></div></div>`).join("")}</div></details>`;
+  content.innerHTML = `<a class="back" href="/">${t("backSessions")}</a><section class="session-head"><div><span class="eyebrow">Codex Session</span><div class="detail-title-row"><h1>${esc(title)}</h1><button class="edit-title" id="edit-title" type="button" aria-label="${t("editTitle")}" title="${t("editTitle")}">${icons.edit}</button></div>${session.customTitle ? `<p class="original-title"><span>${t("originalTitle")}</span>${esc(session.originalTitle)}</p>` : ""}<form class="title-editor" id="title-editor" hidden><input id="title-input" maxlength="160" value="${esc(title)}" aria-label="${t("titlePlaceholder")}"><button class="primary" type="submit">${t("save")}</button>${session.customTitle ? `<button class="secondary" id="reset-title" type="button">${t("resetTitle")}</button>` : ""}<button class="secondary" id="cancel-title" type="button">${t("cancel")}</button></form><p>${esc(description)}</p><div class="action-error" id="action-error"></div></div><div class="actions"><button class="primary" data-action="resume" ${session.active ? "disabled" : ""}>${session.active ? t("opened") : t("continue")}</button><button class="secondary" data-action="open-project">VS Code</button><button class="danger" data-action="archive">${t("archiveAction")}</button></div></section><section class="section"><h2>${t("storageLocations")}</h2><div class="path-grid">${pathCard(t("sessionFile"), sessionPath)}${pathCard(t("projectFolder"), projectPath)}</div></section><section class="section"><h2>${t("overview")}</h2><div class="summary-grid">${summary.map(([key, value]) => `<div class="summary-item"><span>${esc(key)}</span><strong>${esc(formatValue(value))}</strong></div>`).join("")}</div></section><details class="metadata-disclosure"><summary>${t("technicalMetadata")}</summary><div class="metadata">${metadata.map(([key, value]) => `<div class="metadata-row"><div class="metadata-key">${esc(key)}</div><div class="metadata-value"><pre>${esc(formatValue(value))}</pre></div></div>`).join("")}</div></details>`;
   if (session.desktop) { const desktopButton = content.querySelector('[data-action="resume"]'); desktopButton.dataset.action = "open-desktop"; desktopButton.disabled = false; desktopButton.textContent = t("openInDesktop"); }
   content.querySelectorAll("[data-action]").forEach((button) => button.onclick = () => runAction(button.dataset.action, session.id));
   bindCopyButtons();
@@ -471,7 +468,6 @@ function bindCopyButtons() {
 
 async function runAction(action, threadId) {
   const errorBox = document.querySelector("#action-error"); if (errorBox) errorBox.style.display = "none";
-  if (action === "resume-force" && !window.confirm(t("reconnectConfirm"))) return;
   try { await fetchJson(`/api/${action}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ threadId }) }); if (action === "archive") window.location.href = "/"; }
   catch (error) { if (errorBox) { errorBox.textContent = error.message; errorBox.style.display = "block"; } }
 }

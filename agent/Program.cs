@@ -168,7 +168,6 @@ app.MapPost("/api/{action}", async (string action, ActionRequest request, CodexC
         switch (action)
         {
             case "resume": await codex.ResumeAsync(request.ThreadId, cancellation); break;
-            case "resume-force": await codex.ForceResumeAsync(request.ThreadId, cancellation); break;
             case "open-desktop": await codex.OpenDesktopAsync(request.ThreadId, cancellation); break;
             case "open-project": await codex.OpenProjectAsync(request.ThreadId, cancellation); break;
             case "archive": await codex.ArchiveAsync(request.ThreadId, cancellation); break;
@@ -1154,7 +1153,7 @@ internal static class TerminalHost
         if (terminal == "windows-terminal")
         {
             startInfo.ArgumentList.Add("-w");
-            startInfo.ArgumentList.Add("0");
+            startInfo.ArgumentList.Add("new");
             startInfo.ArgumentList.Add("new-tab");
             startInfo.ArgumentList.Add("--profile");
             startInfo.ArgumentList.Add(shell.ProfileId);
@@ -1407,25 +1406,6 @@ internal sealed class CodexClient
             _launchingSessions.TryRemove(threadId, out _);
             throw;
         }
-    }
-
-    public async Task ForceResumeAsync(string threadId, CancellationToken cancellation)
-    {
-        ValidateThreadId(threadId);
-        var processDetected = DetectActiveProcessSessions().Contains(threadId);
-        var lockDetected = IsSessionActive(threadId);
-        if (processDetected && lockDetected)
-            throw new InvalidOperationException("Diese Session ist nachweislich geöffnet und kann nicht doppelt gestartet werden.");
-
-        var thread = await ReadThreadAsync(threadId, cancellation);
-        var cwd = thread["cwd"]?.GetValue<string>();
-        if (string.IsNullOrWhiteSpace(cwd) || !Directory.Exists(cwd))
-            throw new DirectoryNotFoundException($"Projektordner nicht gefunden: {cwd}");
-
-        // This recovery path deliberately does not claim the manager mutex. Codex'
-        // own writer lock remains the final safeguard and reports a conflict in the
-        // newly opened terminal instead of letting the manager hide the session forever.
-        TerminalHost.OpenPowerShell(cwd, $"npx @openai/codex resume '{threadId}'");
     }
 
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _launchingSessions = new();

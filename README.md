@@ -21,7 +21,7 @@ Codex CLI Manager ist ein lokales Windows-Cockpit zum Finden, Sortieren, Öffnen
 - erkennt offene Threads über Codex-Prozess und Writer-Lock, kennzeichnet unklare Zustände und verhindert Doppelstarts
 - verwaltet Favoriten und frei angelegte Projekte mit Drag-and-drop-Zuordnung
 - bündelt von Connectoren erzeugte Schatten-Sessions unter ihrer Hauptsession
-- setzt CLI-Sessions in PowerShell fort
+- setzt CLI-Sessions in einem neuen Windows-Terminal-Fenster mit PowerShell fort
 - erkennt Windows Terminal und installierte PowerShell-Versionen pro Benutzer
 - öffnet Desktop-Sessions per offiziellem `codex://threads/<id>`-Deep-Link
 - macht Session- und Projektpfade direkt kopierbar und zeigt vollständige Metadaten
