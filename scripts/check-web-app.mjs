@@ -3,7 +3,7 @@ import vm from "node:vm";
 
 const script = await readFile(new URL("../web/app.js", import.meta.url), "utf8");
 new vm.Script(script);
-for (const feature of ['session.internal === true', 'open-desktop', 'session-launch', 'session-details', 'session-actions', 'session-favorite', 'toggleFavorite(threadId, button)', 'project-create-form', 'project-name-clear', 'assignSessionToProject(threadId, projectId)', 'text/codex-thread', 'search-clear', 'sessionTime(session)', 'sessionBundles(sessions)', 'shadow-sessions', 'ChatGPT Desktop', 'session-context', 'new EventSource("/api/events")', '/api/terminal-settings', '/api/language', '/api/update-status', 'window.setTimeout(initialize, 1000)', 'await loadMessages(result.language)', 'header-menu', 'sidebar-collapsed', 'data-language', 'sessionSearchCountMany', 'bindCopyButtons()', '/title', 'terminalSettingsPage()', 'role="switch"', 'menu-about', 'menu-update']) {
+for (const feature of ['session.internal === true', 'open-desktop', 'session-launch', 'session-details', 'session-actions', 'session-favorite', 'toggleFavorite(threadId, button)', 'project-create-form', 'project-name-clear', 'assignSessionToProject(threadId, projectId)', 'removeSessionFromProject(threadId, button)', 'session-project-remove', '/unassign', 'text/codex-thread', 'search-clear', 'sessionTime(session)', 'sessionBundles(sessions)', 'shadow-sessions', 'ChatGPT Desktop', 'session-context', 'new EventSource("/api/events")', '/api/terminal-settings', '/api/language', '/api/update-status', 'window.setTimeout(initialize, 1000)', 'await loadMessages(result.language)', 'header-menu', 'sidebar-collapsed', 'data-language', 'sessionSearchCountMany', 'bindCopyButtons()', '/title', 'terminalSettingsPage()', 'versionHistoryPage()', 'gitIndicator(session.git)', 'role="switch"', 'menu-about', 'menu-update']) {
   if (!script.includes(feature)) throw new Error(`Web-Feature fehlt: ${feature}`);
 }
 const agent = await readFile(new URL("../agent/Program.cs", import.meta.url), "utf8");
@@ -12,11 +12,13 @@ if (!agent.includes("AttachShadowSessions(items)")) throw new Error("Agent-erzeu
 if (!agent.includes("_metadata.SavePinned(threadId, pinned)")) throw new Error("Favoriten werden nicht in app-eigenen Metadaten gespeichert.");
 if (agent.includes("OpenReadWrite") || agent.includes("CodexStateStore.SetPinned")) throw new Error("Die interne Codex-Datenbank wird weiterhin für Favoriten beschrieben.");
 if (!agent.includes("projects.Assign(threadId, projectId)")) throw new Error("Sessions können keinem Projekt zugeordnet werden.");
+if (!agent.includes("projects.Unassign(threadId)")) throw new Error("Sessions können nicht aus Projekten entfernt werden.");
+if (!agent.includes("GitStatusService") || !agent.includes('"--porcelain=v2"') || !agent.includes("CacheDuration")) throw new Error("Der gecachte Git-Status für Sessions fehlt.");
 if (!agent.includes('LanguageSettingsStore')) throw new Error("Die gemeinsame Sprachspeicherung fehlt.");
 if (!agent.includes('app.MapGet("/api/language"')) throw new Error("Der Sprach-Endpunkt fehlt.");
 for (const language of ["de", "en", "da"]) {
   const locale = JSON.parse(await readFile(new URL(`../web/locales/${language}.json`, import.meta.url), "utf8"));
-  for (const key of ["sessions", "sessionSearchCountMany", "terminalSettings", "sessionOpen", "copyPath", "editTitle", "tray.open", "tray.updates"])
+  for (const key of ["sessions", "sessionSearchCountMany", "terminalSettings", "versionHistory", "gitStatus", "gitClean", "removeFromProject", "sessionOpen", "copyPath", "editTitle", "tray.open", "tray.updates"])
     if (!locale[key]) throw new Error(`Übersetzung fehlt: ${language}.${key}`);
 }
 if (!agent.includes("TerminalHost.OpenPowerShell(cwd, command)")) throw new Error("Session-Resume verwendet nicht Windows Terminal.");
@@ -57,12 +59,14 @@ const assertResponsiveStyles = (source) => {
   if (!hasDeclaration(source, "min-width", "0")) throw new Error("Responsive Web-Feature fehlt: min-width: 0");
   if (!hasDeclaration(source, "font-size", "0.875rem")) throw new Error("Responsive Web-Feature fehlt: font-size: 0.875rem");
   if (!/@media\s*\(\s*max-width\s*:\s*760px\s*\)/i.test(source)) throw new Error("Responsive Web-Feature fehlt: Mobile Media Query");
-  for (const selector of [".terminal-dialog", ".header-menu-panel", ".language-options", ".list-layout.sidebar-collapsed", ".path-copy", ".settings-form-page .terminal-detected"])
+  for (const selector of [".terminal-dialog", ".header-menu-panel", ".language-options", ".list-layout.sidebar-collapsed", ".path-copy", ".settings-form-page .terminal-detected", ".session-git", ".session-project-remove", ".history-content"])
     if (!hasRule(source, selector)) throw new Error(`Responsive Web-Feature fehlt: ${selector}`);
   if (!hasRuleDeclaration(source, ".project-create", "margin-top", "8px")) throw new Error("Responsive Web-Feature fehlt: Projektabstand");
 };
 assertResponsiveStyles(styles);
 assertResponsiveStyles(styles.replace(/\s+/g, " "));
+const history = JSON.parse(await readFile(new URL("../web/version-history.json", import.meta.url), "utf8"));
+if (!Array.isArray(history.releases) || !history.releases.some((release) => release.released && release.tag)) throw new Error("Die aus Git erzeugte Versionshistorie fehlt.");
 const appIcon = await readFile(new URL("../web/app-icon.svg", import.meta.url), "utf8");
 if (!appIcon.includes('fill="#ff6537"') || !appIcon.includes('stroke="#fff"')) throw new Error("Das gemeinsame orange-weiße App-Icon fehlt.");
 if (!script.includes('class="mark"><img src="/app-icon.svg?v=3"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");

@@ -30,6 +30,7 @@ builder.Services.AddSingleton<SessionMetadataStore>();
 builder.Services.AddSingleton<TerminalSettingsStore>();
 builder.Services.AddSingleton<LanguageSettingsStore>();
 builder.Services.AddSingleton<UpdateStatusStore>();
+builder.Services.AddSingleton<GitStatusService>();
 builder.Services.AddSingleton<CodexClient>();
 var app = builder.Build();
 var actionToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
@@ -141,6 +142,16 @@ app.MapPost("/api/projects/{projectId}/sessions/{threadId}", (string projectId, 
     {
         projects.Assign(threadId, projectId);
         return Results.Ok(new { data = new { projectId } });
+    }
+    catch (Exception error) { return Results.Problem(error.Message, statusCode: 400); }
+});
+
+app.MapPost("/api/projects/sessions/{threadId}/unassign", (string threadId, ProjectStore projects) =>
+{
+    try
+    {
+        projects.Unassign(threadId);
+        return Results.Ok(new { data = new { unassigned = true } });
     }
     catch (Exception error) { return Results.Problem(error.Message, statusCode: 400); }
 });
@@ -346,6 +357,15 @@ internal sealed class ProjectStore
         }
     }
 
+    public void Unassign(string threadId)
+    {
+        if (!Guid.TryParse(threadId, out _)) throw new ArgumentException("Ungültige Session-ID.");
+        lock (_sync)
+        {
+            if (_state.Assignments.Remove(threadId)) Save();
+        }
+    }
+
     public void Apply(JsonObject session)
     {
         lock (_sync)
@@ -366,7 +386,22 @@ internal sealed class ProjectStore
     {
         try
         {
-            if (File.Exists(_path)) return JsonSerializer.Deserialize<StoredProjectState>(File.ReadAllText(_path), StorageJson) ?? new StoredProjectState();
+            if (File.Exists(_path))
+                return Normalize(JsonSerializer.Deserialize<StoredProjectState>(File.ReadAllText(_path), StorageJson) ?? new StoredProjectState());
+
+            var importPath = Directory.EnumerateFiles(UserInstallation.InstallDirectory, "projects.auto-import-*.json")
+                .OrderByDescending(File.GetLastWriteTimeUtc)
+                .FirstOrDefault();
+            if (importPath is not null)
+            {
+                var imported = JsonSerializer.Deserialize<StoredProjectState>(File.ReadAllText(importPath), StorageJson);
+                if (imported is not null)
+                {
+                    var normalized = Normalize(imported);
+                    Persist(normalized);
+                    return normalized;
+                }
+            }
         }
         catch
         {
@@ -376,10 +411,22 @@ internal sealed class ProjectStore
 
     private void Save()
     {
+        Persist(_state);
+    }
+
+    private void Persist(StoredProjectState state)
+    {
         Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
         var temporary = _path + ".tmp";
-        File.WriteAllText(temporary, JsonSerializer.Serialize(_state, StorageJson), new UTF8Encoding(false));
+        File.WriteAllText(temporary, JsonSerializer.Serialize(state, StorageJson), new UTF8Encoding(false));
         File.Move(temporary, _path, overwrite: true);
+    }
+
+    private static StoredProjectState Normalize(StoredProjectState state)
+    {
+        state.Projects ??= [];
+        state.Assignments = new Dictionary<string, string>(state.Assignments ?? [], StringComparer.OrdinalIgnoreCase);
+        return state;
     }
 
     private static string NormalizeName(string? value)
@@ -816,7 +863,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.8.2";
+    public const string Version = "0.9.0";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);
@@ -1287,16 +1334,198 @@ internal static class AutoStartManager
     }
 }
 
+internal sealed class GitStatusService
+{
+    private static readonly TimeSpan CacheDuration = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan CommandTimeout = TimeSpan.FromSeconds(5);
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, CacheEntry> _cache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly SemaphoreSlim _concurrency = new(4, 4);
+
+    public async Task ApplyAsync(IReadOnlyList<JsonObject> sessions, CancellationToken cancellation)
+    {
+        var directories = sessions
+            .Select(session => session["cwd"]?.GetValue<string>())
+            .Where(path => !string.IsNullOrWhiteSpace(path) && Directory.Exists(path))
+            .Select(path => Path.GetFullPath(path!))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(64)
+            .ToArray();
+
+        var inspections = await Task.WhenAll(directories.Select(async directory =>
+            new KeyValuePair<string, JsonObject?>(directory, await GetAsync(directory, cancellation))));
+        var byDirectory = inspections.ToDictionary(entry => entry.Key, entry => entry.Value, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var session in sessions)
+        {
+            var directory = session["cwd"]?.GetValue<string>();
+            if (string.IsNullOrWhiteSpace(directory)) continue;
+            try { directory = Path.GetFullPath(directory); }
+            catch { continue; }
+            if (byDirectory.TryGetValue(directory, out var git) && git is not null)
+                session["git"] = git.DeepClone();
+        }
+    }
+
+    private async Task<JsonObject?> GetAsync(string directory, CancellationToken cancellation)
+    {
+        if (_cache.TryGetValue(directory, out var cached) && cached.ExpiresAt > DateTimeOffset.UtcNow)
+            return cached.Value is null ? null : (JsonObject)cached.Value.DeepClone();
+
+        await _concurrency.WaitAsync(cancellation);
+        try
+        {
+            if (_cache.TryGetValue(directory, out cached) && cached.ExpiresAt > DateTimeOffset.UtcNow)
+                return cached.Value is null ? null : (JsonObject)cached.Value.DeepClone();
+            var value = await InspectAsync(directory, cancellation);
+            _cache[directory] = new CacheEntry(value, DateTimeOffset.UtcNow + CacheDuration);
+            return value is null ? null : (JsonObject)value.DeepClone();
+        }
+        finally
+        {
+            _concurrency.Release();
+        }
+    }
+
+    private static async Task<JsonObject?> InspectAsync(string directory, CancellationToken cancellation)
+    {
+        var status = await RunAsync(directory, ["status", "--porcelain=v2", "--branch", "--untracked-files=normal"], cancellation);
+        if (status.ExitCode != 0) return null;
+
+        string? branch = null;
+        var ahead = 0;
+        var behind = 0;
+        var changedFiles = 0;
+        var conflicts = 0;
+        var changes = new JsonArray();
+        foreach (var line in status.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (line.StartsWith("# branch.head ", StringComparison.Ordinal))
+                branch = line[14..].Trim();
+            else if (line.StartsWith("# branch.ab ", StringComparison.Ordinal))
+            {
+                foreach (var value in line[12..].Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    if (value.StartsWith('+') && int.TryParse(value[1..], out var parsedAhead)) ahead = parsedAhead;
+                    if (value.StartsWith('-') && int.TryParse(value[1..], out var parsedBehind)) behind = parsedBehind;
+                }
+            }
+            else if (!line.StartsWith('#'))
+            {
+                changedFiles++;
+                if (line.StartsWith("u ", StringComparison.Ordinal)) conflicts++;
+                if (changes.Count < 12 && ParseChange(line) is JsonObject change) changes.Add(change);
+            }
+        }
+
+        if (branch is "(detached)" or "(unknown)") branch = null;
+        var lastCommit = await RunAsync(directory, ["--no-pager", "log", "-1", "--format=%H%x1f%h%x1f%cI%x1f%s"], cancellation);
+        var commitParts = lastCommit.ExitCode == 0
+            ? lastCommit.Output.Trim().Split('\x1f', 4)
+            : [];
+
+        return new JsonObject
+        {
+            ["linked"] = true,
+            ["dirty"] = changedFiles > 0,
+            ["changedFiles"] = changedFiles,
+            ["conflicts"] = conflicts,
+            ["changes"] = changes,
+            ["branch"] = branch,
+            ["ahead"] = ahead,
+            ["behind"] = behind,
+            ["lastCommitHash"] = commitParts.Length > 0 ? commitParts[0] : null,
+            ["lastCommitShort"] = commitParts.Length > 1 ? commitParts[1] : null,
+            ["lastCommitAt"] = commitParts.Length > 2 ? commitParts[2] : null,
+            ["lastCommitSubject"] = commitParts.Length > 3 ? Limit(commitParts[3], 200) : null
+        };
+    }
+
+    private static JsonObject? ParseChange(string line)
+    {
+        string? status = null;
+        string? path = null;
+        if (line.StartsWith("? ", StringComparison.Ordinal))
+        {
+            status = "??";
+            path = line[2..];
+        }
+        else if (line.StartsWith("1 ", StringComparison.Ordinal))
+        {
+            var parts = line.Split(' ', 9, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 9) { status = parts[1]; path = parts[8]; }
+        }
+        else if (line.StartsWith("2 ", StringComparison.Ordinal))
+        {
+            var parts = line.Split(' ', 10, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 10) { status = parts[1]; path = parts[9].Split('\t', 2)[0]; }
+        }
+        else if (line.StartsWith("u ", StringComparison.Ordinal))
+        {
+            var parts = line.Split(' ', 11, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 11) { status = parts[1]; path = parts[10]; }
+        }
+
+        if (string.IsNullOrWhiteSpace(status) || string.IsNullOrWhiteSpace(path)) return null;
+        return new JsonObject { ["status"] = status, ["path"] = Limit(path, 260) };
+    }
+
+    private static async Task<GitCommandResult> RunAsync(string directory, IReadOnlyList<string> arguments, CancellationToken cancellation)
+    {
+        var startInfo = new ProcessStartInfo("git")
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8
+        };
+        startInfo.ArgumentList.Add("-C");
+        startInfo.ArgumentList.Add(directory);
+        foreach (var argument in arguments) startInfo.ArgumentList.Add(argument);
+
+        try
+        {
+            using var process = new Process { StartInfo = startInfo };
+            process.Start();
+            var outputTask = process.StandardOutput.ReadToEndAsync();
+            var errorTask = process.StandardError.ReadToEndAsync();
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
+            timeout.CancelAfter(CommandTimeout);
+            try
+            {
+                await process.WaitForExitAsync(timeout.Token);
+            }
+            catch (OperationCanceledException) when (!cancellation.IsCancellationRequested)
+            {
+                try { process.Kill(entireProcessTree: true); } catch { }
+                return new GitCommandResult(-1, "", "Git-Abfrage hat das Zeitlimit überschritten.");
+            }
+            return new GitCommandResult(process.ExitCode, await outputTask, await errorTask);
+        }
+        catch (Exception error) when (error is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            return new GitCommandResult(-1, "", error.Message);
+        }
+    }
+
+    private static string Limit(string value, int length) => value.Length <= length ? value : value[..length];
+    private sealed record CacheEntry(JsonObject? Value, DateTimeOffset ExpiresAt);
+    private sealed record GitCommandResult(int ExitCode, string Output, string Error);
+}
+
 internal sealed class CodexClient
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly ProjectStore _projects;
     private readonly SessionMetadataStore _metadata;
+    private readonly GitStatusService _git;
 
-    public CodexClient(ProjectStore projects, SessionMetadataStore metadata)
+    public CodexClient(ProjectStore projects, SessionMetadataStore metadata, GitStatusService git)
     {
         _projects = projects;
         _metadata = metadata;
+        _git = git;
     }
 
     public async Task<JsonArray> ListThreadsAsync(bool archived, CancellationToken cancellation)
@@ -1332,6 +1561,7 @@ internal sealed class CodexClient
             _projects.Apply(item);
             _metadata.Apply(item);
         }
+        await _git.ApplyAsync(items, cancellation);
         AttachShadowSessions(items);
         return normalized;
     }
@@ -1398,6 +1628,7 @@ internal sealed class CodexClient
         foreach (var entry in normalized) detail[entry.Key] = entry.Value?.DeepClone();
         _projects.Apply(detail);
         _metadata.Apply(detail);
+        await _git.ApplyAsync([detail], cancellation);
         var processDetected = DetectActiveProcessSessions().Contains(threadId);
         var lockDetected = IsSessionActive(threadId);
         detail["active"] = processDetected || lockDetected;

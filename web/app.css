@@ -17,6 +17,7 @@
   --button-text: #fff;
   --danger: #9a4747;
   --success: #578264;
+  --warning: #b46f2f;
 }
 
 :root[data-theme="dark"] {
@@ -35,6 +36,8 @@
   --button: #c4d0d7;
   --button-text: #202522;
   --danger: #cf8585;
+  --success: #75ad84;
+  --warning: #e2a566;
 }
 
 * {
@@ -1266,7 +1269,8 @@ summary {
   gap: 4px;
 }
 
-.session-favorite {
+.session-favorite,
+.session-project-remove {
   width: 26px;
   height: 26px;
   flex: 0 0 auto;
@@ -1279,12 +1283,14 @@ summary {
   background: transparent;
 }
 
-.session-favorite svg {
+.session-favorite svg,
+.session-project-remove svg {
   width: 16px;
   height: 16px;
 }
 
-.session-favorite:hover {
+.session-favorite:hover,
+.session-project-remove:hover {
   color: var(--accent);
   background: var(--soft);
 }
@@ -1301,6 +1307,46 @@ summary {
   opacity: 0.5;
 }
 
+.session-project-remove:hover {
+  color: var(--danger);
+}
+
+.project-unassign-drop {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px;
+  border: 1px dashed var(--danger);
+  border-radius: 9px;
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 6%, transparent);
+  font-size: 12px;
+  font-weight: 650;
+  text-align: center;
+}
+
+.project-unassign-drop[hidden] {
+  display: none;
+}
+
+.project-unassign-drop.drop-target {
+  color: var(--button-text);
+  background: var(--danger);
+}
+
+.project-unassign-drop svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+}
+
+.list-layout.sidebar-collapsed .project-unassign-drop span {
+  display: none;
+}
+
 .session-body {
   min-width: 0;
   display: flex;
@@ -1314,6 +1360,13 @@ summary {
   flex: 1;
 }
 
+.session-title-line {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
 .session-actions {
   flex: 0 0 auto;
   display: flex;
@@ -1322,6 +1375,8 @@ summary {
 }
 
 .session-title {
+  min-width: 0;
+  flex: 0 1 auto;
   display: block;
   margin-top: 0;
   overflow: hidden;
@@ -1330,6 +1385,34 @@ summary {
   line-height: 1.35;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.session-git {
+  width: 21px;
+  height: 21px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+}
+
+.session-git svg {
+  width: 19px;
+  height: 19px;
+  stroke-width: 1.65;
+}
+
+.session-git.clean {
+  color: var(--success);
+}
+
+.session-git.dirty {
+  color: var(--warning);
+}
+
+.session-git.conflict {
+  color: var(--danger);
 }
 
 .pin {
@@ -1763,6 +1846,115 @@ summary {
   font: inherit;
 }
 
+.history-content {
+  width: min(900px, 100%);
+  margin: 0 auto;
+  padding: 34px 28px 64px;
+}
+
+.history-heading {
+  margin: 26px 0 30px;
+}
+
+.history-heading h1 {
+  margin: 6px 0 8px;
+  font-size: clamp(27px, 4vw, 38px);
+}
+
+.history-heading p {
+  max-width: 680px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.history-list {
+  display: grid;
+  gap: 20px;
+}
+
+.history-release {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--panel);
+  box-shadow: 0 8px 26px rgba(36, 62, 78, 0.07);
+}
+
+.history-release > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+  background: var(--soft);
+}
+
+.history-release > header div {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.history-release > header span {
+  font-size: 16px;
+  font-weight: 750;
+}
+
+.history-release > header time,
+.history-release li time {
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.history-release > header code {
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.history-release.unreleased > header {
+  color: var(--accent);
+}
+
+.history-release ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.history-release li + li {
+  border-top: 1px solid var(--line);
+}
+
+.history-release li a {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.history-release li a:hover {
+  background: var(--soft);
+}
+
+.history-release li code {
+  color: var(--accent);
+  font-size: 11px;
+}
+
+.history-release li span {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .projects,
 .sessions,
 .session-page {
@@ -1794,6 +1986,17 @@ summary {
 }
 
 @media (max-width: 760px) {
+  .history-content {
+    padding: 24px 15px 48px;
+  }
+
+  .history-release li a {
+    grid-template-columns: 54px minmax(0, 1fr);
+  }
+
+  .history-release li time {
+    display: none;
+  }
   html,
   body {
     height: auto;

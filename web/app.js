@@ -19,6 +19,8 @@ const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&":
 const relative = (timestamp) => { const ms = Date.now() - timestamp; if (ms < 60000) return t("justNow"); const minutes = Math.round(ms / 60000); if (minutes < 60) return t("minutesAgo", minutes); const hours = Math.round(minutes / 60); if (hours < 24) return t("hoursAgo", hours); const days = Math.round(hours / 24); if (days === 1) return t("yesterday"); if (days < 14) return t("daysAgo", days); return new Intl.DateTimeFormat(languageLocales[language], { dateStyle: "medium", timeStyle: "short" }).format(timestamp); };
 const sessionTime = (session) => { const age = Date.now() - Number(session.updatedAt || 0); return !session.active && age >= 0 && age <= 3 * 60000 ? t("justEnded") : relative(session.updatedAt); };
 const directoryLabel = (value) => { const path = String(value || t("noProject")); return value && !/[\\/]$/.test(path) ? `${path}\\` : path; };
+const gitStateLabel = (git) => git.conflicts ? t("gitConflicts", git.conflicts) : git.dirty ? t("gitDirty", git.changedFiles) : t("gitClean");
+const gitSummary = (git) => git?.linked ? [git.branch, gitStateLabel(git)].filter(Boolean).join(" · ") : t("notGitRepository");
 const formatValue = (value) => { if (value === null || value === undefined || value === "") return "–"; if (typeof value === "boolean") return value ? t("yes") : t("no"); if (typeof value === "object") return JSON.stringify(value, null, 2); return String(value); };
 const tablerIcon = (paths) => `<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 const icons = {
@@ -41,6 +43,9 @@ const icons = {
   sidebarOpen: tablerIcon('<path d="M4 5h16v14H4zM9 5v14M11 9l3 3-3 3"/>'),
   copy: tablerIcon('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>'),
   edit: tablerIcon('<path d="M4 20h4l10.5-10.5a2.8 2.8 0 0 0-4-4L4 16v4zM13.5 6.5l4 4"/>'),
+  unlink: tablerIcon('<path d="M10 13a5 5 0 0 0 7.07.07l2-2a5 5 0 0 0-7.07-7.07l-1.15 1.15"/><path d="M14 11a5 5 0 0 0-7.07-.07l-2 2A5 5 0 0 0 12 20l1.15-1.15"/><path d="M4 4l16 16"/>'),
+  git: tablerIcon('<path d="M10.62 2.94l10.44 10.44a2.12 2.12 0 0 1 0 3l-4.68 4.68a2.12 2.12 0 0 1-3 0L2.94 10.62a2.12 2.12 0 0 1 0-3l4.68-4.68a2.12 2.12 0 0 1 3 0z"/><circle cx="8.5" cy="8.5" r="1.5"/><circle cx="15.5" cy="15.5" r="1.5"/><path d="M9.6 9.6l4.8 4.8M12 12V8.5M12 12h3.5"/>'),
+  history: tablerIcon('<path d="M12 8v4l2 2"/><path d="M3.05 11a9 9 0 1 0 .5-3M3 4v4h4"/>'),
   info: tablerIcon('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.01"/>'),
   refresh: tablerIcon('<path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"/>')
 };
@@ -50,7 +55,7 @@ document.documentElement.dataset.theme = theme;
 function header() {
   const autostart = companionInfo.supportsAutostart ? `<button class="menu-row switch-row" id="autostart-toggle" role="switch" aria-checked="${companionInfo.autostartEnabled}"><span>${t("autostart")}</span><i class="toggle-switch"><b></b></i></button>` : "";
   const darkMode = document.documentElement.dataset.theme === "dark";
-  return `<header class="top"><a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=3" alt=""></span><strong>Codex CLI Manager</strong></a><span class="live"><i class="dot"></i>${t("live")}</span><span class="spacer"></span><details class="header-menu"><summary class="quiet-button icon-button" aria-label="${t("menu")}" title="${t("menu")}">${icons.menu}</summary><div class="header-menu-panel">${autostart}<button class="menu-row switch-row" id="theme-toggle" role="switch" aria-checked="${darkMode}">${darkMode ? icons.moon : icons.sun}<span>${t("darkMode")}</span><i class="toggle-switch"><b></b></i></button><div class="menu-block"><span class="menu-label">${icons.globe}${t("language")}</span><div class="language-options" role="group" aria-label="${t("language")}">${["de", "en", "da"].map((code) => `<button type="button" data-language="${code}" class="${language === code ? "active" : ""}" aria-pressed="${language === code}">${code === "da" ? "DK" : code.toUpperCase()}</button>`).join("")}</div></div><a class="menu-row" href="/settings/terminal">${icons.settings}<span>${t("terminalSettings")}</span></a><div class="menu-update" id="menu-update"><span>${icons.refresh}<span>${t("updateChecking")}</span></span><button type="button" id="update-check">${t("checkNow")}</button></div><details class="menu-about"><summary class="menu-row">${icons.info}<span>${t("about")}</span></summary><div><strong>Codex CLI Manager ${esc(companionInfo.version || "")}</strong><p>${t("aboutDescription")}</p><a href="https://github.com/flensbursche/Codex_CLI_Manager" target="_blank" rel="noreferrer">GitHub</a></div></details></div></details></header>`;
+  return `<header class="top"><a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=3" alt=""></span><strong>Codex CLI Manager</strong></a><span class="live"><i class="dot"></i>${t("live")}</span><span class="spacer"></span><details class="header-menu"><summary class="quiet-button icon-button" aria-label="${t("menu")}" title="${t("menu")}">${icons.menu}</summary><div class="header-menu-panel">${autostart}<button class="menu-row switch-row" id="theme-toggle" role="switch" aria-checked="${darkMode}">${darkMode ? icons.moon : icons.sun}<span>${t("darkMode")}</span><i class="toggle-switch"><b></b></i></button><div class="menu-block"><span class="menu-label">${icons.globe}${t("language")}</span><div class="language-options" role="group" aria-label="${t("language")}">${["de", "en", "da"].map((code) => `<button type="button" data-language="${code}" class="${language === code ? "active" : ""}" aria-pressed="${language === code}">${code === "da" ? "DK" : code.toUpperCase()}</button>`).join("")}</div></div><a class="menu-row" href="/history">${icons.history}<span>${t("versionHistory")}</span></a><a class="menu-row" href="/settings/terminal">${icons.settings}<span>${t("terminalSettings")}</span></a><div class="menu-update" id="menu-update"><span>${icons.refresh}<span>${t("updateChecking")}</span></span><button type="button" id="update-check">${t("checkNow")}</button></div><details class="menu-about"><summary class="menu-row">${icons.info}<span>${t("about")}</span></summary><div><strong>Codex CLI Manager ${esc(companionInfo.version || "")}</strong><p>${t("aboutDescription")}</p><a href="https://github.com/flensbursche/Codex_CLI_Manager" target="_blank" rel="noreferrer">GitHub</a></div></details></div></details></header>`;
 }
 
 function bindTheme() {
@@ -150,6 +155,24 @@ function renderTerminalSettingsPage(settings) {
   };
 }
 
+async function versionHistoryPage() {
+  app.innerHTML = `<div class="shell">${header()}<main class="session-page"><div class="history-content"><a class="back" href="/">${t("backSessions")}</a><div class="page-loading">${t("loading")}</div></div></main></div>`;
+  bindTheme();
+  try {
+    const response = await fetch("/version-history.json", { cache: "no-store" });
+    if (!response.ok) throw new Error(t("historyLoadFailed"));
+    renderVersionHistory(await response.json());
+  } catch (error) {
+    document.querySelector(".history-content").innerHTML = `<a class="back" href="/">${t("backSessions")}</a><div class="empty">${esc(error.message)}</div>`;
+  }
+}
+
+function renderVersionHistory(history) {
+  const content = document.querySelector(".history-content");
+  const date = (value) => value ? new Intl.DateTimeFormat(languageLocales[language], { dateStyle: "medium" }).format(new Date(value)) : "";
+  content.innerHTML = `<a class="back" href="/">${t("backSessions")}</a><div class="history-heading"><span class="eyebrow">Codex CLI Manager</span><h1>${t("versionHistory")}</h1><p>${t("versionHistoryDescription")}</p></div><div class="history-list">${(history.releases || []).map((release) => `<section class="history-release ${release.released ? "" : "unreleased"}"><header><div><span>${release.released ? t("version", esc(release.version)) : t("unreleased")}</span><time>${date(release.date)}</time></div><code>${esc(String(release.commit || "").slice(0, 7))}</code></header><ol>${(release.commits || []).map((commit) => `<li><a href="https://github.com/flensbursche/Codex_CLI_Manager/commit/${encodeURIComponent(commit.hash)}" target="_blank" rel="noreferrer"><code>${esc(commit.shortHash)}</code><span>${esc(commit.subject)}</span><time>${date(commit.date)}</time></a></li>`).join("")}</ol></section>`).join("")}</div>`;
+}
+
 async function fetchJson(url, options) {
   const request = { ...(options || {}) };
   request.headers = { ...(request.headers || {}) };
@@ -185,6 +208,7 @@ function listPage() {
             </form>
           </div>
           <nav class="projects" id="projects"></nav>
+          <div class="project-unassign-drop" id="project-unassign-drop" hidden>${icons.unlink}<span>${t("removeFromProject")}</span></div>
           <footer class="sidebar-footer"><button type="button" id="sidebar-toggle" aria-label="${sidebarCollapsed ? t("expandSidebar") : t("collapseSidebar")}" title="${sidebarCollapsed ? t("expandSidebar") : t("collapseSidebar")}">${sidebarCollapsed ? icons.sidebarOpen : icons.sidebarClose}<span>${sidebarCollapsed ? t("expandSidebar") : t("collapseSidebar")}</span></button></footer>
         </aside>
         <section class="main">
@@ -305,9 +329,13 @@ async function assignSessionToProject(threadId, projectId) {
 }
 
 function bindSessionDragging() {
+  const unassign = document.querySelector("#project-unassign-drop");
+  unassign.ondragover = (event) => { event.preventDefault(); unassign.classList.add("drop-target"); };
+  unassign.ondragleave = () => unassign.classList.remove("drop-target");
+  unassign.ondrop = (event) => { event.preventDefault(); unassign.classList.remove("drop-target"); unassign.hidden = true; const threadId = event.dataTransfer.getData("text/codex-thread"); if (threadId) void removeSessionFromProject(threadId); };
   document.querySelectorAll("article.session-row").forEach((row) => {
-    row.ondragstart = (event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/codex-thread", row.dataset.id); row.classList.add("dragging"); };
-    row.ondragend = () => { row.classList.remove("dragging"); document.querySelectorAll(".projects .drop-target").forEach((target) => target.classList.remove("drop-target")); };
+    row.ondragstart = (event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/codex-thread", row.dataset.id); row.classList.add("dragging"); unassign.hidden = !state.sessions.find((session) => session.id === row.dataset.id)?.projectId; };
+    row.ondragend = () => { row.classList.remove("dragging"); unassign.hidden = true; unassign.classList.remove("drop-target"); document.querySelectorAll(".projects .drop-target").forEach((target) => target.classList.remove("drop-target")); };
   });
 }
 
@@ -350,7 +378,7 @@ function sessionsWithoutInternalFilter() {
 function filteredSessions() {
   const query = document.querySelector("#search").value.trim().toLowerCase(); const source = document.querySelector("#source").value; const pinned = document.querySelector("#pinned").value; const days = Number(document.querySelector("#period").value); const sort = document.querySelector("#sort").value; const cutoff = days ? Date.now() - days * 86400000 : 0;
   const byId = new Map(state.sessions.map((session) => [session.id, session]));
-  return sessionsWithoutInternalFilter().filter((session) => (!state.project || session.projectId === state.project || (session.parentId && byId.get(session.parentId)?.projectId === state.project)) && (source === "all" || session.source === source) && (pinned === "all" || session.pinned) && (!cutoff || session.updatedAt >= cutoff) && (!query || `${session.title} ${session.preview} ${session.project} ${session.branch || ""} ${session.cwd} ${session.storagePath || ""}`.toLowerCase().includes(query))).sort((a, b) => sort === "created" ? b.createdAt - a.createdAt : sort === "project" ? a.project.localeCompare(b.project) : sort === "title" ? a.title.localeCompare(b.title) : sort === "path" ? (a.storagePath || "").localeCompare(b.storagePath || "") : b.updatedAt - a.updatedAt);
+  return sessionsWithoutInternalFilter().filter((session) => (!state.project || session.projectId === state.project || (session.parentId && byId.get(session.parentId)?.projectId === state.project)) && (source === "all" || session.source === source) && (pinned === "all" || session.pinned) && (!cutoff || session.updatedAt >= cutoff) && (!query || `${session.title} ${session.preview} ${session.project} ${session.branch || ""} ${session.git?.branch || ""} ${session.git?.lastCommitSubject || ""} ${session.cwd} ${session.storagePath || ""}`.toLowerCase().includes(query))).sort((a, b) => sort === "created" ? b.createdAt - a.createdAt : sort === "project" ? a.project.localeCompare(b.project) : sort === "title" ? a.title.localeCompare(b.title) : sort === "path" ? (a.storagePath || "").localeCompare(b.storagePath || "") : b.updatedAt - a.updatedAt);
 }
 
 function sessionBundles(sessions) {
@@ -367,6 +395,7 @@ function renderSessions() {
   const groups = ["justNow", "today", "yesterdayGroup", "thisWeek", "lastWeek", "thisMonth", "older"];
   document.querySelector("#sessions").innerHTML = !bundles.length ? `<div class="empty">${t("noSessions")}</div>` : sort === "updated" ? groups.map((group) => { const items = bundles.filter((bundle) => activityGroup(bundle.updatedAt) === group); return items.length ? `<section class="session-group"><h2>${t(group)}</h2>${items.map((bundle) => sessionRow(bundle.master, bundle.shadows)).join("")}</section>` : ""; }).join("") : bundles.map((bundle) => sessionRow(bundle.master, bundle.shadows)).join("");
   document.querySelectorAll(".session-favorite").forEach((button) => button.onclick = () => toggleFavorite(button.dataset.id, button));
+  document.querySelectorAll(".session-project-remove").forEach((button) => button.onclick = () => removeSessionFromProject(button.dataset.id, button));
   document.querySelectorAll(".session-launch").forEach((button) => button.onclick = () => openFromList(button.dataset.id, button.dataset.action, button));
   bindCopyButtons();
   bindSessionDragging();
@@ -378,7 +407,19 @@ function sessionRow(session, shadows = []) {
   const sourceIcon = session.desktop ? icons.desktop : icons.terminal;
   const shadowList = shadows.length ? `<div class="shadow-sessions">${shadows.map(shadowSessionRow).join("")}</div>` : "";
   const favoriteLabel = session.pinned ? t("removeFavorite") : t("addFavorite");
-  return `<article class="session-row ${session.active ? "active-session" : ""}" data-id="${session.id}" draggable="true"><div class="session-copy"><div class="session-context"><button class="session-path-copy copy-value" type="button" data-copy="${esc(session.cwd)}" title="${t("copyPath")}"><code>${esc(directoryLabel(session.cwd))}</code>${icons.copy}</button><div class="session-meta"><time>${sessionTime(session)}</time><button class="session-favorite ${session.pinned ? "active" : ""}" data-id="${session.id}" aria-label="${favoriteLabel}" aria-pressed="${session.pinned ? "true" : "false"}" title="${favoriteLabel}">${icons.favorite}</button></div></div><div class="session-body"><div class="session-summary"><strong class="session-title" title="${esc(session.title)}">${esc(session.title)}</strong>${session.customTitle ? `<span class="session-original-title">${t("originalTitle")}: ${esc(session.originalTitle)}</span>` : ""}${session.preview ? `<span class="session-prompt">${esc(session.preview)}</span>` : ""}</div><div class="session-actions"><a class="session-details" href="/session/${encodeURIComponent(session.id)}">${t("details")}</a><button class="session-launch ${session.desktop ? "desktop" : ""}" data-id="${session.id}" data-action="${action}" ${disabled ? "disabled" : ""} aria-label="${label}" title="${source}: ${label}"><span class="launch-source">${sourceIcon}</span><span class="launch-divider"></span><span class="launch-play">${icons.play}</span></button></div></div>${shadowList}</div></article>`;
+  const projectRemove = session.projectId ? `<button class="session-project-remove" data-id="${session.id}" aria-label="${t("removeFromProject")}" title="${t("removeFromProject")}">${icons.unlink}</button>` : "";
+  return `<article class="session-row ${session.active ? "active-session" : ""}" data-id="${session.id}" draggable="true"><div class="session-copy"><div class="session-context"><button class="session-path-copy copy-value" type="button" data-copy="${esc(session.cwd)}" title="${t("copyPath")}"><code>${esc(directoryLabel(session.cwd))}</code>${icons.copy}</button><div class="session-meta"><time>${sessionTime(session)}</time>${projectRemove}<button class="session-favorite ${session.pinned ? "active" : ""}" data-id="${session.id}" aria-label="${favoriteLabel}" aria-pressed="${session.pinned ? "true" : "false"}" title="${favoriteLabel}">${icons.favorite}</button></div></div><div class="session-body"><div class="session-summary"><div class="session-title-line"><strong class="session-title" title="${esc(session.title)}">${esc(session.title)}</strong>${gitIndicator(session.git)}</div>${session.customTitle ? `<span class="session-original-title">${t("originalTitle")}: ${esc(session.originalTitle)}</span>` : ""}${session.preview ? `<span class="session-prompt">${esc(session.preview)}</span>` : ""}</div><div class="session-actions"><a class="session-details" href="/session/${encodeURIComponent(session.id)}">${t("details")}</a><button class="session-launch ${session.desktop ? "desktop" : ""}" data-id="${session.id}" data-action="${action}" ${disabled ? "disabled" : ""} aria-label="${label}" title="${source}: ${label}"><span class="launch-source">${sourceIcon}</span><span class="launch-divider"></span><span class="launch-play">${icons.play}</span></button></div></div>${shadowList}</div></article>`;
+}
+
+function gitIndicator(git) {
+  if (!git?.linked) return "";
+  const stateLabel = gitStateLabel(git);
+  const overview = [git.branch, stateLabel, git.ahead ? t("gitAhead", git.ahead) : "", git.behind ? t("gitBehind", git.behind) : ""].filter(Boolean).join(" · ");
+  const changed = (git.changes || []).map((change) => `${change.status}  ${change.path}`);
+  if (git.changedFiles > changed.length) changed.push(t("gitMoreChanges", git.changedFiles - changed.length));
+  const details = [overview, ...changed, git.lastCommitShort && git.lastCommitSubject ? `${t("lastCommit")}: ${git.lastCommitShort} ${git.lastCommitSubject}` : ""].filter(Boolean).join("\n");
+  const stateClass = git.conflicts ? "conflict" : git.dirty ? "dirty" : "clean";
+  return `<span class="session-git ${stateClass}" title="${esc(details)}" aria-label="${esc(details)}">${icons.git}</span>`;
 }
 
 function shadowSessionRow(session) {
@@ -395,6 +436,20 @@ async function toggleFavorite(threadId, button) {
     session.pinned = result.pinned; renderSessions();
   } catch (error) {
     button.disabled = false; button.title = error.message;
+    showListError(error.message);
+  }
+}
+
+async function removeSessionFromProject(threadId, button) {
+  const session = state.sessions.find((item) => item.id === threadId); if (!session) return;
+  if (button) button.disabled = true;
+  try {
+    await fetchJson(`/api/projects/sessions/${encodeURIComponent(threadId)}/unassign`, { method: "POST" });
+    session.projectId = null;
+    session.project = session.baseProject || t("noProject");
+    renderProjects(); renderSessions();
+  } catch (error) {
+    if (button) button.disabled = false;
     showListError(error.message);
   }
 }
@@ -420,7 +475,7 @@ async function sessionPage(id) {
 function renderSessionDetail(session) {
   const content = document.querySelector(".session-content"); const title = session.title || session.name || session.first_user_message || t("unnamedSession"); const description = session.preview || session.first_user_message || "";
   const sessionStatus = session.openState === "uncertain" ? t("statusUncertain") : session.active ? t("sessionOpen") : t("ready");
-  const summary = [[t("status"), sessionStatus], [t("project"), session.project], [t("source"), session.threadSource || session.thread_source || session.source], [t("model"), session.model || session.modelProvider || session.model_provider], [t("branch"), session.branch || session.git_branch], [t("archived"), session.archived ? t("yes") : t("no")]];
+  const summary = [[t("status"), sessionStatus], [t("project"), session.project], [t("source"), session.threadSource || session.thread_source || session.source], [t("model"), session.model || session.modelProvider || session.model_provider], [t("branch"), session.git?.branch || session.branch || session.git_branch], [t("gitStatus"), gitSummary(session.git)], [t("lastCommit"), session.git?.lastCommitShort ? `${session.git.lastCommitShort} · ${session.git.lastCommitSubject || ""}` : ""], [t("archived"), session.archived ? t("yes") : t("no")]];
   const excluded = new Set(["first_user_message", "preview"]); const metadata = Object.entries(session).filter(([key]) => !excluded.has(key)).sort(([a], [b]) => a.localeCompare(b));
   const sessionPath = session.storagePath || session.path || session.rollout_path || session.storage_path || "";
   const projectPath = session.cwd || "";
@@ -489,6 +544,7 @@ async function initialize() {
 function renderCurrentRoute() {
   const match = window.location.pathname.match(/^\/session\/([A-Za-z0-9_-]+)$/);
   if (match) { void sessionPage(match[1]); return; }
+  if (window.location.pathname === "/history") { void versionHistoryPage(); return; }
   if (window.location.pathname === "/settings/terminal") { void terminalSettingsPage(); return; }
   listPage();
 }

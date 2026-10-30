@@ -20,6 +20,9 @@ Codex CLI Manager ist ein lokales Windows-Cockpit zum Finden, Sortieren, Öffnen
 - blendet interne Guardian- und Memory-Sessions standardmäßig aus
 - erkennt offene Threads über Codex-Prozess und Writer-Lock, kennzeichnet unklare Zustände und verhindert Doppelstarts
 - verwaltet Favoriten in app-eigenen Metadaten und frei angelegte Projekte mit Drag-and-drop-Zuordnung
+- löst Projektzuordnungen direkt wieder an der jeweiligen Session
+- erkennt Git-Repositories, Branch, Arbeitsbaumstatus, Konflikte und den letzten Commit ohne Schreibzugriff
+- zeigt eine aus Release-Tags und Git-Commits erzeugte Versionshistorie in der App
 - bündelt von Connectoren erzeugte Schatten-Sessions unter ihrer Hauptsession
 - setzt CLI-Sessions in einem neuen Windows-Terminal-Fenster mit PowerShell fort
 - erkennt Windows Terminal und installierte PowerShell-Versionen pro Benutzer
@@ -55,17 +58,19 @@ Voraussetzungen auf dem Zielrechner:
 
 Das veröffentlichte Windows-Paket ist selbstenthalten und benötigt kein separat installiertes .NET. Unternehmensrichtlinien wie AppLocker, WDAC oder Defender können unsignierte Anwendungen trotzdem blockieren; für eine breite interne Verteilung ist eine Codesignatur empfehlenswert.
 
+Die vorbereitete Produktionsstrategie für Authenticode, Azure Artifact Signing und klassische OV-Zertifikate steht in [CODE_SIGNING.md](CODE_SIGNING.md). Ein öffentlich vertrauenswürdiges Zertifikat setzt immer eine externe Identitätsprüfung voraus und wird nicht im Repository gespeichert.
+
 ## Release bauen
 
-Der GitHub-Workflow `Windows companion` läuft manuell oder bei Tags mit dem Präfix `v`. Ein Tag wie `v0.8.2` erzeugt ein GitHub Release mit `CodexSessionManager-Setup-win-x64.zip` und SHA-256-Prüfsumme. Installierte Clients erkennen dieses Release ohne Abhängigkeit vom anonymen GitHub-API-Limit und bieten es im Tray-Menü an.
+Der GitHub-Workflow `Windows companion` läuft manuell oder bei Tags mit dem Präfix `v`. Ein Tag wie `v0.9.0` erzeugt ein GitHub Release mit `CodexSessionManager-Setup-win-x64.zip` und SHA-256-Prüfsumme. Installierte Clients erkennen dieses Release ohne Abhängigkeit vom anonymen GitHub-API-Limit und bieten es im Tray-Menü an.
 
 Pushes und Pull Requests gegen `main` führen zusätzlich den Web-Smoke-Test und einen .NET-Release-Build aus. Das auf Text- und Strukturprüfungen basierende Smoke-Testskript ignoriert reine CSS-Formatierungsunterschiede.
 
 Ein normaler Push auf `main` veröffentlicht absichtlich kein Client-Update. Release-Versionen werden so angelegt:
 
 ```powershell
-git tag v0.8.2
-git push origin v0.8.2
+git tag v0.9.0
+git push origin v0.9.0
 ```
 
 Lokal mit installiertem .NET 10 SDK:
@@ -84,6 +89,7 @@ Der produktive Companion besteht aus:
 - `web/`: statische Browseroberfläche
 - `web/locales/`: gemeinsame JSON-Sprachressourcen für Browseroberfläche und Tray
 - `scripts/check-web-app.mjs`: Syntax- und Feature-Smoke-Test
+- `scripts/generate-version-history.mjs`: erzeugt die Versionshistorie aus Tags und Commits
 
 Die ausgelieferte Anwendung benötigt weder Node.js noch Python. Node.js wird nur
 optional während der Entwicklung für den Web-Smoke-Test verwendet.
@@ -91,6 +97,7 @@ optional während der Entwicklung für den Web-Smoke-Test verwendet.
 Build und Prüfungen:
 
 ```powershell
+node scripts/generate-version-history.mjs
 node scripts/check-web-app.mjs
 dotnet build agent\CodexSessionManager.Agent.csproj
 ```

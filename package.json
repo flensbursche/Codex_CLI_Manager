@@ -1,10 +1,11 @@
 {
   "name": "codex-cli-manager",
   "private": true,
-  "version": "0.8.2",
+  "version": "0.9.0",
   "type": "module",
   "scripts": {
-    "build": "node scripts/check-web-app.mjs && dotnet build agent/CodexSessionManager.Agent.csproj",
+    "history": "node scripts/generate-version-history.mjs",
+    "build": "node scripts/generate-version-history.mjs && node scripts/check-web-app.mjs && dotnet build agent/CodexSessionManager.Agent.csproj",
     "test": "node scripts/check-web-app.mjs",
     "check:web": "node scripts/check-web-app.mjs",
     "publish:windows": "dotnet publish agent/CodexSessionManager.Agent.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o dist/windows-x64"

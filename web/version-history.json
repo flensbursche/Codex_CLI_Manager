@@ -1,0 +1,95 @@
+{
+  "generatedAt": "2026-10-30T09:13:27+01:00",
+  "releases": [
+    {
+      "version": "0.8.2",
+      "tag": "v0.8.2",
+      "date": "2026-10-30T09:13:27+01:00",
+      "commit": "6545d8d3ae7801eadef149db1dd2cdaa7d315fb0",
+      "released": true,
+      "commits": [
+        {
+          "hash": "6545d8d3ae7801eadef149db1dd2cdaa7d315fb0",
+          "shortHash": "6545d8d",
+          "date": "2026-10-30T09:13:27+01:00",
+          "subject": "Avoid GitHub API limits in updater"
+        }
+      ]
+    },
+    {
+      "version": "0.8.1",
+      "tag": "v0.8.1",
+      "date": "2026-10-30T09:07:44+01:00",
+      "commit": "77820c9ef98cee743958a7187f4633028b42ea62",
+      "released": true,
+      "commits": [
+        {
+          "hash": "77820c9ef98cee743958a7187f4633028b42ea62",
+          "shortHash": "77820c9",
+          "date": "2026-10-30T09:07:44+01:00",
+          "subject": "Fix release job repository targeting"
+        },
+        {
+          "hash": "f74cd84708e482e9dfa945a3c78e75e15ce70794",
+          "shortHash": "f74cd84",
+          "date": "2026-10-30T09:00:58+01:00",
+          "subject": "Remove local agent ignore hints"
+        },
+        {
+          "hash": "d3a927c27404f1324719671189e5bf635079a564",
+          "shortHash": "d3a927c",
+          "date": "2026-10-30T09:00:00+01:00",
+          "subject": "Prepare public 0.8.1 release"
+        },
+        {
+          "hash": "98b83d700883b626505716bad98a3fd120539f2e",
+          "shortHash": "98b83d7",
+          "date": "2026-10-30T08:51:32+01:00",
+          "subject": "Open sessions in new terminal windows"
+        },
+        {
+          "hash": "2d94a91c4aef4d5a9dfe1de392c129ad42eaa1cd",
+          "shortHash": "2d94a91",
+          "date": "2026-10-30T08:47:37+01:00",
+          "subject": "Keep reconnect available for uncertain sessions"
+        },
+        {
+          "hash": "9be4c169e7564efc31f2fc3cf6d53599d0b0a154",
+          "shortHash": "9be4c16",
+          "date": "2026-10-30T08:46:27+01:00",
+          "subject": "Allow safe recovery of stale sessions"
+        },
+        {
+          "hash": "ec69f55a0b956fd46a558be9c7f39a73222c9ed7",
+          "shortHash": "ec69f55",
+          "date": "2026-10-30T08:43:55+01:00",
+          "subject": "Ship localized responsive manager 0.8.0"
+        },
+        {
+          "hash": "47e3849df90f901da38658d5c3fe69039b9b6296",
+          "shortHash": "47e3849",
+          "date": "2026-10-30T08:23:51+01:00",
+          "subject": "Add shared German English and Danish localization"
+        },
+        {
+          "hash": "d68246567567fb5e0524d83d589451609b43719a",
+          "shortHash": "d682465",
+          "date": "2026-10-30T08:15:42+01:00",
+          "subject": "Polish tray and header controls"
+        },
+        {
+          "hash": "65fb8fc083c119a8e9760e657a3ff269590ab4f9",
+          "shortHash": "65fb8fc",
+          "date": "2026-10-30T08:10:27+01:00",
+          "subject": "Ship .NET Codex CLI Manager with self-update"
+        },
+        {
+          "hash": "affc03910cbb4ec590f08a09d157534f15f5be06",
+          "shortHash": "affc039",
+          "date": "2026-10-29T17:16:19+01:00",
+          "subject": "Initial-Codex-Session-Manager-release"
+        }
+      ]
+    }
+  ]
+}

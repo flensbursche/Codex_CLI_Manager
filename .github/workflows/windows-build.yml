@@ -37,7 +37,9 @@ jobs:
             throw "Tag $env:RELEASE_TAG passt nicht zur App-Version $version."
           }
       - name: Check browser companion
-        run: node scripts/check-web-app.mjs
+        run: |
+          node scripts/generate-version-history.mjs
+          node scripts/check-web-app.mjs
       - name: Build Windows companion
         run: dotnet build agent/CodexSessionManager.Agent.csproj -c Release
       - name: Publish self-contained Windows companion
