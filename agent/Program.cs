@@ -8,7 +8,6 @@ using System.Text.Json.Nodes;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Win32;
 
-const string AppUrl = "http://127.0.0.1:4180";
 if (UpdateService.TryApplyStagedUpdate(args)) return;
 if (!args.Contains("--portable", StringComparer.OrdinalIgnoreCase) && !UserInstallation.IsInstalledLocation())
 {
@@ -20,14 +19,17 @@ var openBrowserOnStart = !args.Contains("--no-browser", StringComparer.OrdinalIg
 using var singleInstance = new Mutex(true, "Local\\CodexSessionManager.Agent", out var isFirstInstance);
 if (!isFirstInstance)
 {
-    Process.Start(new ProcessStartInfo(AppUrl) { UseShellExecute = true });
+    Process.Start(new ProcessStartInfo(AppEndpoint.Read()) { UseShellExecute = true });
     return;
 }
+var appUrl = AppEndpoint.SelectAndSave();
 var builder = WebApplication.CreateBuilder(args);
-builder.WebHost.UseUrls(AppUrl);
+builder.WebHost.UseUrls(appUrl);
 builder.Services.AddSingleton<ProjectStore>();
+builder.Services.AddSingleton<SessionMetadataStore>();
 builder.Services.AddSingleton<TerminalSettingsStore>();
 builder.Services.AddSingleton<LanguageSettingsStore>();
+builder.Services.AddSingleton<UpdateStatusStore>();
 builder.Services.AddSingleton<CodexClient>();
 var app = builder.Build();
 var actionToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
@@ -110,6 +112,9 @@ app.MapPost("/api/language", (LanguageRequest request, LanguageSettingsStore set
     catch (Exception error) { return Results.Problem(error.Message, statusCode: 400); }
 });
 
+app.MapGet("/api/update-status", async (bool? refresh, UpdateStatusStore updates, CancellationToken cancellation) =>
+    Results.Ok(new { data = await updates.GetAsync(refresh ?? false, cancellation) }));
+
 app.MapGet("/api/sessions", async (bool? archived, CodexClient codex, CancellationToken cancellation) =>
 {
     try { return Results.Ok(new { data = await codex.ListThreadsAsync(archived ?? false, cancellation) }); }
@@ -150,6 +155,12 @@ app.MapPost("/api/session/{threadId}/pinned/{pinned:bool}", (string threadId, bo
     catch (Exception error) { return Results.Problem(error.Message, statusCode: 500); }
 });
 
+app.MapPost("/api/session/{threadId}/title", (string threadId, SessionTitleRequest request, CodexClient codex) =>
+{
+    try { return Results.Ok(new { data = codex.SetTitle(threadId, request.Title) }); }
+    catch (Exception error) { return Results.Problem(error.Message, statusCode: 400); }
+});
+
 app.MapPost("/api/{action}", async (string action, ActionRequest request, CodexClient codex, CancellationToken cancellation) =>
 {
     try
@@ -174,14 +185,118 @@ app.MapFallback(async context =>
 });
 
 if (openBrowserOnStart)
-    app.Lifetime.ApplicationStarted.Register(() => Process.Start(new ProcessStartInfo(AppUrl) { UseShellExecute = true }));
-using var trayIcon = new TrayIconHost(AppUrl, app.Lifetime.StopApplication, app.Services.GetRequiredService<LanguageSettingsStore>());
-await app.RunAsync();
+    app.Lifetime.ApplicationStarted.Register(() => Process.Start(new ProcessStartInfo(appUrl) { UseShellExecute = true }));
+using var trayIcon = new TrayIconHost(appUrl, app.Lifetime.StopApplication, app.Services.GetRequiredService<LanguageSettingsStore>());
+try
+{
+    await app.RunAsync();
+}
+catch (Exception error)
+{
+    System.Windows.Forms.MessageBox.Show(
+        $"Codex CLI Manager konnte nicht gestartet werden.\n\n{error.Message}",
+        "Codex CLI Manager",
+        System.Windows.Forms.MessageBoxButtons.OK,
+        System.Windows.Forms.MessageBoxIcon.Error);
+}
 
 internal sealed record ActionRequest(string ThreadId);
 internal sealed record CreateProjectRequest(string Name);
 internal sealed record TerminalSettingsRequest(string Terminal, string Shell);
 internal sealed record LanguageRequest(string Language);
+internal sealed record SessionTitleRequest(string? Title);
+
+internal static class AppEndpoint
+{
+    private const int PreferredPort = 4180;
+    private static readonly string StatePath = Path.Combine(UserInstallation.InstallDirectory, "endpoint.txt");
+
+    public static string SelectAndSave()
+    {
+        for (var port = PreferredPort; port < PreferredPort + 20; port++)
+        {
+            System.Net.Sockets.TcpListener? listener = null;
+            try
+            {
+                listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, port);
+                listener.Start();
+                var url = $"http://127.0.0.1:{port}";
+                Directory.CreateDirectory(UserInstallation.InstallDirectory);
+                File.WriteAllText(StatePath, url, new UTF8Encoding(false));
+                return url;
+            }
+            catch (System.Net.Sockets.SocketException)
+            {
+            }
+            finally
+            {
+                listener?.Stop();
+            }
+        }
+        const string message = "Kein freier lokaler Port zwischen 4180 und 4199 gefunden. Bitte eine andere lokale Anwendung schließen und den Codex CLI Manager erneut starten.";
+        System.Windows.Forms.MessageBox.Show(message, "Codex CLI Manager", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
+        throw new InvalidOperationException(message);
+    }
+
+    public static string Read()
+    {
+        try
+        {
+            var value = File.ReadAllText(StatePath).Trim();
+            if (Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Host == "127.0.0.1") return value;
+        }
+        catch
+        {
+        }
+        return $"http://127.0.0.1:{PreferredPort}";
+    }
+}
+
+internal sealed class UpdateStatusStore
+{
+    private readonly SemaphoreSlim _gate = new(1, 1);
+    private JsonObject? _cached;
+    private DateTimeOffset _checkedAt;
+
+    public async Task<JsonObject> GetAsync(bool refresh, CancellationToken cancellation)
+    {
+        if (!refresh && _cached is not null && DateTimeOffset.UtcNow - _checkedAt < TimeSpan.FromMinutes(15))
+            return (JsonObject)_cached.DeepClone();
+        await _gate.WaitAsync(cancellation);
+        try
+        {
+            if (!refresh && _cached is not null && DateTimeOffset.UtcNow - _checkedAt < TimeSpan.FromMinutes(15))
+                return (JsonObject)_cached.DeepClone();
+            try
+            {
+                var update = await UpdateService.CheckForUpdateAsync(cancellation);
+                _cached = new JsonObject
+                {
+                    ["status"] = update is null ? "current" : "available",
+                    ["currentVersion"] = ProductInfo.Version,
+                    ["version"] = update?.Version,
+                    ["checkedAt"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                };
+            }
+            catch (Exception error)
+            {
+                _cached = new JsonObject
+                {
+                    ["status"] = "error",
+                    ["currentVersion"] = ProductInfo.Version,
+                    ["error"] = error.Message,
+                    ["checkedAt"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                };
+            }
+            _checkedAt = DateTimeOffset.UtcNow;
+            return (JsonObject)_cached.DeepClone();
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+}
 
 internal sealed class ProjectStore
 {
@@ -283,6 +398,76 @@ internal sealed class ProjectStore
     private sealed record StoredProject(string Id, string Name, long CreatedAt);
 }
 
+internal sealed class SessionMetadataStore
+{
+    private static readonly JsonSerializerOptions StorageJson = new(JsonSerializerDefaults.Web) { WriteIndented = true };
+    private readonly object _sync = new();
+    private readonly string _path = Path.Combine(UserInstallation.InstallDirectory, "session-metadata.json");
+    private Dictionary<string, string> _titles;
+
+    public SessionMetadataStore() => _titles = Load();
+
+    public void Apply(JsonObject session)
+    {
+        var threadId = session["id"]?.GetValue<string>();
+        if (string.IsNullOrWhiteSpace(threadId)) return;
+        lock (_sync)
+        {
+            if (!_titles.TryGetValue(threadId, out var customTitle)) return;
+            var originalTitle = session["title"]?.GetValue<string>() ?? "";
+            session["originalTitle"] = originalTitle;
+            session["title"] = customTitle;
+            session["customTitle"] = true;
+        }
+    }
+
+    public JsonObject SaveTitle(string threadId, string? value, string originalTitle)
+    {
+        if (!Guid.TryParse(threadId, out _)) throw new ArgumentException("Ungültige Session-ID.");
+        var title = string.Join(' ', (value ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        if (title.Length > 160) throw new ArgumentException("Der Session-Titel darf höchstens 160 Zeichen lang sein.");
+        var customized = !string.IsNullOrWhiteSpace(title) && !title.Equals(originalTitle, StringComparison.CurrentCulture);
+        lock (_sync)
+        {
+            if (customized) _titles[threadId] = title;
+            else _titles.Remove(threadId);
+            Save();
+        }
+        return new JsonObject
+        {
+            ["title"] = customized ? title : originalTitle,
+            ["originalTitle"] = originalTitle,
+            ["customTitle"] = customized
+        };
+    }
+
+    private Dictionary<string, string> Load()
+    {
+        try
+        {
+            if (File.Exists(_path))
+            {
+                var stored = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(_path), StorageJson);
+                return stored is null
+                    ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    : new Dictionary<string, string>(stored, StringComparer.OrdinalIgnoreCase);
+            }
+        }
+        catch
+        {
+        }
+        return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private void Save()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+        var temporary = _path + ".tmp";
+        File.WriteAllText(temporary, JsonSerializer.Serialize(_titles, StorageJson), new UTF8Encoding(false));
+        File.Move(temporary, _path, overwrite: true);
+    }
+}
+
 internal sealed class LanguageSettingsStore
 {
     private static readonly JsonSerializerOptions StorageJson = new(JsonSerializerDefaults.Web) { WriteIndented = true };
@@ -352,45 +537,29 @@ internal sealed class LanguageSettingsStore
 
 internal static class TrayTranslations
 {
-    private static readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> Values =
-        new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["de"] = new Dictionary<string, string>
-            {
-                ["open"] = "Codex Manager öffnen", ["monitor"] = "Monitor", ["updates"] = "Nach Updates suchen",
-                ["about"] = "About", ["exit"] = "Beenden", ["searching"] = "Suche nach Updates …",
-                ["noUpdates"] = "Keine Updates", ["current"] = "Codex CLI Manager {0} ist aktuell.",
-                ["install"] = "Update {0} installieren", ["available"] = "Version {0} ist verfügbar.\n\nJetzt herunterladen, installieren und den Manager neu starten?",
-                ["updateTitle"] = "Codex CLI Manager aktualisieren", ["downloading"] = "Update {0} wird geladen …",
-                ["failed"] = "Update fehlgeschlagen", ["aboutTitle"] = "About Codex CLI Manager",
-                ["aboutBody"] = "Codex CLI Manager\nVersion {0}\n\nLokaler .NET-Manager für Codex CLI Sessions.\n\ngithub.com/flensbursche/Codex_CLI_Manager"
-            },
-            ["en"] = new Dictionary<string, string>
-            {
-                ["open"] = "Open Codex Manager", ["monitor"] = "Monitor", ["updates"] = "Check for updates",
-                ["about"] = "About", ["exit"] = "Exit", ["searching"] = "Checking for updates …",
-                ["noUpdates"] = "No updates", ["current"] = "Codex CLI Manager {0} is up to date.",
-                ["install"] = "Install update {0}", ["available"] = "Version {0} is available.\n\nDownload, install, and restart the manager now?",
-                ["updateTitle"] = "Update Codex CLI Manager", ["downloading"] = "Downloading update {0} …",
-                ["failed"] = "Update failed", ["aboutTitle"] = "About Codex CLI Manager",
-                ["aboutBody"] = "Codex CLI Manager\nVersion {0}\n\nLocal .NET manager for Codex CLI sessions.\n\ngithub.com/flensbursche/Codex_CLI_Manager"
-            },
-            ["da"] = new Dictionary<string, string>
-            {
-                ["open"] = "Åbn Codex Manager", ["monitor"] = "Monitor", ["updates"] = "Søg efter opdateringer",
-                ["about"] = "Om", ["exit"] = "Afslut", ["searching"] = "Søger efter opdateringer …",
-                ["noUpdates"] = "Ingen opdateringer", ["current"] = "Codex CLI Manager {0} er opdateret.",
-                ["install"] = "Installer opdatering {0}", ["available"] = "Version {0} er tilgængelig.\n\nDownload, installer og genstart manageren nu?",
-                ["updateTitle"] = "Opdater Codex CLI Manager", ["downloading"] = "Downloader opdatering {0} …",
-                ["failed"] = "Opdatering mislykkedes", ["aboutTitle"] = "Om Codex CLI Manager",
-                ["aboutBody"] = "Codex CLI Manager\nVersion {0}\n\nLokal .NET-manager til Codex CLI-sessioner.\n\ngithub.com/flensbursche/Codex_CLI_Manager"
-            }
-        };
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, IReadOnlyDictionary<string, string>> Cache = new(StringComparer.OrdinalIgnoreCase);
 
-    public static string Get(string language, string key) =>
-        Values.TryGetValue(language, out var selected) && selected.TryGetValue(key, out var value)
-            ? value
-            : Values["en"].TryGetValue(key, out var fallback) ? fallback : key;
+    public static string Get(string language, string key)
+    {
+        var resourceKey = $"tray.{key}";
+        var selected = Load(language);
+        if (selected.TryGetValue(resourceKey, out var value)) return value;
+        return Load("en").TryGetValue(resourceKey, out var fallback) ? fallback : key;
+    }
+
+    private static IReadOnlyDictionary<string, string> Load(string language) => Cache.GetOrAdd(language, static selectedLanguage =>
+    {
+        try
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, "wwwroot", "locales", $"{selectedLanguage}.json");
+            return JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(path))
+                ?? new Dictionary<string, string>();
+        }
+        catch
+        {
+            return new Dictionary<string, string>();
+        }
+    });
 }
 
 internal sealed class TrayIconHost : IDisposable
@@ -611,7 +780,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.7.0";
+    public const string Version = "0.8.0";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);
@@ -1083,8 +1252,13 @@ internal sealed class CodexClient
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly ProjectStore _projects;
+    private readonly SessionMetadataStore _metadata;
 
-    public CodexClient(ProjectStore projects) => _projects = projects;
+    public CodexClient(ProjectStore projects, SessionMetadataStore metadata)
+    {
+        _projects = projects;
+        _metadata = metadata;
+    }
 
     public async Task<JsonArray> ListThreadsAsync(bool archived, CancellationToken cancellation)
     {
@@ -1107,11 +1281,18 @@ internal sealed class CodexClient
             {
                 var item = NormalizeDatabaseThread(thread);
                 var id = item["id"]?.GetValue<string>();
-                item["active"] = id is not null && (activeProcessSessions.Contains(id) || IsSessionActive(id));
+                var processDetected = id is not null && activeProcessSessions.Contains(id);
+                var lockDetected = id is not null && IsSessionActive(id);
+                item["active"] = processDetected || lockDetected;
+                item["openState"] = processDetected && lockDetected ? "open" : processDetected || lockDetected ? "uncertain" : "closed";
                 normalized.Add(item);
                 items.Add(item);
             }
-        foreach (var item in items) _projects.Apply(item);
+        foreach (var item in items)
+        {
+            _projects.Apply(item);
+            _metadata.Apply(item);
+        }
         AttachShadowSessions(items);
         return normalized;
     }
@@ -1177,7 +1358,11 @@ internal sealed class CodexClient
         var normalized = NormalizeDatabaseThread(thread);
         foreach (var entry in normalized) detail[entry.Key] = entry.Value?.DeepClone();
         _projects.Apply(detail);
-        detail["active"] = DetectActiveProcessSessions().Contains(threadId) || IsSessionActive(threadId);
+        _metadata.Apply(detail);
+        var processDetected = DetectActiveProcessSessions().Contains(threadId);
+        var lockDetected = IsSessionActive(threadId);
+        detail["active"] = processDetected || lockDetected;
+        detail["openState"] = processDetected && lockDetected ? "open" : processDetected || lockDetected ? "uncertain" : "closed";
         return detail;
     }
 
@@ -1185,6 +1370,15 @@ internal sealed class CodexClient
     {
         ValidateThreadId(threadId);
         CodexStateStore.SetPinned(threadId, pinned);
+    }
+
+    public JsonObject SetTitle(string threadId, string? title)
+    {
+        ValidateThreadId(threadId);
+        var rows = CodexStateStore.Query($"select name, title, first_user_message from threads where id = '{threadId}' limit 1");
+        var thread = rows.FirstOrDefault() as JsonObject ?? throw new KeyNotFoundException("Session wurde nicht gefunden.");
+        var originalTitle = FirstText(thread, "name", "title", "first_user_message") ?? "Unbenannte Session";
+        return _metadata.SaveTitle(threadId, title, Limit(originalTitle.Trim(), 160));
     }
 
     public async Task ResumeAsync(string threadId, CancellationToken cancellation)

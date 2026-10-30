@@ -4,40 +4,17 @@ let actionToken = "";
 let companionInfo = { supportsAutostart: false, autostartEnabled: false };
 let language = "de";
 let sessionEvents;
+let sidebarCollapsed = localStorage.getItem("codex-sidebar-collapsed") === "true";
 const languageLocales = { de: "de-DE", en: "en-GB", da: "da-DK" };
-const messages = {
-  de: {
-    live: "Live", autostart: "Autostart", on: "An", off: "Aus", terminalSettings: "Terminal Settings", darkMode: "Dark Mode", lightMode: "Light Mode", language: "Sprache",
-    localSetting: "Lokale Einstellung", terminal: "Terminal", close: "Schließen", terminalWindow: "Terminal-Fenster", automatic: "Automatisch", powershellConsole: "PowerShell-Konsole", powershellVersion: "PowerShell-Version", activeWith: "Aktiv: {0} mit {1}", found: "Gefunden", notFound: "Nicht gefunden", version: "Version {0}", cancel: "Abbrechen", save: "Speichern",
-    sessions: "Sessions", favorites: "Favoriten", archive: "Archiv", projects: "Projekte", newProject: "Neues Projekt", projectName: "Projektname", clearProjectName: "Projektname leeren", createProject: "Projekt anlegen",
-    sessionSearch: "Session suchen", clearSearch: "Suche leeren", filter: "Filter", allSources: "Alle Quellen", internalOff: "Interne aus", internalOn: "Interne an", anyPeriod: "Jeder Zeitraum", periodHours: "{0} Stunden", periodDays: "{0} Tage", allSessions: "Alle Sessions", active: "Aktiv", activity: "Aktivität", created: "Erstellt", project: "Projekt", title: "Titel", location: "Speicherort", loading: "Lädt …",
-    emptyResponse: "Leere Antwort vom lokalen Companion ({0}). Bitte die Seite neu laden.", invalidResponse: "Ungültige Antwort vom lokalen Companion ({0}). Bitte die Seite neu laden.", requestFailed: "Anfrage fehlgeschlagen.", sessionsLoadFailed: "Sessions konnten nicht geladen werden", retry: "Erneut versuchen",
-    justNow: "gerade eben", minutesAgo: "vor {0} Min.", hoursAgo: "vor {0} Std.", yesterday: "gestern", yesterdayGroup: "Gestern", daysAgo: "vor {0} Tagen", justEnded: "Gerade beendet", today: "Heute", thisWeek: "Diese Woche", lastWeek: "Letzte Woche", thisMonth: "Dieser Monat", older: "Älter",
-    sessionCountOne: "{0} Session", sessionCountMany: "{0} Sessions", noSessions: "Keine Sessions für diese Filter gefunden.", noProject: "Ohne Projekt", details: "Details", openDesktop: "In Codex Desktop öffnen", alreadyOpen: "Session ist bereits geöffnet", resume: "Session fortsetzen", removeFavorite: "Aus Favoriten entfernen", addFavorite: "Zu Favoriten hinzufügen", running: "Läuft",
-    backSessions: "← Sessions", sessionLoading: "Session wird geladen …", unnamedSession: "Unbenannte Session", status: "Status", ready: "Bereit", source: "Quelle", model: "Modell", branch: "Branch", archived: "Archiviert", yes: "Ja", no: "Nein", opened: "Geöffnet", continue: "Fortsetzen", archiveAction: "Archivieren", openInDesktop: "In Desktop öffnen", storageLocations: "Speicherorte", sessionFile: "Session-Datei", projectFolder: "Projektordner", overview: "Übersicht", technicalMetadata: "Technische Metadaten", connecting: "Verbindung zum lokalen Companion wird hergestellt …"
-  },
-  en: {
-    live: "Live", autostart: "Autostart", on: "On", off: "Off", terminalSettings: "Terminal Settings", darkMode: "Dark Mode", lightMode: "Light Mode", language: "Language",
-    localSetting: "Local setting", terminal: "Terminal", close: "Close", terminalWindow: "Terminal window", automatic: "Automatic", powershellConsole: "PowerShell console", powershellVersion: "PowerShell version", activeWith: "Active: {0} with {1}", found: "Found", notFound: "Not found", version: "Version {0}", cancel: "Cancel", save: "Save",
-    sessions: "Sessions", favorites: "Favorites", archive: "Archive", projects: "Projects", newProject: "New project", projectName: "Project name", clearProjectName: "Clear project name", createProject: "Create project",
-    sessionSearch: "Search sessions", clearSearch: "Clear search", filter: "Filter", allSources: "All sources", internalOff: "Internal off", internalOn: "Internal on", anyPeriod: "Any time", periodHours: "{0} hours", periodDays: "{0} days", allSessions: "All sessions", active: "Active", activity: "Activity", created: "Created", project: "Project", title: "Title", location: "Location", loading: "Loading …",
-    emptyResponse: "Empty response from the local companion ({0}). Please reload the page.", invalidResponse: "Invalid response from the local companion ({0}). Please reload the page.", requestFailed: "Request failed.", sessionsLoadFailed: "Sessions could not be loaded", retry: "Try again",
-    justNow: "just now", minutesAgo: "{0} min. ago", hoursAgo: "{0} hr. ago", yesterday: "yesterday", yesterdayGroup: "Yesterday", daysAgo: "{0} days ago", justEnded: "Just ended", today: "Today", thisWeek: "This week", lastWeek: "Last week", thisMonth: "This month", older: "Older",
-    sessionCountOne: "{0} session", sessionCountMany: "{0} sessions", noSessions: "No sessions match these filters.", noProject: "No project", details: "Details", openDesktop: "Open in Codex Desktop", alreadyOpen: "Session is already open", resume: "Resume session", removeFavorite: "Remove from favorites", addFavorite: "Add to favorites", running: "Running",
-    backSessions: "← Sessions", sessionLoading: "Loading session …", unnamedSession: "Unnamed session", status: "Status", ready: "Ready", source: "Source", model: "Model", branch: "Branch", archived: "Archived", yes: "Yes", no: "No", opened: "Open", continue: "Resume", archiveAction: "Archive", openInDesktop: "Open in Desktop", storageLocations: "Locations", sessionFile: "Session file", projectFolder: "Project folder", overview: "Overview", technicalMetadata: "Technical metadata", connecting: "Connecting to the local companion …"
-  },
-  da: {
-    live: "Live", autostart: "Autostart", on: "Til", off: "Fra", terminalSettings: "Terminalindstillinger", darkMode: "Mørk tilstand", lightMode: "Lys tilstand", language: "Sprog",
-    localSetting: "Lokal indstilling", terminal: "Terminal", close: "Luk", terminalWindow: "Terminalvindue", automatic: "Automatisk", powershellConsole: "PowerShell-konsol", powershellVersion: "PowerShell-version", activeWith: "Aktiv: {0} med {1}", found: "Fundet", notFound: "Ikke fundet", version: "Version {0}", cancel: "Annuller", save: "Gem",
-    sessions: "Sessioner", favorites: "Favoritter", archive: "Arkiv", projects: "Projekter", newProject: "Nyt projekt", projectName: "Projektnavn", clearProjectName: "Ryd projektnavn", createProject: "Opret projekt",
-    sessionSearch: "Søg sessioner", clearSearch: "Ryd søgning", filter: "Filter", allSources: "Alle kilder", internalOff: "Interne fra", internalOn: "Interne til", anyPeriod: "Alle perioder", periodHours: "{0} timer", periodDays: "{0} dage", allSessions: "Alle sessioner", active: "Aktiv", activity: "Aktivitet", created: "Oprettet", project: "Projekt", title: "Titel", location: "Placering", loading: "Indlæser …",
-    emptyResponse: "Tomt svar fra den lokale companion ({0}). Genindlæs siden.", invalidResponse: "Ugyldigt svar fra den lokale companion ({0}). Genindlæs siden.", requestFailed: "Forespørgslen mislykkedes.", sessionsLoadFailed: "Sessionerne kunne ikke indlæses", retry: "Prøv igen",
-    justNow: "lige nu", minutesAgo: "for {0} min. siden", hoursAgo: "for {0} timer siden", yesterday: "i går", yesterdayGroup: "I går", daysAgo: "for {0} dage siden", justEnded: "Lige afsluttet", today: "I dag", thisWeek: "Denne uge", lastWeek: "Sidste uge", thisMonth: "Denne måned", older: "Ældre",
-    sessionCountOne: "{0} session", sessionCountMany: "{0} sessioner", noSessions: "Ingen sessioner matcher disse filtre.", noProject: "Intet projekt", details: "Detaljer", openDesktop: "Åbn i Codex Desktop", alreadyOpen: "Sessionen er allerede åben", resume: "Fortsæt session", removeFavorite: "Fjern fra favoritter", addFavorite: "Føj til favoritter", running: "Kører",
-    backSessions: "← Sessioner", sessionLoading: "Indlæser session …", unnamedSession: "Unavngiven session", status: "Status", ready: "Klar", source: "Kilde", model: "Model", branch: "Branch", archived: "Arkiveret", yes: "Ja", no: "Nej", opened: "Åben", continue: "Fortsæt", archiveAction: "Arkivér", openInDesktop: "Åbn i Desktop", storageLocations: "Placeringer", sessionFile: "Sessionsfil", projectFolder: "Projektmappe", overview: "Oversigt", technicalMetadata: "Tekniske metadata", connecting: "Opretter forbindelse til den lokale companion …"
-  }
+let messages = {};
+const loadMessages = async (code) => {
+  const response = await fetch(`/locales/${encodeURIComponent(code)}.json`, { cache: "no-store" });
+  if (!response.ok) throw new Error(`Could not load locale ${code}.`);
+  messages = await response.json();
+  language = code;
+  document.documentElement.lang = code;
 };
-const t = (key, ...values) => { const template = messages[language]?.[key] ?? messages.en[key] ?? key; return values.reduce((text, value, index) => text.replaceAll(`{${index}}`, value), template); };
+const t = (key, ...values) => { const template = messages[key] ?? key; return values.reduce((text, value, index) => text.replaceAll(`{${index}}`, value), template); };
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 const relative = (timestamp) => { const ms = Date.now() - timestamp; if (ms < 60000) return t("justNow"); const minutes = Math.round(ms / 60000); if (minutes < 60) return t("minutesAgo", minutes); const hours = Math.round(minutes / 60); if (hours < 24) return t("hoursAgo", hours); const days = Math.round(hours / 24); if (days === 1) return t("yesterday"); if (days < 14) return t("daysAgo", days); return new Intl.DateTimeFormat(languageLocales[language], { dateStyle: "medium", timeStyle: "short" }).format(timestamp); };
 const sessionTime = (session) => { const age = Date.now() - Number(session.updatedAt || 0); return !session.active && age >= 0 && age <= 3 * 60000 ? t("justEnded") : relative(session.updatedAt); };
@@ -58,34 +35,58 @@ const icons = {
   globe: tablerIcon('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/>'),
   filter: tablerIcon('<path d="M4 6h16M7 12h10M10 18h4"/>'),
   plus: tablerIcon('<path d="M12 5v14M5 12h14"/>'),
-  close: tablerIcon('<path d="M6 6l12 12M18 6L6 18"/>')
+  close: tablerIcon('<path d="M6 6l12 12M18 6L6 18"/>'),
+  menu: tablerIcon('<path d="M4 6h16M4 12h16M4 18h16"/>'),
+  sidebarClose: tablerIcon('<path d="M4 5h16v14H4zM9 5v14M14 9l-3 3 3 3"/>'),
+  sidebarOpen: tablerIcon('<path d="M4 5h16v14H4zM9 5v14M11 9l3 3-3 3"/>'),
+  copy: tablerIcon('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>'),
+  edit: tablerIcon('<path d="M4 20h4l10.5-10.5a2.8 2.8 0 0 0-4-4L4 16v4zM13.5 6.5l4 4"/>'),
+  info: tablerIcon('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.01"/>'),
+  refresh: tablerIcon('<path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"/>')
 };
 const theme = localStorage.getItem("codex-manager-theme") || "light";
 document.documentElement.dataset.theme = theme;
 
 function header() {
-  const autostart = companionInfo.supportsAutostart ? `<button class="quiet-button" id="autostart-toggle">${t("autostart")}: ${companionInfo.autostartEnabled ? t("on") : t("off")}</button>` : "";
-  const darkMode = document.documentElement.dataset.theme === "light";
-  const themeLabel = darkMode ? t("darkMode") : t("lightMode");
-  return `<header class="top"><a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=3" alt=""></span><strong>Codex CLI Manager</strong></a><span class="live"><i class="dot"></i>${t("live")}</span><span class="spacer"></span>${autostart}<label class="language-control" title="${t("language")}">${icons.globe}<select id="language-select" aria-label="${t("language")}"><option value="de" ${language === "de" ? "selected" : ""}>DE</option><option value="en" ${language === "en" ? "selected" : ""}>EN</option><option value="da" ${language === "da" ? "selected" : ""}>DK</option></select></label><button class="quiet-button terminal-settings-toggle" id="terminal-settings-toggle">${icons.settings}<span>${t("terminalSettings")}</span></button><button class="quiet-button icon-button" id="theme-toggle" aria-label="${themeLabel}" title="${themeLabel}">${darkMode ? icons.moon : icons.sun}</button></header>`;
+  const autostart = companionInfo.supportsAutostart ? `<button class="menu-row switch-row" id="autostart-toggle" role="switch" aria-checked="${companionInfo.autostartEnabled}"><span>${t("autostart")}</span><i class="toggle-switch"><b></b></i></button>` : "";
+  const darkMode = document.documentElement.dataset.theme === "dark";
+  return `<header class="top"><a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=3" alt=""></span><strong>Codex CLI Manager</strong></a><span class="live"><i class="dot"></i>${t("live")}</span><span class="spacer"></span><details class="header-menu"><summary class="quiet-button icon-button" aria-label="${t("menu")}" title="${t("menu")}">${icons.menu}</summary><div class="header-menu-panel">${autostart}<button class="menu-row switch-row" id="theme-toggle" role="switch" aria-checked="${darkMode}">${darkMode ? icons.moon : icons.sun}<span>${t("darkMode")}</span><i class="toggle-switch"><b></b></i></button><div class="menu-block"><span class="menu-label">${icons.globe}${t("language")}</span><div class="language-options" role="group" aria-label="${t("language")}">${["de", "en", "da"].map((code) => `<button type="button" data-language="${code}" class="${language === code ? "active" : ""}" aria-pressed="${language === code}">${code === "da" ? "DK" : code.toUpperCase()}</button>`).join("")}</div></div><a class="menu-row" href="/settings/terminal">${icons.settings}<span>${t("terminalSettings")}</span></a><div class="menu-update" id="menu-update"><span>${icons.refresh}<span>${t("updateChecking")}</span></span><button type="button" id="update-check">${t("checkNow")}</button></div><details class="menu-about"><summary class="menu-row">${icons.info}<span>${t("about")}</span></summary><div><strong>Codex CLI Manager ${esc(companionInfo.version || "")}</strong><p>${t("aboutDescription")}</p><a href="https://github.com/flensbursche/Codex_CLI_Manager" target="_blank" rel="noreferrer">GitHub</a></div></details></div></details></header>`;
 }
 
 function bindTheme() {
-  document.querySelector("#theme-toggle").onclick = () => { const next = document.documentElement.dataset.theme === "light" ? "dark" : "light"; const button = document.querySelector("#theme-toggle"); const label = next === "light" ? t("darkMode") : t("lightMode"); document.documentElement.dataset.theme = next; localStorage.setItem("codex-manager-theme", next); button.innerHTML = next === "light" ? icons.moon : icons.sun; button.setAttribute("aria-label", label); button.title = label; };
+  document.querySelector("#theme-toggle").onclick = (event) => { const next = document.documentElement.dataset.theme === "light" ? "dark" : "light"; document.documentElement.dataset.theme = next; localStorage.setItem("codex-manager-theme", next); event.currentTarget.setAttribute("aria-checked", String(next === "dark")); event.currentTarget.querySelector("svg")?.replaceWith(svgNode(next === "dark" ? icons.moon : icons.sun)); };
   const autostart = document.querySelector("#autostart-toggle");
-  if (autostart) autostart.onclick = async () => { autostart.disabled = true; try { const result = await fetchJson(`/api/autostart/${!companionInfo.autostartEnabled}`, { method: "POST" }); companionInfo.autostartEnabled = result.enabled; autostart.textContent = `${t("autostart")}: ${result.enabled ? t("on") : t("off")}`; } finally { autostart.disabled = false; } };
-  document.querySelector("#language-select").onchange = changeLanguage;
-  document.querySelector("#terminal-settings-toggle").onclick = openTerminalSettings;
+  if (autostart) autostart.onclick = async () => { autostart.disabled = true; try { const result = await fetchJson(`/api/autostart/${!companionInfo.autostartEnabled}`, { method: "POST" }); companionInfo.autostartEnabled = result.enabled; autostart.setAttribute("aria-checked", String(result.enabled)); } finally { autostart.disabled = false; } };
+  document.querySelectorAll("[data-language]").forEach((button) => button.onclick = changeLanguage);
+  document.querySelector("#update-check").onclick = () => loadUpdateStatus(true);
+  void loadUpdateStatus(false);
+  const sidebarToggle = document.querySelector("#sidebar-toggle");
+  if (sidebarToggle) sidebarToggle.onclick = () => { sidebarCollapsed = !sidebarCollapsed; localStorage.setItem("codex-sidebar-collapsed", String(sidebarCollapsed)); document.querySelector(".list-layout")?.classList.toggle("sidebar-collapsed", sidebarCollapsed); const label = sidebarCollapsed ? t("expandSidebar") : t("collapseSidebar"); sidebarToggle.innerHTML = `${sidebarCollapsed ? icons.sidebarOpen : icons.sidebarClose}<span>${label}</span>`; sidebarToggle.setAttribute("aria-label", label); sidebarToggle.title = label; };
+}
+
+function svgNode(markup) {
+  const template = document.createElement("template"); template.innerHTML = markup.trim(); return template.content.firstElementChild;
+}
+
+async function loadUpdateStatus(refresh) {
+  const box = document.querySelector("#menu-update"); if (!box) return;
+  const button = box.querySelector("button"); const label = box.querySelector("span span"); button.disabled = true; label.textContent = t("updateChecking");
+  try {
+    const result = await fetchJson(`/api/update-status?refresh=${refresh ? "true" : "false"}`);
+    label.textContent = result.status === "available" ? t("updateAvailable", result.version) : result.status === "error" ? t("updateCheckFailed") : t("upToDate", result.currentVersion);
+    box.classList.toggle("available", result.status === "available");
+    box.title = result.error || "";
+  } catch (error) { label.textContent = t("updateCheckFailed"); box.title = error.message; }
+  finally { button.disabled = false; }
 }
 
 async function changeLanguage(event) {
-  const select = event.currentTarget; select.disabled = true;
+  const button = event.currentTarget; const buttons = document.querySelectorAll("[data-language]"); buttons.forEach((item) => item.disabled = true);
   try {
-    const result = await fetchJson("/api/language", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ language: select.value }) });
-    language = result.language; document.documentElement.lang = language;
-    const match = window.location.pathname.match(/^\/session\/([A-Za-z0-9_-]+)$/);
-    if (match) void sessionPage(match[1]); else listPage();
-  } catch (error) { select.disabled = false; window.alert(error.message); }
+    const result = await fetchJson("/api/language", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ language: button.dataset.language }) });
+    await loadMessages(result.language);
+    renderCurrentRoute();
+  } catch (error) { buttons.forEach((item) => item.disabled = false); window.alert(error.message); }
 }
 
 async function openTerminalSettings() {
@@ -129,6 +130,26 @@ function terminalDetectionRow(item) {
   return `<div class="terminal-detection ${item.available ? "available" : "missing"}"><i></i><div><strong>${esc(item.name)}</strong><span>${esc(stateLabel)}</span>${item.path ? `<code title="${esc(item.path)}">${esc(item.path)}</code>` : ""}</div></div>`;
 }
 
+async function terminalSettingsPage() {
+  app.innerHTML = `<div class="shell">${header()}<main class="session-page"><div class="settings-content"><a class="back" href="/">${t("backSessions")}</a><div class="page-loading">${t("loading")}</div></div></main></div>`;
+  bindTheme();
+  try { renderTerminalSettingsPage(await fetchJson("/api/terminal-settings")); }
+  catch (error) { document.querySelector(".settings-content").innerHTML = `<a class="back" href="/">${t("backSessions")}</a><div class="empty">${esc(error.message)}</div>`; }
+}
+
+function renderTerminalSettingsPage(settings) {
+  const detected = settings.detected; const content = document.querySelector(".settings-content");
+  content.innerHTML = `<a class="back" href="/">${t("backSessions")}</a><div class="settings-heading"><span class="eyebrow">${t("localSetting")}</span><h1>${t("terminalSettings")}</h1><p>${t("terminalSettingsDescription")}</p></div><form class="terminal-settings-form settings-form-page"><label><span>${t("terminalWindow")}</span><select id="terminal-choice"><option value="auto">${t("automatic")}</option><option value="windows-terminal" ${detected.windowsTerminal.available ? "" : "disabled"}>Windows Terminal</option><option value="console">${t("powershellConsole")}</option></select></label><label><span>${t("powershellVersion")}</span><select id="shell-choice"><option value="auto">${t("automatic")}</option><option value="powershell7" ${detected.powershell7.available ? "" : "disabled"}>PowerShell 7</option><option value="windows-powershell" ${detected.windowsPowerShell.available ? "" : "disabled"}>Windows PowerShell 5.1</option></select></label><div class="terminal-resolution">${t("activeWith", `<strong>${esc(settings.resolvedTerminal)}</strong>`, `<strong>${esc(settings.resolvedShell)}</strong>`)}</div><div class="terminal-detected">${[detected.windowsTerminal, detected.powershell7, detected.windowsPowerShell].map(terminalDetectionRow).join("")}</div><div class="terminal-settings-error" id="terminal-settings-error"></div><footer><span class="settings-saved" id="settings-saved"></span><button class="primary" type="submit">${t("save")}</button></footer></form>`;
+  const form = content.querySelector("form"); const terminalChoice = content.querySelector("#terminal-choice"); const shellChoice = content.querySelector("#shell-choice");
+  terminalChoice.value = settings.terminal; shellChoice.value = settings.shell;
+  form.onsubmit = async (event) => {
+    event.preventDefault(); const errorBox = content.querySelector("#terminal-settings-error"); const saved = content.querySelector("#settings-saved"); const submit = form.querySelector('[type="submit"]'); errorBox.textContent = ""; saved.textContent = ""; submit.disabled = true;
+    try { await fetchJson("/api/terminal-settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ terminal: terminalChoice.value, shell: shellChoice.value }) }); saved.textContent = t("settingsSaved"); }
+    catch (error) { errorBox.textContent = error.message; }
+    finally { submit.disabled = false; }
+  };
+}
+
 async function fetchJson(url, options) {
   const request = { ...(options || {}) };
   request.headers = { ...(request.headers || {}) };
@@ -147,7 +168,7 @@ function listPage() {
   app.innerHTML = `
     <div class="shell">
       ${header()}
-      <main class="list-layout">
+      <main class="list-layout ${sidebarCollapsed ? "sidebar-collapsed" : ""}">
         <aside class="sidebar">
           <nav class="sidebar-primary" id="sidebar-primary">
             <button class="active" data-view="all"><span class="nav-icon">${icons.sessions}</span><span>${t("sessions")}</span></button>
@@ -164,6 +185,7 @@ function listPage() {
             </form>
           </div>
           <nav class="projects" id="projects"></nav>
+          <footer class="sidebar-footer"><button type="button" id="sidebar-toggle" aria-label="${sidebarCollapsed ? t("expandSidebar") : t("collapseSidebar")}" title="${sidebarCollapsed ? t("expandSidebar") : t("collapseSidebar")}">${sidebarCollapsed ? icons.sidebarOpen : icons.sidebarClose}<span>${sidebarCollapsed ? t("expandSidebar") : t("collapseSidebar")}</span></button></footer>
         </aside>
         <section class="main">
           <div class="searchbar">
@@ -180,7 +202,7 @@ function listPage() {
               </div>
             </details>
           </div>
-          <div class="count" id="count">${t("loading")}</div>
+          <div class="list-status" id="list-status" hidden></div>
           <div class="sessions" id="sessions"></div>
         </section>
       </main>
@@ -206,7 +228,7 @@ async function initializeList() {
 
 async function loadProjects() {
   try { state.projects = await fetchJson("/api/projects"); renderProjects(); }
-  catch (error) { document.querySelector("#count").textContent = error.message; }
+  catch (error) { showListError(error.message); }
 }
 
 async function loadSessions({ preserveProject = false, silent = false } = {}) {
@@ -218,10 +240,17 @@ async function loadSessions({ preserveProject = false, silent = false } = {}) {
     renderSidebarNav(); renderSources(); renderProjects(); renderSessions();
   } catch (error) {
     if (silent) return;
-    document.querySelector("#count").textContent = t("sessionsLoadFailed");
+    showListError(t("sessionsLoadFailed"));
     document.querySelector("#sessions").innerHTML = `<div class="empty">${esc(error.message)}<br><button class="retry-load" id="retry-load">${t("retry")}</button></div>`;
     document.querySelector("#retry-load").onclick = () => loadSessions();
   }
+}
+
+function showListError(message) {
+  const status = document.querySelector("#list-status");
+  if (!status) return;
+  status.hidden = !message;
+  status.textContent = message || "";
 }
 
 function connectSessionEvents() {
@@ -333,11 +362,13 @@ function sessionBundles(sessions) {
 function renderSessions() {
   const sessions = filteredSessions(); const sort = document.querySelector("#sort").value; const bundles = sessionBundles(sessions);
   if (sort === "updated") bundles.sort((a, b) => b.updatedAt - a.updatedAt);
-  document.querySelector("#count").textContent = t(bundles.length === 1 ? "sessionCountOne" : "sessionCountMany", bundles.length);
+  document.querySelector("#search").placeholder = t(bundles.length === 1 ? "sessionSearchCountOne" : "sessionSearchCountMany", bundles.length);
+  showListError("");
   const groups = ["justNow", "today", "yesterdayGroup", "thisWeek", "lastWeek", "thisMonth", "older"];
   document.querySelector("#sessions").innerHTML = !bundles.length ? `<div class="empty">${t("noSessions")}</div>` : sort === "updated" ? groups.map((group) => { const items = bundles.filter((bundle) => activityGroup(bundle.updatedAt) === group); return items.length ? `<section class="session-group"><h2>${t(group)}</h2>${items.map((bundle) => sessionRow(bundle.master, bundle.shadows)).join("")}</section>` : ""; }).join("") : bundles.map((bundle) => sessionRow(bundle.master, bundle.shadows)).join("");
   document.querySelectorAll(".session-favorite").forEach((button) => button.onclick = () => toggleFavorite(button.dataset.id, button));
   document.querySelectorAll(".session-launch").forEach((button) => button.onclick = () => openFromList(button.dataset.id, button.dataset.action, button));
+  bindCopyButtons();
   bindSessionDragging();
 }
 
@@ -347,12 +378,12 @@ function sessionRow(session, shadows = []) {
   const sourceIcon = session.desktop ? icons.desktop : icons.terminal;
   const shadowList = shadows.length ? `<div class="shadow-sessions">${shadows.map(shadowSessionRow).join("")}</div>` : "";
   const favoriteLabel = session.pinned ? t("removeFavorite") : t("addFavorite");
-  return `<article class="session-row ${session.active ? "active-session" : ""}" data-id="${session.id}" draggable="true"><div class="session-copy"><div class="session-context"><code title="${esc(session.cwd)}">${esc(directoryLabel(session.cwd))}</code><div class="session-meta"><time>${sessionTime(session)}</time><button class="session-favorite ${session.pinned ? "active" : ""}" data-id="${session.id}" aria-label="${favoriteLabel}" aria-pressed="${session.pinned ? "true" : "false"}" title="${favoriteLabel}">${icons.favorite}</button></div></div><div class="session-body"><div class="session-summary"><strong class="session-title" title="${esc(session.title)}">${esc(session.title)}</strong>${session.preview ? `<span class="session-prompt">${esc(session.preview)}</span>` : ""}</div><div class="session-actions"><a class="session-details" href="/session/${encodeURIComponent(session.id)}">${t("details")}</a><button class="session-launch ${session.desktop ? "desktop" : ""}" data-id="${session.id}" data-action="${action}" ${disabled ? "disabled" : ""} aria-label="${label}" title="${source}: ${label}"><span class="launch-source">${sourceIcon}</span><span class="launch-divider"></span><span class="launch-play">${icons.play}</span></button></div></div>${shadowList}</div></article>`;
+  return `<article class="session-row ${session.active ? "active-session" : ""}" data-id="${session.id}" draggable="true"><div class="session-copy"><div class="session-context"><button class="session-path-copy copy-value" type="button" data-copy="${esc(session.cwd)}" title="${t("copyPath")}"><code>${esc(directoryLabel(session.cwd))}</code>${icons.copy}</button><div class="session-meta"><time>${sessionTime(session)}</time><button class="session-favorite ${session.pinned ? "active" : ""}" data-id="${session.id}" aria-label="${favoriteLabel}" aria-pressed="${session.pinned ? "true" : "false"}" title="${favoriteLabel}">${icons.favorite}</button></div></div><div class="session-body"><div class="session-summary"><strong class="session-title" title="${esc(session.title)}">${esc(session.title)}</strong>${session.customTitle ? `<span class="session-original-title">${t("originalTitle")}: ${esc(session.originalTitle)}</span>` : ""}${session.preview ? `<span class="session-prompt">${esc(session.preview)}</span>` : ""}</div><div class="session-actions"><a class="session-details" href="/session/${encodeURIComponent(session.id)}">${t("details")}</a><button class="session-launch ${session.desktop ? "desktop" : ""}" data-id="${session.id}" data-action="${action}" ${disabled ? "disabled" : ""} aria-label="${label}" title="${source}: ${label}"><span class="launch-source">${sourceIcon}</span><span class="launch-divider"></span><span class="launch-play">${icons.play}</span></button></div></div>${shadowList}</div></article>`;
 }
 
 function shadowSessionRow(session) {
   const usesChrome = /(^|\s)@Chrome\b/i.test(session.preview || ""); const sourceIcon = usesChrome ? icons.chrome : session.desktop ? icons.desktop : icons.terminal; const sourceLabel = usesChrome ? "Chrome" : session.desktop ? "Desktop" : "CLI";
-  const status = session.active ? `<span class="shadow-status active"><i></i>${t("running")}</span>` : `<span class="shadow-status">${sessionTime(session)}</span>`;
+  const status = session.active ? `<span class="shadow-status active"><i></i>${t("sessionOpen")}</span>` : `<span class="shadow-status">${sessionTime(session)}</span>`;
   return `<div class="shadow-session"><span class="shadow-branch">↳</span><span class="shadow-title" title="${esc(session.title)}">${esc(session.title)}</span><span class="shadow-kind">${sourceIcon}${sourceLabel}</span>${status}</div>`;
 }
 
@@ -364,7 +395,7 @@ async function toggleFavorite(threadId, button) {
     session.pinned = result.pinned; renderSessions();
   } catch (error) {
     button.disabled = false; button.title = error.message;
-    document.querySelector("#count").textContent = error.message;
+    showListError(error.message);
   }
 }
 
@@ -376,7 +407,7 @@ async function openFromList(threadId, action, button) {
     else button.disabled = false;
   } catch (error) {
     button.disabled = false; button.title = error.message;
-    document.querySelector("#count").textContent = error.message;
+    showListError(error.message);
   }
 }
 
@@ -387,12 +418,52 @@ async function sessionPage(id) {
 }
 
 function renderSessionDetail(session) {
-  const content = document.querySelector(".session-content"); const title = session.name || session.title || session.first_user_message || t("unnamedSession"); const description = session.preview || session.first_user_message || "";
-  const summary = [[t("status"), session.active ? t("active") : t("ready")], [t("project"), session.project], [t("source"), session.threadSource || session.thread_source || session.source], [t("model"), session.model || session.modelProvider || session.model_provider], [t("branch"), session.branch || session.git_branch], [t("archived"), session.archived ? t("yes") : t("no")]];
+  const content = document.querySelector(".session-content"); const title = session.title || session.name || session.first_user_message || t("unnamedSession"); const description = session.preview || session.first_user_message || "";
+  const sessionStatus = session.openState === "uncertain" ? t("statusUncertain") : session.active ? t("sessionOpen") : t("ready");
+  const summary = [[t("status"), sessionStatus], [t("project"), session.project], [t("source"), session.threadSource || session.thread_source || session.source], [t("model"), session.model || session.modelProvider || session.model_provider], [t("branch"), session.branch || session.git_branch], [t("archived"), session.archived ? t("yes") : t("no")]];
   const excluded = new Set(["first_user_message", "preview"]); const metadata = Object.entries(session).filter(([key]) => !excluded.has(key)).sort(([a], [b]) => a.localeCompare(b));
-  content.innerHTML = `<a class="back" href="/">${t("backSessions")}</a><section class="session-head"><div><span class="eyebrow">Codex Session</span><h1>${esc(title)}</h1><p>${esc(description)}</p><div class="action-error" id="action-error"></div></div><div class="actions"><button class="primary" data-action="resume" ${session.active ? "disabled" : ""}>${session.active ? t("opened") : t("continue")}</button><button class="secondary" data-action="open-project">VS Code</button><button class="danger" data-action="archive">${t("archiveAction")}</button></div></section><section class="section"><h2>${t("storageLocations")}</h2><div class="path-grid"><div class="path-card"><span>${t("sessionFile")}</span><code>${esc(session.storagePath || session.path || session.rollout_path || session.storage_path || "–")}</code></div><div class="path-card"><span>${t("projectFolder")}</span><code>${esc(session.cwd || "–")}</code></div></div></section><section class="section"><h2>${t("overview")}</h2><div class="summary-grid">${summary.map(([key, value]) => `<div class="summary-item"><span>${esc(key)}</span><strong>${esc(formatValue(value))}</strong></div>`).join("")}</div></section><details class="metadata-disclosure"><summary>${t("technicalMetadata")}</summary><div class="metadata">${metadata.map(([key, value]) => `<div class="metadata-row"><div class="metadata-key">${esc(key)}</div><div class="metadata-value"><pre>${esc(formatValue(value))}</pre></div></div>`).join("")}</div></details>`;
+  const sessionPath = session.storagePath || session.path || session.rollout_path || session.storage_path || "";
+  const projectPath = session.cwd || "";
+  content.innerHTML = `<a class="back" href="/">${t("backSessions")}</a><section class="session-head"><div><span class="eyebrow">Codex Session</span><div class="detail-title-row"><h1>${esc(title)}</h1><button class="edit-title" id="edit-title" type="button" aria-label="${t("editTitle")}" title="${t("editTitle")}">${icons.edit}</button></div>${session.customTitle ? `<p class="original-title"><span>${t("originalTitle")}</span>${esc(session.originalTitle)}</p>` : ""}<form class="title-editor" id="title-editor" hidden><input id="title-input" maxlength="160" value="${esc(title)}" aria-label="${t("titlePlaceholder")}"><button class="primary" type="submit">${t("save")}</button>${session.customTitle ? `<button class="secondary" id="reset-title" type="button">${t("resetTitle")}</button>` : ""}<button class="secondary" id="cancel-title" type="button">${t("cancel")}</button></form><p>${esc(description)}</p><div class="action-error" id="action-error"></div></div><div class="actions"><button class="primary" data-action="resume" ${session.active ? "disabled" : ""}>${session.active ? t("opened") : t("continue")}</button><button class="secondary" data-action="open-project">VS Code</button><button class="danger" data-action="archive">${t("archiveAction")}</button></div></section><section class="section"><h2>${t("storageLocations")}</h2><div class="path-grid">${pathCard(t("sessionFile"), sessionPath)}${pathCard(t("projectFolder"), projectPath)}</div></section><section class="section"><h2>${t("overview")}</h2><div class="summary-grid">${summary.map(([key, value]) => `<div class="summary-item"><span>${esc(key)}</span><strong>${esc(formatValue(value))}</strong></div>`).join("")}</div></section><details class="metadata-disclosure"><summary>${t("technicalMetadata")}</summary><div class="metadata">${metadata.map(([key, value]) => `<div class="metadata-row"><div class="metadata-key">${esc(key)}</div><div class="metadata-value"><pre>${esc(formatValue(value))}</pre></div></div>`).join("")}</div></details>`;
   if (session.desktop) { const desktopButton = content.querySelector('[data-action="resume"]'); desktopButton.dataset.action = "open-desktop"; desktopButton.disabled = false; desktopButton.textContent = t("openInDesktop"); }
   content.querySelectorAll("[data-action]").forEach((button) => button.onclick = () => runAction(button.dataset.action, session.id));
+  bindCopyButtons();
+  const editor = content.querySelector("#title-editor"); const input = content.querySelector("#title-input");
+  content.querySelector("#edit-title").onclick = () => { editor.hidden = false; input.focus(); input.select(); };
+  content.querySelector("#cancel-title").onclick = () => { editor.hidden = true; input.value = title; };
+  content.querySelector("#reset-title")?.addEventListener("click", () => saveSessionTitle(session, ""));
+  editor.onsubmit = (event) => { event.preventDefault(); void saveSessionTitle(session, input.value); };
+}
+
+function pathCard(label, value) {
+  const shown = value || "–";
+  return `<div class="path-card"><span>${label}</span><button class="path-copy copy-value" type="button" data-copy="${esc(value)}" ${value ? "" : "disabled"} title="${t("copyPath")}"><code>${esc(shown)}</code>${icons.copy}</button></div>`;
+}
+
+async function saveSessionTitle(session, title) {
+  const editor = document.querySelector("#title-editor"); const errorBox = document.querySelector("#action-error");
+  editor.querySelectorAll("button, input").forEach((element) => element.disabled = true);
+  try {
+    const result = await fetchJson(`/api/session/${encodeURIComponent(session.id)}/title`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title }) });
+    Object.assign(session, result);
+    renderSessionDetail(session);
+  } catch (error) {
+    errorBox.textContent = error.message; errorBox.style.display = "block";
+    editor.querySelectorAll("button, input").forEach((element) => element.disabled = false);
+  }
+}
+
+function bindCopyButtons() {
+  document.querySelectorAll(".copy-value").forEach((button) => button.onclick = async () => {
+    const value = button.dataset.copy; if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      const previous = button.title; button.title = t("copied"); button.classList.add("copied");
+      window.setTimeout(() => { button.title = previous; button.classList.remove("copied"); }, 1200);
+    } catch {
+      window.prompt(t("copyPathFallback"), value);
+    }
+  });
 }
 
 async function runAction(action, threadId) {
@@ -407,13 +478,19 @@ async function initialize() {
     actionToken = bootstrap.token;
     companionInfo = bootstrap;
     const languageSettings = await fetchJson("/api/language");
-    language = languageSettings.language; document.documentElement.lang = language;
-    const match = window.location.pathname.match(/^\/session\/([A-Za-z0-9_-]+)$/);
-    if (match) sessionPage(match[1]); else listPage();
+    await loadMessages(languageSettings.language);
+    renderCurrentRoute();
   } catch (error) {
-    app.innerHTML = `<div class="empty">${t("connecting")}</div>`;
+    app.innerHTML = `<div class="empty">${messages.connecting || "Connecting to the local companion …"}</div>`;
     window.setTimeout(initialize, 1000);
   }
+}
+
+function renderCurrentRoute() {
+  const match = window.location.pathname.match(/^\/session\/([A-Za-z0-9_-]+)$/);
+  if (match) { void sessionPage(match[1]); return; }
+  if (window.location.pathname === "/settings/terminal") { void terminalSettingsPage(); return; }
+  listPage();
 }
 
 initialize();

@@ -9,8 +9,9 @@ Installation ohne Administratorrechte
 Die App kopiert sich automatisch nach:
 %LOCALAPPDATA%\CodexSessionManager
 
-Anschließend startet sie von dort und öffnet die Browseroberfläche unter:
+Anschließend startet sie von dort und öffnet die Browseroberfläche bevorzugt unter:
 http://127.0.0.1:4180/
+Ist dieser Port belegt, wird automatisch der nächste freie Port bis 4199 verwendet.
 
 Die App wird für den aktuell angemeldeten Benutzer in den Autostart eingetragen.
 Dafür sind weder Administratorrechte noch ein Windows-Dienst erforderlich.

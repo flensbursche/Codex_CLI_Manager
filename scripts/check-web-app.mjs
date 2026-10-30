@@ -3,7 +3,7 @@ import vm from "node:vm";
 
 const script = await readFile(new URL("../web/app.js", import.meta.url), "utf8");
 new vm.Script(script);
-for (const feature of ['session.internal === true', 'open-desktop', 'session-launch', 'session-details', 'session-actions', 'session-favorite', 'toggleFavorite(threadId, button)', 'project-create-form', 'project-name-clear', 'assignSessionToProject(threadId, projectId)', 'text/codex-thread', 'search-clear', 'sessionTime(session)', 'sessionBundles(sessions)', 'shadow-sessions', 'ChatGPT Desktop', 'session-context', 'new EventSource("/api/events")', 'openTerminalSettings()', '/api/terminal-settings', '/api/language', 'window.setTimeout(initialize, 1000)', 'terminalSettings: "Terminal Settings"', 'terminalSettings: "Terminalindstillinger"', 'class="quiet-button icon-button"', 'id="language-select"']) {
+for (const feature of ['session.internal === true', 'open-desktop', 'session-launch', 'session-details', 'session-actions', 'session-favorite', 'toggleFavorite(threadId, button)', 'project-create-form', 'project-name-clear', 'assignSessionToProject(threadId, projectId)', 'text/codex-thread', 'search-clear', 'sessionTime(session)', 'sessionBundles(sessions)', 'shadow-sessions', 'ChatGPT Desktop', 'session-context', 'new EventSource("/api/events")', '/api/terminal-settings', '/api/language', '/api/update-status', 'window.setTimeout(initialize, 1000)', 'await loadMessages(result.language)', 'header-menu', 'sidebar-collapsed', 'data-language', 'sessionSearchCountMany', 'bindCopyButtons()', '/title', 'terminalSettingsPage()', 'role="switch"', 'menu-about', 'menu-update']) {
   if (!script.includes(feature)) throw new Error(`Web-Feature fehlt: ${feature}`);
 }
 const agent = await readFile(new URL("../agent/Program.cs", import.meta.url), "utf8");
@@ -14,7 +14,9 @@ if (!agent.includes("projects.Assign(threadId, projectId)")) throw new Error("Se
 if (!agent.includes('LanguageSettingsStore')) throw new Error("Die gemeinsame Sprachspeicherung fehlt.");
 if (!agent.includes('app.MapGet("/api/language"')) throw new Error("Der Sprach-Endpunkt fehlt.");
 for (const language of ["de", "en", "da"]) {
-  if (!agent.includes(`["${language}"]`) || !script.includes(`${language}: {`)) throw new Error(`Übersetzung fehlt: ${language}`);
+  const locale = JSON.parse(await readFile(new URL(`../web/locales/${language}.json`, import.meta.url), "utf8"));
+  for (const key of ["sessions", "sessionSearchCountMany", "terminalSettings", "sessionOpen", "copyPath", "editTitle", "tray.open", "tray.updates"])
+    if (!locale[key]) throw new Error(`Übersetzung fehlt: ${language}.${key}`);
 }
 if (!agent.includes("TerminalHost.OpenPowerShell(cwd, command)")) throw new Error("Session-Resume verwendet nicht Windows Terminal.");
 if (!agent.includes('"Microsoft.WindowsTerminal_8wekyb3d8bbwe"')) throw new Error("Windows Terminal wird nicht über seinen App-Alias gestartet.");
@@ -27,15 +29,16 @@ if (agent.includes("codex --no-daemon resume")) throw new Error("Session-Resume 
 if (agent.includes('startInfo.ArgumentList.Add("-NoProfile")')) throw new Error("Session-Resume unterdrückt weiterhin das PowerShell-Profil.");
 if (!agent.includes("ExtractAssociatedIcon(executable)")) throw new Error("Das Tray verwendet nicht das eigene App-Icon.");
 if (!agent.includes('app.MapGet("/api/terminal-settings"')) throw new Error("Die Terminal-Erkennung und -Auswahl fehlt.");
-if (!agent.includes('["updates"] = "Nach Updates suchen"')) throw new Error("Der übersetzte Tray-Updater fehlt.");
-if (!agent.includes('["about"] = "About"')) throw new Error("Der übersetzte About-Menüpunkt fehlt.");
+if (!agent.includes('"wwwroot", "locales"')) throw new Error("Tray und Web verwenden nicht dieselben Locale-Dateien.");
 if (!agent.includes('CheckForUpdateAsync')) throw new Error("Die GitHub-Release-Prüfung fehlt.");
 if (!agent.includes('SHA256.HashDataAsync')) throw new Error("Update-Pakete werden nicht per SHA-256 geprüft.");
 if (!agent.includes('TryApplyStagedUpdate(args)')) throw new Error("Der separate Update-Helfer fehlt.");
 if (agent.includes("AllocConsole")) throw new Error("Die rohe Win32-Konsole ist weiterhin aktiv.");
 if (!agent.includes('app.MapGet("/api/events"')) throw new Error("Der SSE-Endpunkt für Live-Updates fehlt.");
+if (!agent.includes('AppEndpoint.SelectAndSave()')) throw new Error("Die automatische Ausweichwahl bei belegtem Port fehlt.");
+if (!agent.includes('SessionMetadataStore')) throw new Error("Dauerhafte Session-Titel fehlen.");
 const styles = await readFile(new URL("../web/app.css", import.meta.url), "utf8");
-for (const feature of ["min-width: 0", "font-size: 0.875rem", "@media (max-width: 760px)", ".terminal-dialog", ".project-create {\n    margin-top: 8px;"]) {
+for (const feature of ["min-width: 0", "font-size: 0.875rem", "@media (max-width: 760px)", ".terminal-dialog", ".project-create {\n    margin-top: 8px;", ".header-menu-panel", ".language-options", ".list-layout.sidebar-collapsed", ".path-copy"]) {
   if (!styles.includes(feature)) throw new Error(`Responsive Web-Feature fehlt: ${feature}`);
 }
 const appIcon = await readFile(new URL("../web/app-icon.svg", import.meta.url), "utf8");
