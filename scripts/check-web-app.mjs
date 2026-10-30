@@ -13,6 +13,7 @@ if (!agent.includes("_metadata.SavePinned(threadId, pinned)")) throw new Error("
 if (agent.includes("OpenReadWrite") || agent.includes("CodexStateStore.SetPinned")) throw new Error("Die interne Codex-Datenbank wird weiterhin für Favoriten beschrieben.");
 if (!agent.includes("projects.Assign(threadId, projectId)")) throw new Error("Sessions können keinem Projekt zugeordnet werden.");
 if (!agent.includes("projects.Unassign(threadId)")) throw new Error("Sessions können nicht aus Projekten entfernt werden.");
+if (!agent.includes("IsUnchangedAutoImport") || !agent.includes("JsonNode.DeepEquals")) throw new Error("Der fehlerhafte Projekt-Auto-Import wird nicht sicher bereinigt.");
 if (!agent.includes("GitStatusService") || !agent.includes('"--porcelain=v2"') || !agent.includes("CacheDuration") || !agent.includes('["remote", "-v"]')) throw new Error("Der gecachte Git-Status samt Remote-Anbieter fehlt.");
 if (!agent.includes('LanguageSettingsStore')) throw new Error("Die gemeinsame Sprachspeicherung fehlt.");
 if (!agent.includes('app.MapGet("/api/language"')) throw new Error("Der Sprach-Endpunkt fehlt.");

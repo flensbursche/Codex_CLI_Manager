@@ -398,26 +398,41 @@ internal sealed class ProjectStore
         try
         {
             if (File.Exists(_path))
-                return Normalize(JsonSerializer.Deserialize<StoredProjectState>(File.ReadAllText(_path), StorageJson) ?? new StoredProjectState());
-
-            var importPath = Directory.EnumerateFiles(UserInstallation.InstallDirectory, "projects.auto-import-*.json")
-                .OrderByDescending(File.GetLastWriteTimeUtc)
-                .FirstOrDefault();
-            if (importPath is not null)
             {
-                var imported = JsonSerializer.Deserialize<StoredProjectState>(File.ReadAllText(importPath), StorageJson);
-                if (imported is not null)
+                var json = File.ReadAllText(_path);
+                var stored = Normalize(JsonSerializer.Deserialize<StoredProjectState>(json, StorageJson) ?? new StoredProjectState());
+                if (IsUnchangedAutoImport(json, stored))
                 {
-                    var normalized = Normalize(imported);
-                    Persist(normalized);
-                    return normalized;
+                    var empty = new StoredProjectState();
+                    Persist(empty);
+                    return empty;
                 }
+                return stored;
             }
         }
         catch
         {
         }
         return new StoredProjectState();
+    }
+
+    private static bool IsUnchangedAutoImport(string currentJson, StoredProjectState state)
+    {
+        if (state.Projects.Count == 0 || state.Assignments.Count != 0) return false;
+        JsonNode? current;
+        try { current = JsonNode.Parse(currentJson); }
+        catch { return false; }
+        foreach (var importPath in Directory.EnumerateFiles(UserInstallation.InstallDirectory, "projects.auto-import-*.json"))
+        {
+            try
+            {
+                if (JsonNode.DeepEquals(current, JsonNode.Parse(File.ReadAllText(importPath)))) return true;
+            }
+            catch
+            {
+            }
+        }
+        return false;
     }
 
     private void Save()
@@ -992,7 +1007,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.9.2";
+    public const string Version = "0.9.3";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);
