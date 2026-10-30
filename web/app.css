@@ -1086,6 +1086,21 @@ summary {
   display: none;
 }
 
+.compatibility-warning {
+  flex: 0 0 auto;
+  margin: 0 15px 8px;
+  padding: 9px 11px;
+  border: 1px solid color-mix(in srgb, var(--warning) 42%, var(--line));
+  border-radius: 8px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--warning) 10%, var(--panel));
+  font-size: 13px;
+}
+
+.compatibility-warning[hidden] {
+  display: none;
+}
+
 .sessions {
   flex: 1;
   min-width: 0;

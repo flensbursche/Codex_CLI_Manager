@@ -1,6 +1,6 @@
 # Codex CLI Manager
 
-**Open-source Windows session manager for OpenAI Codex CLI and Codex Desktop.** Find, search, organize, rename and resume local Codex sessions from a fast browser UI and Windows tray app.
+**Open-source Windows workspace manager for OpenAI Codex CLI and Codex Desktop.** Organize sessions across projects, inspect Git state, and resume CLI and Desktop work from one browser UI and Windows tray app.
 
 Codex CLI Manager ist ein lokales Windows-Cockpit zum Finden, Sortieren, Öffnen und Verwalten gespeicherter Codex-Sessions. Es bündelt CLI- und Desktop-Sessions, setzt Terminal-Sessions mit dem persönlichen PowerShell-Profil fort und benötigt weder Cloud-Dienst noch Administratorrechte.
 
@@ -65,7 +65,7 @@ Die vorbereitete Produktionsstrategie für Authenticode, Azure Artifact Signing 
 
 Der GitHub-Workflow `Windows companion` läuft manuell oder bei Tags mit dem Präfix `v`. Ein Tag wie `v0.9.0` erzeugt ein GitHub Release mit `CodexSessionManager-Setup-win-x64.zip` und SHA-256-Prüfsumme. Installierte Clients erkennen dieses Release ohne Abhängigkeit vom anonymen GitHub-API-Limit und bieten es im Tray-Menü an.
 
-Pushes und Pull Requests gegen `main` führen zusätzlich den Web-Smoke-Test und einen .NET-Release-Build aus. Das auf Text- und Strukturprüfungen basierende Smoke-Testskript ignoriert reine CSS-Formatierungsunterschiede.
+Pushes und Pull Requests gegen `main` führen den Web-Smoke-Test, einen .NET-Release-Build und ausführbare Windows-Integrationstests aus. Die Integrationstests starten eine echte PowerShell mit kodiertem Initialisierungsbefehl, prüfen Windows-Terminal-Argumente, benannte Session-Mutexe, exklusive Dateilocks, die Health-Zustandsmatrix sowie Prüfsumme, Dateikopie und Pfadschutz des Updaters. Das ergänzende Smoke-Testskript bleibt bewusst eine schnelle Strukturprüfung.
 
 Ein normaler Push auf `main` veröffentlicht absichtlich kein Client-Update. Release-Versionen werden so angelegt:
 
@@ -91,6 +91,7 @@ Der produktive Companion besteht aus:
 - `web/locales/`: gemeinsame JSON-Sprachressourcen für Browseroberfläche und Tray
 - `scripts/check-web-app.mjs`: Syntax- und Feature-Smoke-Test
 - `scripts/generate-version-history.mjs`: erzeugt die Versionshistorie aus Tags und Commits
+- `tests/CodexSessionManager.IntegrationTests/`: ausführbare Windows-Integrationstests ohne externes Testframework
 
 Die ausgelieferte Anwendung benötigt weder Node.js noch Python. Node.js wird nur
 optional während der Entwicklung für den Web-Smoke-Test verwendet.
@@ -101,6 +102,7 @@ Build und Prüfungen:
 node scripts/generate-version-history.mjs
 node scripts/check-web-app.mjs
 dotnet build agent\CodexSessionManager.Agent.csproj
+dotnet run --project tests\CodexSessionManager.IntegrationTests\CodexSessionManager.IntegrationTests.csproj -c Release
 ```
 
 ## Sicherheit
@@ -109,7 +111,7 @@ dotnet build agent\CodexSessionManager.Agent.csproj
 - Schreibende Browseraktionen benötigen einen zufälligen lokalen Aktionstoken.
 - Aktionsendpunkte akzeptieren ausschließlich validierte Session-IDs, keine freien Shellbefehle oder Arbeitsverzeichnisse.
 - Die interne Codex-Datenbank wird ausschließlich read-only geöffnet. Favoriten, eigene Titel und Projektzuordnungen speichert der Manager separat unter `%LOCALAPPDATA%\CodexSessionManager`.
-- Das Codex-Datenbankschema ist keine öffentliche Schnittstelle. Falls eine Codex-Version das Schema ändert, kann eine Anpassung des Managers notwendig werden; die Datenbank wird dabei nicht verändert.
+- Das Codex-Datenbankschema ist keine öffentliche Schnittstelle. Optionale fehlende Spalten werden read-only durch leere Werte ersetzt. Fehlen die Session-Tabelle oder ihre ID-Spalte, wechselt der Manager kontrolliert in einen sichtbaren eingeschränkten Lesemodus, statt mit unklaren Folgefehlern weiterzuarbeiten. Die Codex-Datenbank wird dabei nie verändert.
 - Der Companion übernimmt die normalen Rechte des angemeldeten Windows-Benutzers.
 
 Sicherheitsprobleme bitte nicht als öffentliches Issue melden. Der Meldeweg steht in [SECURITY.md](SECURITY.md).

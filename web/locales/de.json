@@ -94,6 +94,7 @@
   "sessionCountOne": "{0} Session",
   "sessionCountMany": "{0} Sessions",
   "noSessions": "Keine Sessions für diese Filter gefunden.",
+  "compatibilityLimited": "Eingeschränkter Codex-Lesemodus. {0}",
   "noProject": "Ohne Projekt",
   "details": "Details",
   "openDesktop": "In Codex Desktop öffnen",

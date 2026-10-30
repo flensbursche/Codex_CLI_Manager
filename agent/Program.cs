@@ -61,7 +61,7 @@ app.Use(async (context, next) =>
 app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = new PhysicalFileProvider(webRoot) });
 app.UseStaticFiles(new StaticFileOptions { FileProvider = new PhysicalFileProvider(webRoot) });
 
-app.MapGet("/api/bootstrap", () => Results.Ok(new { data = new { token = actionToken, version = ProductInfo.Version, runtime = ".NET Companion", supportsAutostart = true, autostartEnabled = AutoStartManager.IsEnabled(), installationPath = UserInstallation.InstallDirectory } }));
+app.MapGet("/api/bootstrap", () => Results.Ok(new { data = new { token = actionToken, version = ProductInfo.Version, runtime = ".NET Companion", supportsAutostart = true, autostartEnabled = AutoStartManager.IsEnabled(), installationPath = UserInstallation.InstallDirectory, codexCompatibility = CodexStateStore.GetCompatibility() } }));
 app.MapGet("/api/health", () => Results.Ok(new { ok = true, runtime = ".NET Companion" }));
 app.MapGet("/api/events", async (HttpContext context, IHostApplicationLifetime lifetime, CancellationToken cancellation) =>
 {
@@ -1107,7 +1107,7 @@ internal static class UpdateService
         throw new InvalidOperationException($"Die Release-Information ist vorübergehend nicht erreichbar ({string.Join(", ", failures.Distinct())}). Bitte später erneut prüfen.");
     }
 
-    private static string? ReadReleaseTag(Uri? location)
+    internal static string? ReadReleaseTag(Uri? location)
     {
         if (location is null) return null;
         var path = location.IsAbsoluteUri ? location.AbsolutePath : location.OriginalString.Split('?', 2)[0];
@@ -1137,14 +1137,8 @@ internal static class UpdateService
         var expectedHash = (await Client.GetStringAsync(update.ChecksumUrl, cancellation))
             .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
             .FirstOrDefault();
-        if (expectedHash is null || expectedHash.Length != 64 || !expectedHash.All(Uri.IsHexDigit))
-            throw new InvalidOperationException("Die Release-Prüfsumme ist ungültig.");
         await using (var package = File.OpenRead(packagePath))
-        {
-            var actualHash = Convert.ToHexString(await SHA256.HashDataAsync(package, cancellation));
-            if (!actualHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException("Die Prüfsumme des heruntergeladenen Updates stimmt nicht.");
-        }
+            await VerifyPackageChecksumAsync(package, expectedHash ?? "", cancellation);
         await EnsureMinimumStageAsync(stageDuration, cancellation);
 
         stageDuration.Restart();
@@ -1247,21 +1241,33 @@ internal static class UpdateService
             : throw new InvalidOperationException($"Ungültige Release-Version: {value}");
     }
 
-    private static void ValidateDownloadUrl(string value)
+    internal static async Task VerifyPackageChecksumAsync(Stream package, string checksumText, CancellationToken cancellation)
+    {
+        var expectedHash = checksumText
+            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+            .FirstOrDefault();
+        if (expectedHash is null || expectedHash.Length != 64 || !expectedHash.All(Uri.IsHexDigit))
+            throw new InvalidOperationException("Die Release-Prüfsumme ist ungültig.");
+        var actualHash = Convert.ToHexString(await SHA256.HashDataAsync(package, cancellation));
+        if (!actualHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Die Prüfsumme des heruntergeladenen Updates stimmt nicht.");
+    }
+
+    internal static void ValidateDownloadUrl(string value)
     {
         if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps ||
             !uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Das Release enthält eine unzulässige Download-Adresse.");
     }
 
-    private static void WaitForManagerExit(int processId)
+    internal static void WaitForManagerExit(int processId, int timeoutMilliseconds = 10000)
     {
         try
         {
             using var process = Process.GetProcessById(processId);
-            if (process.WaitForExit(10000)) return;
+            if (process.WaitForExit(timeoutMilliseconds)) return;
             process.Kill();
-            process.WaitForExit(10000);
+            process.WaitForExit(timeoutMilliseconds);
             if (!process.HasExited) throw new InvalidOperationException("Der bisherige Codex CLI Manager konnte nicht beendet werden.");
         }
         catch (ArgumentException)
@@ -1281,7 +1287,7 @@ internal static class UpdateService
         if (remaining > 0) Thread.Sleep(remaining);
     }
 
-    private static void CopyPayload(string source, string destination)
+    internal static void CopyPayload(string source, string destination)
     {
         var sourceRoot = Path.GetFullPath(source).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
         var destinationRoot = Path.GetFullPath(destination).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
@@ -1300,7 +1306,7 @@ internal static class UpdateService
         }
     }
 
-    private static string ValidatedDestination(string destinationRoot, string relative)
+    internal static string ValidatedDestination(string destinationRoot, string relative)
     {
         var target = Path.GetFullPath(Path.Combine(destinationRoot, relative));
         if (!target.StartsWith(destinationRoot, StringComparison.OrdinalIgnoreCase))
@@ -1478,14 +1484,20 @@ internal static class TerminalHost
         var preferences = TerminalSettingsStore.LoadCurrent();
         var terminal = ResolveTerminal(preferences.Terminal);
         var shell = PowerShellHost.Resolve(preferences.Shell);
+        var executable = terminal == "windows-terminal" ? ExecutablePath : shell.Path;
+        Process.Start(CreateStartInfo(terminal == "windows-terminal", executable, shell, workingDirectory, command));
+    }
+
+    internal static ProcessStartInfo CreateStartInfo(bool windowsTerminal, string executable, ShellResolution shell, string workingDirectory, string? command = null)
+    {
         var startInfo = new ProcessStartInfo
         {
-            FileName = terminal == "windows-terminal" ? ExecutablePath : shell.Path,
+            FileName = executable,
             UseShellExecute = false,
             WorkingDirectory = workingDirectory
         };
 
-        if (terminal == "windows-terminal")
+        if (windowsTerminal)
         {
             startInfo.ArgumentList.Add("-w");
             startInfo.ArgumentList.Add("new");
@@ -1504,7 +1516,7 @@ internal static class TerminalHost
         if (!string.IsNullOrWhiteSpace(command)) initialization += $"; {command}";
         startInfo.ArgumentList.Add("-EncodedCommand");
         startInfo.ArgumentList.Add(Convert.ToBase64String(Encoding.Unicode.GetBytes(initialization)));
-        Process.Start(startInfo);
+        return startInfo;
     }
 
     private static string ResolveIconExecutable()
@@ -1873,6 +1885,24 @@ internal sealed class GitStatusService
     private sealed record GitCommandResult(int ExitCode, string Output, string Error);
 }
 
+internal sealed record SessionHealthSignals(bool ProcessScanAvailable, int ProcessCount, bool WriterLock, bool ManagerMutex, bool Launching);
+internal sealed record SessionHealthResult(string State, bool Active, string OpenState);
+
+internal static class SessionHealthEvaluator
+{
+    public static SessionHealthResult Evaluate(SessionHealthSignals signals)
+    {
+        var state = signals.ProcessCount > 1 ? "duplicate"
+            : signals.Launching && signals.ProcessCount == 0 && !signals.WriterLock && !signals.ManagerMutex ? "starting"
+            : signals.ProcessCount > 0 && (signals.WriterLock || signals.ManagerMutex) ? "healthy"
+            : signals.ProcessCount > 0 || signals.WriterLock || signals.ManagerMutex ? "uncertain"
+            : "closed";
+        var active = state is not "closed";
+        var openState = state is "healthy" or "duplicate" ? "open" : active ? "uncertain" : "closed";
+        return new(state, active, openState);
+    }
+}
+
 internal sealed class CodexClient
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -1891,15 +1921,7 @@ internal sealed class CodexClient
     {
         await Task.Yield();
         cancellation.ThrowIfCancellationRequested();
-        var data = CodexStateStore.Query($"""
-            select id, rollout_path, cwd, name, title, preview, first_user_message,
-                   created_at_ms, updated_at_ms, recency_at_ms, source, thread_source,
-                   model_provider, model, git_branch, is_pinned, archived, originator
-              from threads
-             where archived = {(archived ? 1 : 0)}
-             order by coalesce(recency_at_ms, updated_at_ms, created_at_ms) desc
-             limit 1000
-            """);
+        var data = CodexStateStore.QueryThreads(archived);
         var normalized = new JsonArray();
         var items = new List<JsonObject>();
         var processSnapshot = DetectActiveProcessSessions();
@@ -1999,7 +2021,7 @@ internal sealed class CodexClient
     public JsonObject SetTitle(string threadId, string? title)
     {
         ValidateThreadId(threadId);
-        var rows = CodexStateStore.Query($"select name, title, first_user_message from threads where id = '{threadId}' limit 1");
+        var rows = CodexStateStore.Query($"select * from threads where id = '{threadId}' limit 1");
         var thread = rows.FirstOrDefault() as JsonObject ?? throw new KeyNotFoundException("Session wurde nicht gefunden.");
         var originalTitle = FirstText(thread, "name", "title", "first_user_message") ?? "Unbenannte Session";
         return _metadata.SaveTitle(threadId, title, Limit(originalTitle.Trim(), 160));
@@ -2018,8 +2040,7 @@ internal sealed class CodexClient
             _launchingSessions.TryRemove(threadId, out _);
             throw new DirectoryNotFoundException($"Projektordner nicht gefunden: {cwd}");
         }
-        var mutexName = SessionMutexName(threadId);
-        var command = $"$sessionMutex = [System.Threading.Mutex]::new($true, '{mutexName}'); try {{ npx @openai/codex resume '{threadId}' }} finally {{ $sessionMutex.ReleaseMutex(); $sessionMutex.Dispose() }}";
+        var command = BuildResumeCommand(threadId);
         try
         {
             TerminalHost.OpenPowerShell(cwd, command);
@@ -2042,17 +2063,12 @@ internal sealed class CodexClient
         var writerLock = IsCodexWriterLocked(threadId);
         var managerMutex = HasSessionMutex(threadId);
         var launching = _launchingSessions.ContainsKey(threadId);
-        var state = processCount > 1 ? "duplicate"
-            : launching && processCount == 0 && !writerLock && !managerMutex ? "starting"
-            : processCount > 0 && (writerLock || managerMutex) ? "healthy"
-            : processCount > 0 || writerLock || managerMutex ? "uncertain"
-            : "closed";
-        var active = state is not "closed";
-        session["active"] = active;
-        session["openState"] = state is "healthy" or "duplicate" ? "open" : active ? "uncertain" : "closed";
+        var health = SessionHealthEvaluator.Evaluate(new(processes.Available, processCount, writerLock, managerMutex, launching));
+        session["active"] = health.Active;
+        session["openState"] = health.OpenState;
         session["health"] = new JsonObject
         {
-            ["state"] = state,
+            ["state"] = health.State,
             ["processScanAvailable"] = processes.Available,
             ["processCount"] = processCount,
             ["writerLock"] = writerLock,
@@ -2069,7 +2085,7 @@ internal sealed class CodexClient
         return HasSessionMutex(threadId);
     }
 
-    private static bool HasSessionMutex(string threadId)
+    internal static bool HasSessionMutex(string threadId)
     {
         try
         {
@@ -2080,11 +2096,22 @@ internal sealed class CodexClient
         catch (UnauthorizedAccessException) { return true; }
     }
 
-    private static string SessionMutexName(string threadId) => $"Local\\CodexSessionManager.Session.{threadId}";
+    internal static string SessionMutexName(string threadId) => $"Local\\CodexSessionManager.Session.{threadId}";
+
+    internal static string BuildResumeCommand(string threadId)
+    {
+        var mutexName = SessionMutexName(threadId);
+        return $"$sessionMutex = [System.Threading.Mutex]::new($true, '{mutexName}'); try {{ npx @openai/codex resume '{threadId}' }} finally {{ $sessionMutex.ReleaseMutex(); $sessionMutex.Dispose() }}";
+    }
 
     private static bool IsCodexWriterLocked(string threadId)
     {
         var lockPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex", "thread-writer-locks", $"{threadId}.lock");
+        return IsFileLocked(lockPath);
+    }
+
+    internal static bool IsFileLocked(string lockPath)
+    {
         if (!File.Exists(lockPath)) return false;
         try
         {
@@ -2362,6 +2389,12 @@ internal static class CodexStateStore
     private const int Done = 101;
     private const int OpenReadOnly = 1;
     private static readonly string DatabasePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex", "state_5.sqlite");
+    private static readonly string[] ThreadColumns =
+    [
+        "id", "rollout_path", "cwd", "name", "title", "preview", "first_user_message",
+        "created_at_ms", "updated_at_ms", "recency_at_ms", "source", "thread_source",
+        "model_provider", "model", "git_branch", "is_pinned", "archived", "originator"
+    ];
 
     public static long ChangeStamp()
     {
@@ -2375,6 +2408,65 @@ internal static class CodexStateStore
         }
         return stamp;
     }
+
+    public static JsonArray QueryThreads(bool archived)
+    {
+        HashSet<string> columns;
+        try
+        {
+            columns = ReadThreadColumns();
+        }
+        catch (Exception error) when (error is FileNotFoundException or InvalidOperationException)
+        {
+            return [];
+        }
+        if (!columns.Contains("id")) return [];
+        return Query(BuildThreadListQuery(columns, archived));
+    }
+
+    public static JsonObject GetCompatibility()
+    {
+        if (!File.Exists(DatabasePath))
+            return new JsonObject { ["mode"] = "unavailable", ["canReadSessions"] = false, ["message"] = "Codex-Datenbank wurde nicht gefunden." };
+        try
+        {
+            var columns = ReadThreadColumns();
+            var missing = ThreadColumns.Where(column => !columns.Contains(column)).ToArray();
+            var canRead = columns.Contains("id");
+            return new JsonObject
+            {
+                ["mode"] = canRead && missing.Length == 0 ? "full" : "limited",
+                ["canReadSessions"] = canRead,
+                ["missingColumns"] = new JsonArray(missing.Select(value => (JsonNode?)JsonValue.Create(value)).ToArray()),
+                ["message"] = canRead ? missing.Length == 0 ? "" : $"Optionale Codex-Felder fehlen: {string.Join(", ", missing)}" : "Die Codex-Tabelle 'threads' oder ihre ID-Spalte fehlt."
+            };
+        }
+        catch (Exception error)
+        {
+            return new JsonObject { ["mode"] = "unavailable", ["canReadSessions"] = false, ["message"] = LimitCompatibilityMessage(error.Message) };
+        }
+    }
+
+    internal static string BuildThreadListQuery(IReadOnlySet<string> columns, bool archived)
+    {
+        if (!columns.Contains("id")) throw new InvalidOperationException("Die Codex-Tabelle enthält keine Session-ID.");
+        var select = string.Join(", ", ThreadColumns.Select(column => columns.Contains(column) ? column : $"NULL AS {column}"));
+        var where = columns.Contains("archived") ? $" where archived = {(archived ? 1 : 0)}" : archived ? " where 1 = 0" : "";
+        var timestamps = new[] { "recency_at_ms", "updated_at_ms", "created_at_ms" }.Where(columns.Contains).ToArray();
+        var order = timestamps.Length > 1 ? $"coalesce({string.Join(", ", timestamps)}) desc" : timestamps.Length == 1 ? $"{timestamps[0]} desc" : "id desc";
+        return $"select {select} from threads{where} order by {order} limit 1000";
+    }
+
+    private static HashSet<string> ReadThreadColumns()
+    {
+        var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var node in Query("pragma table_info(threads)"))
+            if (node is JsonObject row && row["name"]?.GetValue<string>() is { Length: > 0 } name)
+                columns.Add(name);
+        return columns;
+    }
+
+    private static string LimitCompatibilityMessage(string value) => value.Length <= 400 ? value : value[..400];
 
     public static JsonArray Query(string sql)
     {

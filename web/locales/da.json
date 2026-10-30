@@ -94,6 +94,7 @@
   "sessionCountOne": "{0} session",
   "sessionCountMany": "{0} sessioner",
   "noSessions": "Ingen sessioner matcher disse filtre.",
+  "compatibilityLimited": "Begrænset Codex-læsetilstand. {0}",
   "noProject": "Intet projekt",
   "details": "Detaljer",
   "openDesktop": "Åbn i Codex Desktop",

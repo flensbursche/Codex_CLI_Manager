@@ -288,12 +288,19 @@ function listPage() {
               </div>
             </details>
           </div>
+          <div class="compatibility-warning" id="compatibility-warning" hidden></div>
           <div class="list-status" id="list-status" hidden></div>
           <div class="sessions" id="sessions"></div>
         </section>
       </main>
     </div>`;
   bindTheme();
+  const compatibility = companionInfo.codexCompatibility;
+  const compatibilityWarning = document.querySelector("#compatibility-warning");
+  if (compatibility?.mode && compatibility.mode !== "full") {
+    compatibilityWarning.hidden = false;
+    compatibilityWarning.textContent = t("compatibilityLimited", compatibility.message || "");
+  }
   const search = document.querySelector("#search"); const clearSearch = document.querySelector("#search-clear");
   search.oninput = () => { clearSearch.hidden = !search.value; renderSessions(); };
   clearSearch.onclick = () => { search.value = ""; clearSearch.hidden = true; search.focus(); renderSessions(); };

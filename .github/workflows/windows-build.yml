@@ -44,6 +44,8 @@ jobs:
           node scripts/check-web-app.mjs
       - name: Build Windows companion
         run: dotnet build agent/CodexSessionManager.Agent.csproj -c Release
+      - name: Run Windows integration tests
+        run: dotnet run --project tests/CodexSessionManager.IntegrationTests/CodexSessionManager.IntegrationTests.csproj -c Release
       - name: Publish self-contained Windows companion
         if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
         run: dotnet publish agent/CodexSessionManager.Agent.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
