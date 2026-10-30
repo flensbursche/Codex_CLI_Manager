@@ -853,6 +853,41 @@ summary {
   padding-right: 3px;
 }
 
+.project-entry {
+  position: relative;
+  min-width: 0;
+}
+
+.project-entry .project-select {
+  padding-right: 38px;
+}
+
+.project-entry .project-delete {
+  position: absolute;
+  top: 50%;
+  right: 7px;
+  width: 25px;
+  min-height: 25px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 6px;
+  color: var(--faint);
+  opacity: 0;
+  transform: translateY(-50%);
+}
+
+.project-entry:hover .project-delete,
+.project-delete:focus-visible {
+  opacity: 1;
+  color: var(--danger);
+}
+
+.project-entry .project-delete svg {
+  width: 14px;
+  height: 14px;
+}
+
 .projects button {
   font-size: 0.75rem;
 }
@@ -1912,6 +1947,40 @@ mark.search-match {
   font-size: 17px;
 }
 
+.project-assignment {
+  max-width: 620px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.project-assignment label {
+  display: grid;
+  gap: 7px;
+  color: var(--faint);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.project-assignment select,
+.project-assignment button {
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.project-assignment select {
+  width: 100%;
+  padding: 0 34px 0 11px;
+  color: var(--text);
+}
+
+.project-assignment button {
+  padding: 0 14px;
+}
+
 .path-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2422,7 +2491,16 @@ mark.search-match {
     display: flex;
     gap: 6px;
     overflow-x: auto;
-    padding: 8px 0 0;
+    padding: 8px 14px 4px 0;
+    scroll-padding-inline: 8px;
+  }
+
+  .project-entry {
+    flex: 0 0 auto;
+  }
+
+  .project-entry .project-delete {
+    opacity: 1;
   }
 
   .sidebar-footer {
@@ -2561,6 +2639,14 @@ mark.search-match {
   .actions {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .project-assignment {
+    grid-template-columns: 1fr;
+  }
+
+  .project-assignment button {
+    width: 100%;
   }
 
   .actions button {

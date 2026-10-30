@@ -75,7 +75,7 @@ Pushes und Pull Requests gegen `main` führen den Web-Smoke-Test, einen .NET-Rel
 pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/test-release.ps1 `
   -PackagePath ./CodexSessionManager-Setup-win-x64.zip `
   -ChecksumPath ./CodexSessionManager-Setup-win-x64.zip.sha256 `
-  -ExpectedVersion 0.10.3 `
+  -ExpectedVersion 0.10.4 `
   -InteractiveTerminal `
   -ReportPath ./release-acceptance.json
 ```

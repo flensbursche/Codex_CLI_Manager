@@ -103,6 +103,22 @@ function Invoke-ApiChecks($Manager, [string] $ProjectName) {
     $body = @{ name = $ProjectName } | ConvertTo-Json
     $created = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "$($Manager.Url)/api/projects" -Headers $headers -ContentType 'application/json' -Body $body
     Assert-True ($created.data.name -eq $ProjectName) "Testprojekt wurde nicht erstellt."
+    if (@($sessions.data).Count -gt 0) {
+        $threadId = [string] @($sessions.data)[0].id
+        $assigned = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "$($Manager.Url)/api/projects/$($created.data.id)/sessions/$threadId" -Headers $headers
+        Assert-True ($assigned.data.projectId -eq $created.data.id) "Session wurde dem Testprojekt nicht zugeordnet."
+        $assignedSession = Invoke-RestMethod -UseBasicParsing -Uri "$($Manager.Url)/api/session/$threadId" -TimeoutSec 20
+        Assert-True ($assignedSession.data.projectId -eq $created.data.id) "Projektzuordnung ist in den Sessiondetails nicht sichtbar."
+        $null = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "$($Manager.Url)/api/projects/sessions/$threadId/unassign" -Headers $headers
+        $unassignedSession = Invoke-RestMethod -UseBasicParsing -Uri "$($Manager.Url)/api/session/$threadId" -TimeoutSec 20
+        Assert-True ($null -eq $unassignedSession.data.PSObject.Properties['projectId']) "Session wurde nicht wieder aus dem Projekt gelöst."
+    }
+    $deleteName = "$ProjectName-delete"
+    $deleteBody = @{ name = $deleteName } | ConvertTo-Json
+    $deleteProject = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "$($Manager.Url)/api/projects" -Headers $headers -ContentType 'application/json' -Body $deleteBody
+    $null = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "$($Manager.Url)/api/projects/$($deleteProject.data.id)/delete" -Headers $headers
+    $projectsAfterDelete = Invoke-RestMethod -UseBasicParsing -Uri "$($Manager.Url)/api/projects" -TimeoutSec 10
+    Assert-True (@($projectsAfterDelete.data | Where-Object name -eq $deleteName).Count -eq 0) "Leeres Testprojekt wurde nicht gelöscht."
     $language = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "$($Manager.Url)/api/language" -Headers $headers -ContentType 'application/json' -Body '{"language":"en"}'
     Assert-True ($language.data.language -eq 'en') "Spracheinstellung wurde nicht gespeichert."
     return [pscustomobject]@{
@@ -228,6 +244,7 @@ try {
         $result.Checks += "upgrade-$oldVersion-to-$ExpectedVersion"
         $result.Checks += 'state-preserved'
         $result.Checks += 'api-and-codex-compatibility'
+        $result.Checks += 'project-assign-unassign-delete'
         $result.SessionCount = $api.SessionCount
         $result.Compatibility = $api.Compatibility
     }
@@ -253,6 +270,7 @@ try {
         Assert-True ($null -ne $started) "Neu gestarteter isolierter Manager-Prozess wurde nicht gefunden."
         $result.Checks += 'isolated-install-update-and-restart'
         $result.Checks += 'api-and-codex-compatibility'
+        $result.Checks += 'project-assign-unassign-delete'
         $result.Checks += 'state-preserved'
         $result.SessionCount = $api.SessionCount
         $result.Compatibility = $api.Compatibility

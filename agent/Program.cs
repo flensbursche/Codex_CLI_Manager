@@ -140,6 +140,16 @@ app.MapPost("/api/projects", (CreateProjectRequest request, ProjectStore project
     catch (Exception error) { return Results.Problem(error.Message, statusCode: 400); }
 });
 
+app.MapPost("/api/projects/{projectId}/delete", (string projectId, ProjectStore projects) =>
+{
+    try
+    {
+        projects.Delete(projectId);
+        return Results.Ok(new { data = new { deleted = true } });
+    }
+    catch (Exception error) { return Results.Problem(error.Message, statusCode: 400); }
+});
+
 app.MapPost("/api/projects/{projectId}/sessions/{threadId}", (string projectId, string threadId, ProjectStore projects) =>
 {
     try
@@ -415,6 +425,19 @@ internal sealed class ProjectStore
         lock (_sync)
         {
             if (_state.Assignments.Remove(threadId)) Save();
+        }
+    }
+
+    public void Delete(string projectId)
+    {
+        if (!Guid.TryParse(projectId, out _)) throw new ArgumentException("Ungültige Projekt-ID.");
+        lock (_sync)
+        {
+            if (_state.Assignments.Values.Any(value => value.Equals(projectId, StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidOperationException("Das Projekt enthält noch Sessions.");
+            var removed = _state.Projects.RemoveAll(project => project.Id.Equals(projectId, StringComparison.OrdinalIgnoreCase));
+            if (removed == 0) throw new KeyNotFoundException("Projekt wurde nicht gefunden.");
+            Save();
         }
     }
 
@@ -1325,7 +1348,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.10.3";
+    public const string Version = "0.10.4";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);

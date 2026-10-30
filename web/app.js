@@ -58,6 +58,7 @@ const icons = {
   copy: tablerIcon('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>'),
   edit: tablerIcon('<path d="M4 20h4l10.5-10.5a2.8 2.8 0 0 0-4-4L4 16v4zM13.5 6.5l4 4"/>'),
   unlink: tablerIcon('<path d="M10 13a5 5 0 0 0 7.07.07l2-2a5 5 0 0 0-7.07-7.07l-1.15 1.15"/><path d="M14 11a5 5 0 0 0-7.07-.07l-2 2A5 5 0 0 0 12 20l1.15-1.15"/><path d="M4 4l16 16"/>'),
+  trash: tablerIcon('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>'),
   git: brandIcon('M23.546 10.93L13.067.452a1.55 1.55 0 0 0-2.188 0L8.708 2.625l2.76 2.76a1.84 1.84 0 0 1 2.327 2.34l2.658 2.66a1.84 1.84 0 1 1-1.104 1.044l-2.477-2.478v6.525a1.84 1.84 0 1 1-1.525-.05V8.835a1.84 1.84 0 0 1-.992-2.402L7.638 3.716.453 10.93a1.55 1.55 0 0 0 0 2.188l10.477 10.43a1.55 1.55 0 0 0 2.186 0l10.43-10.43a1.55 1.55 0 0 0 0-2.188z'),
   github: brandIcon('M12 .297C5.37.297 0 5.67 0 12.297c0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.418-1.305.762-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297 24 5.67 18.627.297 12 .297z'),
   gitlab: brandIcon('M23.955 13.587l-1.342-4.135-2.66-8.19a.455.455 0 0 0-.867 0l-2.66 8.19H7.574l-2.66-8.19a.455.455 0 0 0-.867 0l-2.66 8.19L.045 13.587a.924.924 0 0 0 .331 1.023L12 23.783l11.625-9.173a.924.924 0 0 0 .33-1.023z'),
@@ -77,7 +78,7 @@ function header() {
   const autostart = companionInfo.supportsAutostart ? `<button class="menu-row switch-row" id="autostart-toggle" role="switch" aria-label="${t("autostart")}" aria-checked="${companionInfo.autostartEnabled}"><span>${t("autostart")}</span><i class="toggle-switch"><b></b></i></button>` : "";
   const darkMode = document.documentElement.dataset.theme === "dark";
   return `<header class="top">
-    <a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=19" alt=""></span><strong>Codex CLI Manager</strong></a>
+    <a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=20" alt=""></span><strong>Codex CLI Manager</strong></a>
     <span class="live"><i class="dot"></i>${t("live")}</span>
     <button class="header-update" id="header-update" type="button" hidden></button>
     <span class="spacer"></span>
@@ -393,10 +394,23 @@ function renderProjects() {
     button.ondragleave = () => button.classList.remove("drop-target");
     button.ondrop = (event) => { event.preventDefault(); button.classList.remove("drop-target"); const threadId = event.dataTransfer.getData("text/codex-thread") || state.draggedSessionId; if (threadId) void assignSessionToProject(threadId, button.dataset.projectId); };
   });
+  projects.querySelectorAll(".project-delete").forEach((button) => button.onclick = () => deleteProject(button.dataset.projectId, button.dataset.projectName));
 }
 
 function projectButton(project) {
-  return `<button class="${state.project === project.id ? "active" : ""}" data-project-id="${project.id}"><span class="project-dot"></span><span>${esc(project.name)}</span><small>${project.count}</small></button>`;
+  const deleteLabel = esc(t("deleteProject", project.name));
+  const remove = project.count === 0 ? `<button class="project-delete" type="button" data-project-id="${project.id}" data-project-name="${esc(project.name)}" aria-label="${deleteLabel}" title="${deleteLabel}">${icons.trash}</button>` : "";
+  return `<div class="project-entry"><button class="project-select ${state.project === project.id ? "active" : ""}" data-project-id="${project.id}"><span class="project-dot"></span><span>${esc(project.name)}</span><small>${project.count}</small></button>${remove}</div>`;
+}
+
+async function deleteProject(projectId, name) {
+  if (!window.confirm(t("deleteProjectConfirm", name))) return;
+  try {
+    await fetchJson(`/api/projects/${encodeURIComponent(projectId)}/delete`, { method: "POST" });
+    state.projects = state.projects.filter((project) => project.id !== projectId);
+    if (state.project === projectId) { state.project = null; state.view = "all"; renderSidebarNav(); }
+    renderProjects(); renderSessions(); showListStatus(t("projectDeleted"), "success");
+  } catch (error) { showListError(error.message); }
 }
 
 function bindProjectCreator() {
@@ -598,7 +612,7 @@ async function openFromList(threadId, action, button) {
 
 async function sessionPage(id) {
   app.innerHTML = `<div class="shell">${header()}<main class="session-page"><div class="session-content"><a class="back" href="/">${t("backSessions")}</a><div class="page-loading">${t("sessionLoading")}</div></div></main></div>`; bindTheme();
-  try { const session = await fetchJson(`/api/session/${encodeURIComponent(id)}`); renderSessionDetail(session); }
+  try { const [session, projects] = await Promise.all([fetchJson(`/api/session/${encodeURIComponent(id)}`), fetchJson("/api/projects")]); state.projects = projects; renderSessionDetail(session); }
   catch (error) { document.querySelector(".session-content").innerHTML = `<a class="back" href="/">${t("backSessions")}</a><div class="empty">${esc(error.message)}</div>`; }
 }
 
@@ -611,7 +625,8 @@ function renderSessionDetail(session) {
   const sessionPath = session.storagePath || session.path || session.rollout_path || session.storage_path || "";
   const projectPath = session.cwd || "";
   const archiveButton = session.archived ? `<button class="secondary" data-action="unarchive">${t("restoreAction")}</button>` : `<button class="danger" data-action="archive">${t("archiveAction")}</button>`;
-  content.innerHTML = `<a class="back" href="/">${t("backSessions")}</a><section class="session-head"><div><span class="eyebrow">Codex Session</span><div class="detail-title-row"><h1>${esc(title)}</h1><button class="edit-title" id="edit-title" type="button" aria-label="${t("editTitle")}" title="${t("editTitle")}">${icons.edit}</button></div>${session.customTitle ? `<p class="original-title"><span>${t("originalTitle")}</span>${esc(session.originalTitle)}</p>` : ""}<form class="title-editor" id="title-editor" hidden><input id="title-input" maxlength="160" value="${esc(title)}" aria-label="${t("titlePlaceholder")}"><button class="primary" type="submit">${t("save")}</button>${session.customTitle ? `<button class="secondary" id="reset-title" type="button">${t("resetTitle")}</button>` : ""}<button class="secondary" id="cancel-title" type="button">${t("cancel")}</button></form><p>${esc(description)}</p><div class="action-error" id="action-error"></div></div><div class="actions"><button class="primary" data-action="resume" ${session.active || session.archived ? "disabled" : ""}>${session.active ? t("opened") : t("continue")}</button><button class="secondary" data-action="open-project">VS Code</button>${archiveButton}</div></section><section class="section"><h2>${t("storageLocations")}</h2><div class="path-grid">${pathCard(t("sessionFile"), sessionPath)}${pathCard(t("projectFolder"), projectPath)}</div></section><section class="section"><h2>${t("overview")}</h2><div class="summary-grid">${summary.map(([key, value]) => `<div class="summary-item"><span>${esc(key)}</span><strong>${esc(formatValue(value))}</strong></div>`).join("")}</div></section><details class="metadata-disclosure"><summary>${t("technicalMetadata")}</summary><div class="metadata">${metadata.map(([key, value]) => `<div class="metadata-row"><div class="metadata-key">${esc(key)}</div><div class="metadata-value"><pre>${esc(formatValue(value))}</pre></div></div>`).join("")}</div></details>`;
+  const projectOptions = [`<option value="">${t("noProject")}</option>`, ...state.projects.map((project) => `<option value="${project.id}" ${session.projectId === project.id ? "selected" : ""}>${esc(project.name)}</option>`)].join("");
+  content.innerHTML = `<a class="back" href="/">${t("backSessions")}</a><section class="session-head"><div><span class="eyebrow">Codex Session</span><div class="detail-title-row"><h1>${esc(title)}</h1><button class="edit-title" id="edit-title" type="button" aria-label="${t("editTitle")}" title="${t("editTitle")}">${icons.edit}</button></div>${session.customTitle ? `<p class="original-title"><span>${t("originalTitle")}</span>${esc(session.originalTitle)}</p>` : ""}<form class="title-editor" id="title-editor" hidden><input id="title-input" maxlength="160" value="${esc(title)}" aria-label="${t("titlePlaceholder")}"><button class="primary" type="submit">${t("save")}</button>${session.customTitle ? `<button class="secondary" id="reset-title" type="button">${t("resetTitle")}</button>` : ""}<button class="secondary" id="cancel-title" type="button">${t("cancel")}</button></form><p>${esc(description)}</p><div class="action-error" id="action-error"></div></div><div class="actions"><button class="primary" data-action="resume" ${session.active || session.archived ? "disabled" : ""}>${session.active ? t("opened") : t("continue")}</button><button class="secondary" data-action="open-project">VS Code</button>${archiveButton}</div></section><section class="section project-assignment-section"><h2>${t("projectAssignment")}</h2><form class="project-assignment" id="project-assignment"><label><span>${t("project")}</span><select id="session-project" aria-label="${t("projectAssignment")}">${projectOptions}</select></label><button class="secondary" type="submit">${t("applyProject")}</button></form></section><section class="section"><h2>${t("storageLocations")}</h2><div class="path-grid">${pathCard(t("sessionFile"), sessionPath)}${pathCard(t("projectFolder"), projectPath)}</div></section><section class="section"><h2>${t("overview")}</h2><div class="summary-grid">${summary.map(([key, value]) => `<div class="summary-item"><span>${esc(key)}</span><strong>${esc(formatValue(value))}</strong></div>`).join("")}</div></section><details class="metadata-disclosure"><summary>${t("technicalMetadata")}</summary><div class="metadata">${metadata.map(([key, value]) => `<div class="metadata-row"><div class="metadata-key">${esc(key)}</div><div class="metadata-value"><pre>${esc(formatValue(value))}</pre></div></div>`).join("")}</div></details>`;
   if (session.desktop) { const desktopButton = content.querySelector('[data-action="resume"]'); desktopButton.dataset.action = "open-desktop"; desktopButton.disabled = false; desktopButton.textContent = t("openInDesktop"); }
   content.querySelectorAll("[data-action]").forEach((button) => button.onclick = () => runAction(button.dataset.action, session.id, button));
   bindCopyButtons();
@@ -620,6 +635,19 @@ function renderSessionDetail(session) {
   content.querySelector("#cancel-title").onclick = () => { editor.hidden = true; input.value = title; };
   content.querySelector("#reset-title")?.addEventListener("click", () => saveSessionTitle(session, ""));
   editor.onsubmit = (event) => { event.preventDefault(); void saveSessionTitle(session, input.value); };
+  content.querySelector("#project-assignment").onsubmit = (event) => { event.preventDefault(); void updateSessionProject(session, content.querySelector("#session-project").value, event.currentTarget); };
+}
+
+async function updateSessionProject(session, projectId, form) {
+  const controls = form.querySelectorAll("select, button"); controls.forEach((control) => control.disabled = true);
+  const errorBox = document.querySelector("#action-error"); errorBox.classList.remove("success"); errorBox.style.display = "none";
+  try {
+    if (projectId) await fetchJson(`/api/projects/${encodeURIComponent(projectId)}/sessions/${encodeURIComponent(session.id)}`, { method: "POST" });
+    else await fetchJson(`/api/projects/sessions/${encodeURIComponent(session.id)}/unassign`, { method: "POST" });
+    const updated = await fetchJson(`/api/session/${encodeURIComponent(session.id)}`);
+    renderSessionDetail(updated);
+    const nextErrorBox = document.querySelector("#action-error"); nextErrorBox.textContent = t("projectUpdated"); nextErrorBox.classList.add("success"); nextErrorBox.style.display = "block";
+  } catch (error) { controls.forEach((control) => control.disabled = false); errorBox.textContent = error.message; errorBox.style.display = "block"; }
 }
 
 function pathCard(label, value) {
