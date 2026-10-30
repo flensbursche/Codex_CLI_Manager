@@ -142,6 +142,11 @@
   "tray.available": "Version {0} is available.\n\nDownload, install, and restart the manager now?",
   "tray.updateTitle": "Update Codex CLI Manager",
   "tray.downloading": "Downloading update {0} …",
+  "tray.verifying": "Verifying download …",
+  "tray.preparing": "Preparing installation …",
+  "tray.waiting": "Closing Codex CLI Manager …",
+  "tray.installing": "Installing update …",
+  "tray.restarting": "Restarting Codex CLI Manager …",
   "tray.failed": "Update failed",
   "tray.aboutTitle": "About Codex CLI Manager",
   "tray.aboutBody": "Codex CLI Manager\nVersion {0}\n\nLocal .NET manager for Codex CLI sessions.\n\ngithub.com/flensbursche/Codex_CLI_Manager"

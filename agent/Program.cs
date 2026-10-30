@@ -32,6 +32,7 @@ builder.Services.AddSingleton<LanguageSettingsStore>();
 builder.Services.AddSingleton<UpdateStatusStore>();
 builder.Services.AddSingleton<GitStatusService>();
 builder.Services.AddSingleton<CodexClient>();
+builder.Services.Configure<HostOptions>(options => options.ShutdownTimeout = TimeSpan.FromSeconds(10));
 var app = builder.Build();
 var actionToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
 var webRoot = Path.Combine(AppContext.BaseDirectory, "wwwroot");
@@ -62,32 +63,34 @@ app.UseStaticFiles(new StaticFileOptions { FileProvider = new PhysicalFileProvid
 
 app.MapGet("/api/bootstrap", () => Results.Ok(new { data = new { token = actionToken, version = ProductInfo.Version, runtime = ".NET Companion", supportsAutostart = true, autostartEnabled = AutoStartManager.IsEnabled(), installationPath = UserInstallation.InstallDirectory } }));
 app.MapGet("/api/health", () => Results.Ok(new { ok = true, runtime = ".NET Companion" }));
-app.MapGet("/api/events", async (HttpContext context, CancellationToken cancellation) =>
+app.MapGet("/api/events", async (HttpContext context, IHostApplicationLifetime lifetime, CancellationToken cancellation) =>
 {
+    using var eventCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellation, lifetime.ApplicationStopping);
+    var eventToken = eventCancellation.Token;
     context.Response.ContentType = "text/event-stream";
     context.Response.Headers.CacheControl = "no-cache, no-store";
     context.Response.Headers.Connection = "keep-alive";
-    await context.Response.WriteAsync("retry: 2000\n\n", cancellation);
-    await context.Response.Body.FlushAsync(cancellation);
+    await context.Response.WriteAsync("retry: 2000\n\n", eventToken);
+    await context.Response.Body.FlushAsync(eventToken);
 
     var lastStamp = CodexStateStore.ChangeStamp();
     var lastUpdate = DateTime.UtcNow;
     try
     {
-        while (!cancellation.IsCancellationRequested)
+        while (!eventToken.IsCancellationRequested)
         {
-            await Task.Delay(TimeSpan.FromSeconds(1), cancellation);
+            await Task.Delay(TimeSpan.FromSeconds(1), eventToken);
             var stamp = CodexStateStore.ChangeStamp();
             var fallbackDue = DateTime.UtcNow - lastUpdate >= TimeSpan.FromSeconds(5);
             if (stamp == lastStamp && !fallbackDue) continue;
 
             lastStamp = stamp;
             lastUpdate = DateTime.UtcNow;
-            await context.Response.WriteAsync($"event: sessions\ndata: {DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}\n\n", cancellation);
-            await context.Response.Body.FlushAsync(cancellation);
+            await context.Response.WriteAsync($"event: sessions\ndata: {DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}\n\n", eventToken);
+            await context.Response.Body.FlushAsync(eventToken);
         }
     }
-    catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+    catch (OperationCanceledException) when (eventToken.IsCancellationRequested)
     {
     }
 });
@@ -728,7 +731,16 @@ internal sealed class TrayIconHost : IDisposable
                 }
 
                 update.Text = language.Format("downloading", available.Version);
-                await UpdateService.DownloadAndLaunchAsync(available, CancellationToken.None);
+                using var progress = new UpdateProgressWindow(
+                    language.Text("updateTitle"),
+                    language.Format("downloading", available.Version));
+                await UpdateService.DownloadAndLaunchAsync(available, stage => progress.Report(stage switch
+                {
+                    UpdateStage.Verifying => language.Text("verifying"),
+                    UpdateStage.Preparing => language.Text("preparing"),
+                    _ => language.Format("downloading", available.Version)
+                }), CancellationToken.None);
+                progress.Report(language.Text("waiting"));
                 icon.Visible = false;
                 stopApplication();
                 System.Windows.Forms.Application.ExitThread();
@@ -805,6 +817,105 @@ internal sealed class TrayIconHost : IDisposable
     }
 }
 
+internal enum UpdateStage
+{
+    Downloading,
+    Verifying,
+    Preparing
+}
+
+internal sealed class UpdateProgressWindow : IDisposable
+{
+    private readonly Thread _thread;
+    private readonly ManualResetEventSlim _ready = new();
+    private System.Windows.Forms.Form? _form;
+    private System.Windows.Forms.Label? _status;
+
+    public UpdateProgressWindow(string title, string initialStatus)
+    {
+        _thread = new Thread(() => Run(title, initialStatus))
+        {
+            IsBackground = true,
+            Name = "Codex CLI Manager Update"
+        };
+        _thread.SetApartmentState(ApartmentState.STA);
+        _thread.Start();
+        _ready.Wait(TimeSpan.FromSeconds(5));
+    }
+
+    private void Run(string title, string initialStatus)
+    {
+        System.Windows.Forms.Application.EnableVisualStyles();
+        using var icon = AppIcon.Create();
+        using var form = new System.Windows.Forms.Form
+        {
+            Text = title,
+            Icon = icon,
+            Width = 430,
+            Height = 155,
+            FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog,
+            StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen,
+            MaximizeBox = false,
+            MinimizeBox = false,
+            ControlBox = false,
+            ShowInTaskbar = true
+        };
+        var heading = new System.Windows.Forms.Label
+        {
+            Text = "Codex CLI Manager",
+            AutoSize = false,
+            Left = 24,
+            Top = 18,
+            Width = 370,
+            Height = 24,
+            Font = new System.Drawing.Font("Segoe UI", 11, System.Drawing.FontStyle.Bold)
+        };
+        var status = new System.Windows.Forms.Label
+        {
+            Text = initialStatus,
+            AutoSize = false,
+            Left = 24,
+            Top = 49,
+            Width = 370,
+            Height = 22
+        };
+        var activity = new System.Windows.Forms.ProgressBar
+        {
+            Left = 24,
+            Top = 79,
+            Width = 370,
+            Height = 9,
+            Style = System.Windows.Forms.ProgressBarStyle.Marquee,
+            MarqueeAnimationSpeed = 28
+        };
+        form.Controls.AddRange([heading, status, activity]);
+        _form = form;
+        _status = status;
+        _ready.Set();
+        System.Windows.Forms.Application.Run(form);
+        _status = null;
+        _form = null;
+    }
+
+    public void Report(string text)
+    {
+        var status = _status;
+        if (status is null || !status.IsHandleCreated) return;
+        try { status.BeginInvoke((Action)(() => status.Text = text)); } catch { }
+    }
+
+    public void Dispose()
+    {
+        var form = _form;
+        if (form is not null && form.IsHandleCreated)
+        {
+            try { form.BeginInvoke((Action)form.Close); } catch { }
+        }
+        if (_thread.IsAlive) _thread.Join(TimeSpan.FromSeconds(2));
+        _ready.Dispose();
+    }
+}
+
 internal static class AppIcon
 {
     public static System.Drawing.Icon Create()
@@ -871,7 +982,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.9.1";
+    public const string Version = "0.9.2";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);
@@ -944,14 +1055,16 @@ internal static class UpdateService
         return null;
     }
 
-    public static async Task DownloadAndLaunchAsync(UpdateInfo update, CancellationToken cancellation)
+    public static async Task DownloadAndLaunchAsync(UpdateInfo update, Action<UpdateStage>? progress, CancellationToken cancellation)
     {
         var updateDirectory = Path.Combine(UpdatesRoot, $"{update.Version}-{Guid.NewGuid():N}");
         var payloadDirectory = Path.Combine(updateDirectory, "payload");
         var packagePath = Path.Combine(updateDirectory, PackageName);
         Directory.CreateDirectory(payloadDirectory);
+        progress?.Invoke(UpdateStage.Downloading);
         await DownloadFileAsync(update.PackageUrl, packagePath, cancellation);
 
+        progress?.Invoke(UpdateStage.Verifying);
         var expectedHash = (await Client.GetStringAsync(update.ChecksumUrl, cancellation))
             .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
             .FirstOrDefault();
@@ -964,6 +1077,7 @@ internal static class UpdateService
                 throw new InvalidOperationException("Die Prüfsumme des heruntergeladenen Updates stimmt nicht.");
         }
 
+        progress?.Invoke(UpdateStage.Preparing);
         ZipFile.ExtractToDirectory(packagePath, payloadDirectory, overwriteFiles: true);
         var stagedExecutable = Directory.EnumerateFiles(payloadDirectory, "CodexSessionManager.exe", SearchOption.AllDirectories).FirstOrDefault()
             ?? throw new InvalidOperationException("Das Update enthält keine CodexSessionManager.exe.");
@@ -979,6 +1093,8 @@ internal static class UpdateService
     {
         var updateIndex = Array.FindIndex(arguments, value => value.Equals("--apply-update", StringComparison.OrdinalIgnoreCase));
         if (updateIndex < 0) return false;
+        var language = new LanguageSettingsStore();
+        using var progress = new UpdateProgressWindow(language.Text("updateTitle"), language.Text("waiting"));
         try
         {
             if (arguments.Length <= updateIndex + 2 || !int.TryParse(arguments[updateIndex + 2], out var processId))
@@ -988,15 +1104,19 @@ internal static class UpdateService
             if (!destination.Equals(expectedDestination, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("Das Update-Ziel ist nicht zulässig.");
 
+            var autostartWasEnabled = AutoStartManager.IsEnabled();
             WaitForManagerExit(processId);
+            progress.Report(language.Text("installing"));
             CopyPayload(AppContext.BaseDirectory, destination);
             var installedExecutable = Path.Combine(destination, "CodexSessionManager.exe");
-            AutoStartManager.Enable(installedExecutable);
+            if (autostartWasEnabled) AutoStartManager.Enable(installedExecutable);
+            else AutoStartManager.Disable();
+            progress.Report(language.Text("restarting"));
             Process.Start(new ProcessStartInfo(installedExecutable) { UseShellExecute = true });
+            Thread.Sleep(800);
         }
         catch (Exception error)
         {
-            var language = new LanguageSettingsStore();
             System.Windows.Forms.MessageBox.Show(
                 error.Message,
                 language.Text("failed"),
@@ -1060,9 +1180,10 @@ internal static class UpdateService
         try
         {
             using var process = Process.GetProcessById(processId);
-            if (process.WaitForExit(30000)) return;
-            process.Kill(entireProcessTree: true);
+            if (process.WaitForExit(20000)) return;
+            process.Kill();
             process.WaitForExit(10000);
+            if (!process.HasExited) throw new InvalidOperationException("Der bisherige Codex CLI Manager konnte nicht beendet werden.");
         }
         catch (ArgumentException)
         {

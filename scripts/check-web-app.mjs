@@ -39,6 +39,9 @@ if (!agent.includes('releases/latest') || agent.includes('api.github.com/repos/'
 if (!agent.includes('releases/latest/download/') || !agent.includes('ReadReleaseTag')) throw new Error("Der API-freie Fallback für die Update-Prüfung fehlt.");
 if (!agent.includes('SHA256.HashDataAsync')) throw new Error("Update-Pakete werden nicht per SHA-256 geprüft.");
 if (!agent.includes('TryApplyStagedUpdate(args)')) throw new Error("Der separate Update-Helfer fehlt.");
+if (!agent.includes('lifetime.ApplicationStopping') || !agent.includes('process.WaitForExit(20000)') || !agent.includes('process.Kill();')) throw new Error("Der Update-Neustart beendet Live-Verbindungen oder den alten Prozess nicht sicher.");
+if (!agent.includes('autostartWasEnabled') || !agent.includes('else AutoStartManager.Disable()')) throw new Error("Updates bewahren die Autostart-Einstellung nicht.");
+if (!agent.includes('UpdateProgressWindow') || !agent.includes('UpdateStage.Verifying') || !agent.includes('language.Text("restarting")')) throw new Error("Der sichtbare Update-Fortschritt fehlt.");
 if (agent.includes("AllocConsole")) throw new Error("Die rohe Win32-Konsole ist weiterhin aktiv.");
 if (!agent.includes('app.MapGet("/api/events"')) throw new Error("Der SSE-Endpunkt für Live-Updates fehlt.");
 if (!agent.includes('AppEndpoint.SelectAndSave()')) throw new Error("Die automatische Ausweichwahl bei belegtem Port fehlt.");

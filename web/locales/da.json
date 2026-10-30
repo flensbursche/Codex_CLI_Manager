@@ -142,6 +142,11 @@
   "tray.available": "Version {0} er tilgængelig.\n\nDownload, installer og genstart manageren nu?",
   "tray.updateTitle": "Opdater Codex CLI Manager",
   "tray.downloading": "Downloader opdatering {0} …",
+  "tray.verifying": "Kontrollerer download …",
+  "tray.preparing": "Forbereder installation …",
+  "tray.waiting": "Lukker Codex CLI Manager …",
+  "tray.installing": "Installerer opdatering …",
+  "tray.restarting": "Genstarter Codex CLI Manager …",
   "tray.failed": "Opdatering mislykkedes",
   "tray.aboutTitle": "Om Codex CLI Manager",
   "tray.aboutBody": "Codex CLI Manager\nVersion {0}\n\nLokal .NET-manager til Codex CLI-sessioner.\n\ngithub.com/flensbursche/Codex_CLI_Manager"
