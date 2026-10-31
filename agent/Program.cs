@@ -1348,7 +1348,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.10.5";
+    public const string Version = "0.10.6";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);
@@ -1883,11 +1883,12 @@ internal static class TerminalHost
             startInfo.ArgumentList.Add("--startingDirectory");
             startInfo.ArgumentList.Add(workingDirectory);
             if (string.IsNullOrWhiteSpace(command)) return startInfo;
-            startInfo.ArgumentList.Add("--");
-            // Windows Terminal reparses the command after `--` and mangles
-            // absolute Store paths containing spaces. Start the exact detected
-            // shell through inbox Windows PowerShell with an encoded bridge;
-            // all arguments seen by Windows Terminal are then space-free.
+            // `new-tab` accepts the executable and its arguments directly as
+            // the positional commandline. Adding `--` makes some Windows
+            // Terminal versions quote the complete remainder as one executable
+            // name, which fails with 0x80070002. Start the exact detected shell
+            // through inbox Windows PowerShell with an encoded bridge; all
+            // commandline arguments seen by Windows Terminal stay space-free.
             startInfo.ArgumentList.Add("powershell.exe");
             startInfo.ArgumentList.Add("-NoLogo");
             startInfo.ArgumentList.Add("-NoProfile");

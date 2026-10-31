@@ -53,7 +53,7 @@ static Task TestWindowsTerminalArgumentsAsync()
     var expected = new[]
     {
         "-w", "new", "new-tab", "--profile", "{test-profile}", "--startingDirectory", @"C:\DEV\Project With Spaces",
-        "--", "powershell.exe", "-NoLogo", "-NoProfile", "-EncodedCommand"
+        "powershell.exe", "-NoLogo", "-NoProfile", "-EncodedCommand"
     };
     Assert(arguments.Length == expected.Length + 1, "Unexpected Windows Terminal argument count.");
     Assert(arguments.Take(expected.Length).SequenceEqual(expected), $"Windows Terminal arguments differ: {string.Join(" | ", arguments)}");
@@ -65,7 +65,8 @@ static Task TestWindowsTerminalArgumentsAsync()
     Assert(initialization.Contains("$env:NO_COLOR=$null", StringComparison.Ordinal), "Color environment cleanup is missing.");
     Assert(initialization.EndsWith("Write-Output 'resume-test'", StringComparison.Ordinal), "Resume command is missing from encoded initialization.");
     Assert(!startInfo.UseShellExecute, "Terminal launch must use an exact native argument list.");
-    Assert(arguments.Skip(8).All(argument => !argument.Contains(' ')), "Windows Terminal still receives a space-containing launcher argument.");
+    Assert(!arguments.Contains("--"), "Windows Terminal must receive its positional commandline without a `--` separator.");
+    Assert(arguments.Skip(7).All(argument => !argument.Contains(' ')), "Windows Terminal still receives a space-containing launcher argument.");
     return Task.CompletedTask;
 }
 

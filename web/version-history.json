@@ -1,6 +1,21 @@
 {
-  "generatedAt": "2026-10-30T16:22:18+01:00",
+  "generatedAt": "2026-10-30T18:39:24+01:00",
   "releases": [
+    {
+      "version": "0.10.5",
+      "tag": "v0.10.5",
+      "date": "2026-10-30T18:39:24+01:00",
+      "commit": "058f97ddcfa7b02256747ff9fc7217ca0fe6f5a6",
+      "released": true,
+      "commits": [
+        {
+          "hash": "058f97ddcfa7b02256747ff9fc7217ca0fe6f5a6",
+          "shortHash": "058f97d",
+          "date": "2026-10-30T18:39:24+01:00",
+          "subject": "Add project deletion dialog and escape cancellation"
+        }
+      ]
+    },
     {
       "version": "0.10.4",
       "tag": "v0.10.4",
