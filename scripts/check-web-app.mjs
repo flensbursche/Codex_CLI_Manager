@@ -30,6 +30,7 @@ if (!agent.includes("CodexStateStore.QueryThreads(archived)") || !agent.includes
 if (!agent.includes("AcceptanceEnvironment.InstanceMutexName") || !agent.includes("AcceptanceEnvironment.UpdateSignalName") || !agent.includes("AcceptanceEnvironment.DataRoot") || !agent.includes("AcceptanceEnvironment.ApplyTo(restart)")) throw new Error("Der isolierte Release-Acceptance-Modus fehlt.");
 if (!agent.includes('LanguageSettingsStore')) throw new Error("Die gemeinsame Sprachspeicherung fehlt.");
 if (!agent.includes("TrayMenuRenderer") || !agent.includes("TrayMenuPalette.Current()") || !agent.includes("TrayMenuGlyphs.Terminal") || !agent.includes("ApplyRoundedRegion(menu, 12)")) throw new Error("Das gestaltete, abgerundete Tray-Menü mit eigenen Symbolen fehlt.");
+if (!agent.includes('var openBrowser = new System.Windows.Forms.ToolStripMenuItem("Codex CLI Manager", appImage)') || !agent.includes('menu.Items.Add(openBrowser);') || !agent.includes('openBrowser.Click += (_, _) => OpenBrowser(appUrl);')) throw new Error("Die vollständige Kopfzeile des Tray-Menüs öffnet den Codex Manager nicht.");
 if (!agent.includes('app.MapGet("/api/language"')) throw new Error("Der Sprach-Endpunkt fehlt.");
 for (const language of ["de", "en", "da"]) {
   const locale = JSON.parse(await readFile(new URL(`../web/locales/${language}.json`, import.meta.url), "utf8"));

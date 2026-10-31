@@ -779,17 +779,15 @@ internal sealed class TrayIconHost : IDisposable
             ShowCheckMargin = false,
             ShowImageMargin = true
         };
-        var header = new System.Windows.Forms.ToolStripMenuItem("Codex CLI Manager", appImage)
+        var openBrowser = new System.Windows.Forms.ToolStripMenuItem("Codex CLI Manager", appImage)
         {
-            Enabled = false,
             Font = headerFont,
             ForeColor = palette.Text,
             Padding = new System.Windows.Forms.Padding(8, 8, 12, 8),
             Tag = "header"
         };
-        menu.Items.Add(header);
+        menu.Items.Add(openBrowser);
         menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
-        var openBrowser = menu.Items.Add("", appImage);
         var openPowerShell = menu.Items.Add("", terminalImage);
         var update = menu.Items.Add("", updateImage);
         menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
@@ -800,7 +798,7 @@ internal sealed class TrayIconHost : IDisposable
             item.AutoSize = false;
             item.Margin = new System.Windows.Forms.Padding(2, 1, 2, 1);
             item.Padding = System.Windows.Forms.Padding.Empty;
-            item.Size = new System.Drawing.Size(276, item is System.Windows.Forms.ToolStripSeparator ? 8 : ReferenceEquals(item, header) ? 44 : 38);
+            item.Size = new System.Drawing.Size(276, item is System.Windows.Forms.ToolStripSeparator ? 8 : ReferenceEquals(item, openBrowser) ? 44 : 38);
         }
         menu.Opened += (_, _) => TrayMenuRenderer.ApplyRoundedRegion(menu, 12);
         menu.SizeChanged += (_, _) => { if (menu.Visible) TrayMenuRenderer.ApplyRoundedRegion(menu, 12); };
@@ -1001,7 +999,9 @@ internal sealed class TrayMenuRenderer(TrayMenuPalette palette) : System.Windows
     {
         var bounds = new System.Drawing.Rectangle(3, 1, Math.Max(0, e.Item.Width - 6), Math.Max(0, e.Item.Height - 2));
         var header = Equals(e.Item.Tag, "header");
-        var color = header ? palette.Surface : e.Item.Selected && e.Item.Enabled ? palette.Hover : palette.Background;
+        var color = header
+            ? e.Item.Selected && e.Item.Enabled ? palette.Hover : palette.Surface
+            : e.Item.Selected && e.Item.Enabled ? palette.Hover : palette.Background;
         using var path = RoundedPath(bounds, header ? 9 : 7);
         using var brush = new System.Drawing.SolidBrush(color);
         e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
@@ -1348,7 +1348,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.10.9";
+    public const string Version = "0.10.10";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);
