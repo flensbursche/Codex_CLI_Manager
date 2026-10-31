@@ -78,7 +78,7 @@ function header() {
   const autostart = companionInfo.supportsAutostart ? `<button class="menu-row switch-row" id="autostart-toggle" role="switch" aria-label="${t("autostart")}" aria-checked="${companionInfo.autostartEnabled}"><span>${t("autostart")}</span><i class="toggle-switch"><b></b></i></button>` : "";
   const darkMode = document.documentElement.dataset.theme === "dark";
   return `<header class="top">
-    <a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=23" alt=""></span><strong>Codex CLI Manager</strong></a>
+    <a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=24" alt=""></span><strong>Codex CLI Manager</strong></a>
     <span class="live"><i class="dot"></i>${t("live")}</span>
     <button class="header-update" id="header-update" type="button" hidden></button>
     <span class="spacer"></span>
@@ -272,7 +272,7 @@ function listPage() {
           </div>
           <nav class="projects" id="projects"></nav>
           <div class="project-unassign-drop" id="project-unassign-drop" hidden>${icons.unlink}<span>${t("removeFromProject")}</span></div>
-          <footer class="sidebar-footer"><button type="button" id="sidebar-toggle" aria-label="${sidebarCollapsed ? t("expandSidebar") : t("collapseSidebar")}" title="${sidebarCollapsed ? t("expandSidebar") : t("collapseSidebar")}">${sidebarCollapsed ? icons.sidebarOpen : icons.sidebarClose}<span>${sidebarCollapsed ? t("expandSidebar") : t("collapseSidebar")}</span></button></footer>
+          <footer class="sidebar-footer"><button type="button" id="sidebar-toggle" aria-label="${sidebarCollapsed ? t("expandSidebar") : t("collapseSidebar")}" title="${sidebarCollapsed ? t("expandSidebar") : t("collapseSidebar")}">${sidebarCollapsed ? icons.sidebarOpen : icons.sidebarClose}<span>${sidebarCollapsed ? t("expandSidebar") : t("collapseSidebar")}</span></button><span class="sidebar-version">v${esc(companionInfo.version || "")}</span></footer>
         </aside>
         <section class="main">
           <div class="searchbar">

@@ -1042,6 +1042,16 @@ summary {
   flex: 0 0 auto;
 }
 
+.sidebar-version {
+  display: block;
+  margin-top: 4px;
+  padding-inline: 11px;
+  color: var(--faint);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  opacity: 0.62;
+}
+
 .side-note {
   display: none;
 }

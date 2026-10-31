@@ -1,6 +1,21 @@
 {
-  "generatedAt": "2026-10-31T13:08:25+01:00",
+  "generatedAt": "2026-10-31T13:20:01+01:00",
   "releases": [
+    {
+      "version": "0.10.7",
+      "tag": "v0.10.7",
+      "date": "2026-10-31T13:20:01+01:00",
+      "commit": "ce8836ce9ee953c47be94f31c6b8d7d36bf246ce",
+      "released": true,
+      "commits": [
+        {
+          "hash": "ce8836ce9ee953c47be94f31c6b8d7d36bf246ce",
+          "shortHash": "ce8836c",
+          "date": "2026-10-31T13:20:01+01:00",
+          "subject": "Resume sessions through terminal profile arguments"
+        }
+      ]
+    },
     {
       "version": "0.10.6",
       "tag": "v0.10.6",

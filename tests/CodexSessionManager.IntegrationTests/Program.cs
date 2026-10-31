@@ -50,13 +50,14 @@ static Task TestWindowsTerminalArgumentsAsync()
     var shell = new ShellResolution("powershell7", "PowerShell 7", @"C:\Program Files\WindowsApps\Microsoft.PowerShell_7.6.9.0_x64__8wekyb3d8bbwe\pwsh.exe", "7", "{test-profile}");
     var startInfo = TerminalHost.CreateStartInfo(true, @"C:\terminal\wt.exe", shell, @"C:\DEV\Project With Spaces", "Write-Output 'resume-test'");
     var arguments = startInfo.ArgumentList.ToArray();
-    var expected = new[] { "-w", "new", "new-tab", "--profile", "{test-profile}", "--startingDirectory", @"C:\DEV\Project With Spaces", "--appendCommandLine", "--", "-NoLogo", "-NoExit", "-EncodedCommand" };
-    Assert(arguments.Length == expected.Length + 1 && arguments.Take(expected.Length).SequenceEqual(expected), $"Windows Terminal arguments differ: {string.Join(" | ", arguments)}");
+    var expected = new[] { "-NoLogo", "-NoExit", "-EncodedCommand" };
+    Assert(startInfo.FileName == shell.Path, "Session resume must bypass wt.exe and launch the detected shell directly.");
+    Assert(arguments.Length == expected.Length + 1 && arguments.Take(expected.Length).SequenceEqual(expected), $"PowerShell resume arguments differ: {string.Join(" | ", arguments)}");
     var initialization = Encoding.Unicode.GetString(Convert.FromBase64String(arguments[^1]));
     Assert(initialization.Contains("$env:NO_COLOR=$null", StringComparison.Ordinal), "Color environment cleanup is missing.");
     Assert(initialization.EndsWith("Write-Output 'resume-test'", StringComparison.Ordinal), "Resume command is missing from encoded initialization.");
     Assert(!startInfo.UseShellExecute, "Terminal launch must use an exact native argument list.");
-    Assert(!arguments.Contains("powershell.exe", StringComparer.OrdinalIgnoreCase), "Windows Terminal must not receive a replacement executable commandline.");
+    Assert(!arguments.Contains("--appendCommandLine"), "Session resume must not use the Windows Terminal commandline parser.");
     return Task.CompletedTask;
 }
 

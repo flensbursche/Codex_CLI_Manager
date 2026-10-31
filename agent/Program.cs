@@ -1348,7 +1348,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.10.7";
+    public const string Version = "0.10.8";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);
@@ -1856,18 +1856,20 @@ internal static class TerminalHost
 
     internal static ProcessStartInfo CreateStartInfo(bool windowsTerminal, string executable, ShellResolution shell, string workingDirectory, string? command = null)
     {
+        var terminalProfileOnly = windowsTerminal && string.IsNullOrWhiteSpace(command);
         var startInfo = new ProcessStartInfo
         {
-            FileName = executable,
+            FileName = terminalProfileOnly ? executable : shell.Path,
             UseShellExecute = false,
-            WorkingDirectory = workingDirectory
+            WorkingDirectory = workingDirectory,
+            CreateNoWindow = false
         };
 
         var initialization = "$env:NO_COLOR=$null; $env:TERM=$null; $env:COLORTERM=$null";
         if (!string.IsNullOrWhiteSpace(command)) initialization += $"; {command}";
         var encodedInitialization = Convert.ToBase64String(Encoding.Unicode.GetBytes(initialization));
 
-        if (windowsTerminal)
+        if (terminalProfileOnly)
         {
             startInfo.ArgumentList.Add("-w");
             startInfo.ArgumentList.Add("new");
@@ -1876,18 +1878,6 @@ internal static class TerminalHost
             startInfo.ArgumentList.Add(shell.ProfileId);
             startInfo.ArgumentList.Add("--startingDirectory");
             startInfo.ArgumentList.Add(workingDirectory);
-            if (string.IsNullOrWhiteSpace(command)) return startInfo;
-            // Keep the profile's configured executable and append only
-            // PowerShell arguments. Passing an executable plus arguments as
-            // Terminal's positional commandline can be requoted into one file
-            // name and fail with 0x80070002. --appendCommandLine is Windows
-            // Terminal's documented path for extending a profile command.
-            startInfo.ArgumentList.Add("--appendCommandLine");
-            startInfo.ArgumentList.Add("--");
-            startInfo.ArgumentList.Add("-NoLogo");
-            startInfo.ArgumentList.Add("-NoExit");
-            startInfo.ArgumentList.Add("-EncodedCommand");
-            startInfo.ArgumentList.Add(encodedInitialization);
             return startInfo;
         }
 

@@ -4,9 +4,9 @@ import vm from "node:vm";
 const script = await readFile(new URL("../web/app.js", import.meta.url), "utf8");
 const html = await readFile(new URL("../web/index.html", import.meta.url), "utf8");
 new vm.Script(script);
-for (const asset of ["/app-icon.svg?v=23", "/app.css?v=23", "/app.js?v=23"])
+for (const asset of ["/app-icon.svg?v=24", "/app.css?v=24", "/app.js?v=24"])
   if (!html.includes(asset)) throw new Error(`Web-Asset verwendet nicht die aktuelle Cache-Version: ${asset}`);
-for (const feature of ['session.internal === true', 'open-desktop', 'session-launch', 'session-details', 'session-actions', 'session-favorite', 'toggleFavorite(threadId, button)', 'project-create-form', 'project-name-clear', 'pendingProjectSessionId', 'newProjectForSession', 'assignSessionToProject(threadId, projectId)', 'removeSessionFromProject(threadId, button)', 'session-project-remove', '/unassign', 'text/codex-thread', 'search-clear', 'sessionTime(session)', 'sessionBundles(sessions)', 'shadow-sessions', 'ChatGPT Desktop', 'session-context', 'new EventSource("/api/events")', '/api/terminal-settings', '/api/language', '/api/update-status', 'window.setTimeout(initialize, 1000)', 'await loadMessages(result.language)', 'header-menu', 'sidebar-collapsed', 'data-language', 'sessionSearchCountMany', 'bindCopyButtons()', '/title', 'terminalSettingsPage()', 'aboutPage()', 'gitIndicator(session.git)', 'sessionHealthIndicator(session.health)', 'healthStateLabel(session.health)', 'compatibility-warning', 'compatibilityLimited', 'role="switch"', 'share-repository', 'menu-update', 'prefers-color-scheme: dark', 'menuDismissBound', 'latest.version !== companionInfo.version', 'window.location.reload()']) {
+for (const feature of ['session.internal === true', 'open-desktop', 'session-launch', 'session-details', 'session-actions', 'session-favorite', 'toggleFavorite(threadId, button)', 'project-create-form', 'project-name-clear', 'pendingProjectSessionId', 'newProjectForSession', 'assignSessionToProject(threadId, projectId)', 'removeSessionFromProject(threadId, button)', 'session-project-remove', '/unassign', 'text/codex-thread', 'search-clear', 'sessionTime(session)', 'sessionBundles(sessions)', 'shadow-sessions', 'ChatGPT Desktop', 'session-context', 'new EventSource("/api/events")', '/api/terminal-settings', '/api/language', '/api/update-status', 'window.setTimeout(initialize, 1000)', 'await loadMessages(result.language)', 'header-menu', 'sidebar-collapsed', 'sidebar-version', 'data-language', 'sessionSearchCountMany', 'bindCopyButtons()', '/title', 'terminalSettingsPage()', 'aboutPage()', 'gitIndicator(session.git)', 'sessionHealthIndicator(session.health)', 'healthStateLabel(session.health)', 'compatibility-warning', 'compatibilityLimited', 'role="switch"', 'share-repository', 'menu-update', 'prefers-color-scheme: dark', 'menuDismissBound', 'latest.version !== companionInfo.version', 'window.location.reload()']) {
   if (!script.includes(feature)) throw new Error(`Web-Feature fehlt: ${feature}`);
 }
 for (const feature of ['session-restore', 'sessionsLoading', 'aria-label="${t("filterSource")}"', 'aria-label="${t("sessions")}"', 'terminalStarted', 'draggedSessionId', 'sessionAssigned', 'project-assignment', 'updateSessionProject(session', 'project-delete', 'deleteProject(projectId', 'project-delete-dialog', 'deleteProjectDescription', 'event.key === "Escape"', 'closeCreator(true)']) {
@@ -38,11 +38,11 @@ for (const language of ["de", "en", "da"]) {
 }
 if (!agent.includes("TerminalHost.OpenPowerShell(cwd, command)")) throw new Error("Session-Resume verwendet nicht Windows Terminal.");
 if (!agent.includes('case "unarchive"') || !agent.includes('RunCodexCommandAsync(["unarchive", threadId]')) throw new Error("Archivierte Sessions können nicht sicher wiederhergestellt werden.");
-if (!agent.includes("if (string.IsNullOrWhiteSpace(command)) return startInfo;")) throw new Error("Der reine Tray-Terminalstart überschreibt weiterhin den konfigurierten Windows-Terminal-Befehl.");
+if (!agent.includes("if (terminalProfileOnly)") || !agent.includes('startInfo.ArgumentList.Add("--profile");')) throw new Error("Der reine Tray-Terminalstart überschreibt weiterhin den konfigurierten Windows-Terminal-Befehl.");
 if (!agent.includes('"Microsoft.WindowsTerminal_8wekyb3d8bbwe"')) throw new Error("Windows Terminal wird nicht über seinen App-Alias gestartet.");
 if (!agent.includes('"{574e775e-4f2a-5b96-ac1e-a2962a402336}"')) throw new Error("Das normale PowerShell-Profil von Windows Terminal wird nicht explizit verwendet.");
 if (!agent.includes('startInfo.ArgumentList.Add("new");') || agent.includes('startInfo.ArgumentList.Add("0");')) throw new Error("Session-Resume öffnet nicht immer ein neues Windows-Terminal-Fenster.");
-if (!agent.includes('startInfo.ArgumentList.Add("--appendCommandLine");') || !agent.includes('startInfo.ArgumentList.Add("--");') || agent.includes('startInfo.ArgumentList.Add("powershell.exe");')) throw new Error("Windows Terminal erweitert das ausgewählte Profil nicht sicher über --appendCommandLine.");
+if (!agent.includes("var terminalProfileOnly = windowsTerminal && string.IsNullOrWhiteSpace(command);") || !agent.includes("FileName = terminalProfileOnly ? executable : shell.Path") || agent.includes('startInfo.ArgumentList.Add("--appendCommandLine");')) throw new Error("Session-Resume umgeht den fehlerhaften Windows-Terminal-CLI-Parser nicht.");
 if (!agent.includes("ResolvePackagedPowerShell7()") || !agent.includes('GetValue("PackageRootFolder")')) throw new Error("Die echte PowerShell-Paketdatei wird nicht vor dem WindowsApps-Alias aufgelöst.");
 if (!agent.includes('"Microsoft.PowerShell_8wekyb3d8bbwe"')) throw new Error("Die installierte PowerShell-7-App wird nicht bevorzugt.");
 if (!agent.includes('Convert.ToBase64String(Encoding.Unicode.GetBytes(initialization))')) throw new Error("Der Resume-Befehl wird für Windows Terminal nicht sicher kodiert.");
@@ -105,7 +105,7 @@ const acceptanceWorkflow = await readFile(new URL("../.github/workflows/windows-
 if (!acceptanceWorkflow.includes("codex-manager-ui") || !acceptanceWorkflow.includes("test-release.ps1")) throw new Error("Der interaktive Windows-Acceptance-Workflow fehlt.");
 const appIcon = await readFile(new URL("../web/app-icon.svg", import.meta.url), "utf8");
 if (!appIcon.includes('fill="#ff6537"') || !appIcon.includes('stroke="#fff"')) throw new Error("Das gemeinsame orange-weiße App-Icon fehlt.");
-if (!script.includes('class="mark"><img src="/app-icon.svg?v=23"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
+if (!script.includes('class="mark"><img src="/app-icon.svg?v=24"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
 const shareMenuIndex = script.indexOf('id="share-repository"');
 const aboutMenuIndex = script.indexOf('href="/about"', shareMenuIndex);
 const updateMenuIndex = script.indexOf('id="menu-update"', aboutMenuIndex);
