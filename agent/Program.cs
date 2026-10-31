@@ -1348,7 +1348,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.10.8";
+    public const string Version = "0.10.9";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);
@@ -1865,7 +1865,9 @@ internal static class TerminalHost
             CreateNoWindow = false
         };
 
-        var initialization = "$env:NO_COLOR=$null; $env:TERM=$null; $env:COLORTERM=$null";
+        var initialization = windowsTerminal
+            ? "$env:NO_COLOR=$null; $env:TERM='xterm-256color'; $env:COLORTERM='truecolor'; $env:TERM_PROGRAM='Windows_Terminal'; if (-not $env:WT_SESSION) { $env:WT_SESSION=[guid]::NewGuid().ToString() }"
+            : "$env:NO_COLOR=$null; $env:TERM=$null; $env:COLORTERM=$null";
         if (!string.IsNullOrWhiteSpace(command)) initialization += $"; {command}";
         var encodedInitialization = Convert.ToBase64String(Encoding.Unicode.GetBytes(initialization));
 

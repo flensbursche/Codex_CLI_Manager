@@ -1,6 +1,21 @@
 {
-  "generatedAt": "2026-10-31T13:20:01+01:00",
+  "generatedAt": "2026-10-31T13:49:54+01:00",
   "releases": [
+    {
+      "version": "0.10.8",
+      "tag": "v0.10.8",
+      "date": "2026-10-31T13:49:54+01:00",
+      "commit": "12bad6aa33bc8a909bbe52b5c91948d756a7ee22",
+      "released": true,
+      "commits": [
+        {
+          "hash": "12bad6aa33bc8a909bbe52b5c91948d756a7ee22",
+          "shortHash": "12bad6a",
+          "date": "2026-10-31T13:49:54+01:00",
+          "subject": "Bypass terminal CLI for session resume"
+        }
+      ]
+    },
     {
       "version": "0.10.7",
       "tag": "v0.10.7",

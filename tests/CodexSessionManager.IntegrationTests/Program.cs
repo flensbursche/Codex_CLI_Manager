@@ -55,6 +55,10 @@ static Task TestWindowsTerminalArgumentsAsync()
     Assert(arguments.Length == expected.Length + 1 && arguments.Take(expected.Length).SequenceEqual(expected), $"PowerShell resume arguments differ: {string.Join(" | ", arguments)}");
     var initialization = Encoding.Unicode.GetString(Convert.FromBase64String(arguments[^1]));
     Assert(initialization.Contains("$env:NO_COLOR=$null", StringComparison.Ordinal), "Color environment cleanup is missing.");
+    Assert(initialization.Contains("$env:TERM='xterm-256color'", StringComparison.Ordinal), "256-color terminal capability is missing.");
+    Assert(initialization.Contains("$env:COLORTERM='truecolor'", StringComparison.Ordinal), "True-color terminal capability is missing.");
+    Assert(initialization.Contains("$env:TERM_PROGRAM='Windows_Terminal'", StringComparison.Ordinal), "Windows Terminal identity is missing.");
+    Assert(initialization.Contains("$env:WT_SESSION", StringComparison.Ordinal), "Windows Terminal session identity fallback is missing.");
     Assert(initialization.EndsWith("Write-Output 'resume-test'", StringComparison.Ordinal), "Resume command is missing from encoded initialization.");
     Assert(!startInfo.UseShellExecute, "Terminal launch must use an exact native argument list.");
     Assert(!arguments.Contains("--appendCommandLine"), "Session resume must not use the Windows Terminal commandline parser.");

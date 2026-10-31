@@ -4,7 +4,7 @@ import vm from "node:vm";
 const script = await readFile(new URL("../web/app.js", import.meta.url), "utf8");
 const html = await readFile(new URL("../web/index.html", import.meta.url), "utf8");
 new vm.Script(script);
-for (const asset of ["/app-icon.svg?v=24", "/app.css?v=24", "/app.js?v=24"])
+for (const asset of ["/app-icon.svg?v=25", "/app.css?v=25", "/app.js?v=25"])
   if (!html.includes(asset)) throw new Error(`Web-Asset verwendet nicht die aktuelle Cache-Version: ${asset}`);
 for (const feature of ['session.internal === true', 'open-desktop', 'session-launch', 'session-details', 'session-actions', 'session-favorite', 'toggleFavorite(threadId, button)', 'project-create-form', 'project-name-clear', 'pendingProjectSessionId', 'newProjectForSession', 'assignSessionToProject(threadId, projectId)', 'removeSessionFromProject(threadId, button)', 'session-project-remove', '/unassign', 'text/codex-thread', 'search-clear', 'sessionTime(session)', 'sessionBundles(sessions)', 'shadow-sessions', 'ChatGPT Desktop', 'session-context', 'new EventSource("/api/events")', '/api/terminal-settings', '/api/language', '/api/update-status', 'window.setTimeout(initialize, 1000)', 'await loadMessages(result.language)', 'header-menu', 'sidebar-collapsed', 'sidebar-version', 'data-language', 'sessionSearchCountMany', 'bindCopyButtons()', '/title', 'terminalSettingsPage()', 'aboutPage()', 'gitIndicator(session.git)', 'sessionHealthIndicator(session.health)', 'healthStateLabel(session.health)', 'compatibility-warning', 'compatibilityLimited', 'role="switch"', 'share-repository', 'menu-update', 'prefers-color-scheme: dark', 'menuDismissBound', 'latest.version !== companionInfo.version', 'window.location.reload()']) {
   if (!script.includes(feature)) throw new Error(`Web-Feature fehlt: ${feature}`);
@@ -46,7 +46,7 @@ if (!agent.includes("var terminalProfileOnly = windowsTerminal && string.IsNullO
 if (!agent.includes("ResolvePackagedPowerShell7()") || !agent.includes('GetValue("PackageRootFolder")')) throw new Error("Die echte PowerShell-Paketdatei wird nicht vor dem WindowsApps-Alias aufgelöst.");
 if (!agent.includes('"Microsoft.PowerShell_8wekyb3d8bbwe"')) throw new Error("Die installierte PowerShell-7-App wird nicht bevorzugt.");
 if (!agent.includes('Convert.ToBase64String(Encoding.Unicode.GetBytes(initialization))')) throw new Error("Der Resume-Befehl wird für Windows Terminal nicht sicher kodiert.");
-if (!agent.includes('$env:NO_COLOR=$null; $env:TERM=$null; $env:COLORTERM=$null')) throw new Error("Geerbte Automations-Farbvariablen werden vor dem Terminal-Start nicht entfernt.");
+if (!agent.includes("$env:NO_COLOR=$null; $env:TERM='xterm-256color'; $env:COLORTERM='truecolor'; $env:TERM_PROGRAM='Windows_Terminal'")) throw new Error("Windows-Terminal-Farbmerkmale werden vor dem Session-Start nicht zuverlässig hergestellt.");
 if (!agent.includes("npx @openai/codex resume")) throw new Error("Session-Resume entspricht nicht dem normalen lokalen Codex-Start.");
 if (agent.includes("codex --no-daemon resume")) throw new Error("Session-Resume verwendet weiterhin den abweichenden No-Daemon-Start.");
 if (!agent.includes("ExtractAssociatedIcon(executable)")) throw new Error("Das Tray verwendet nicht das eigene App-Icon.");
@@ -105,7 +105,7 @@ const acceptanceWorkflow = await readFile(new URL("../.github/workflows/windows-
 if (!acceptanceWorkflow.includes("codex-manager-ui") || !acceptanceWorkflow.includes("test-release.ps1")) throw new Error("Der interaktive Windows-Acceptance-Workflow fehlt.");
 const appIcon = await readFile(new URL("../web/app-icon.svg", import.meta.url), "utf8");
 if (!appIcon.includes('fill="#ff6537"') || !appIcon.includes('stroke="#fff"')) throw new Error("Das gemeinsame orange-weiße App-Icon fehlt.");
-if (!script.includes('class="mark"><img src="/app-icon.svg?v=24"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
+if (!script.includes('class="mark"><img src="/app-icon.svg?v=25"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
 const shareMenuIndex = script.indexOf('id="share-repository"');
 const aboutMenuIndex = script.indexOf('href="/about"', shareMenuIndex);
 const updateMenuIndex = script.indexOf('id="menu-update"', aboutMenuIndex);
