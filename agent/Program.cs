@@ -1348,7 +1348,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.10.6";
+    public const string Version = "0.10.7";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);
@@ -1791,12 +1791,6 @@ internal static class PowerShellHost
         return null;
     }
 
-    internal static string BuildTerminalBridgeCommand(string executable, string encodedInitialization)
-    {
-        var escapedExecutable = executable.Replace("'", "''", StringComparison.Ordinal);
-        return $"& '{escapedExecutable}' -NoLogo -NoExit -EncodedCommand '{encodedInitialization}'";
-    }
-
     private static Version PackageVersion(string packageName, string prefix)
     {
         var remainder = packageName[prefix.Length..];
@@ -1883,18 +1877,17 @@ internal static class TerminalHost
             startInfo.ArgumentList.Add("--startingDirectory");
             startInfo.ArgumentList.Add(workingDirectory);
             if (string.IsNullOrWhiteSpace(command)) return startInfo;
-            // `new-tab` accepts the executable and its arguments directly as
-            // the positional commandline. Adding `--` makes some Windows
-            // Terminal versions quote the complete remainder as one executable
-            // name, which fails with 0x80070002. Start the exact detected shell
-            // through inbox Windows PowerShell with an encoded bridge; all
-            // commandline arguments seen by Windows Terminal stay space-free.
-            startInfo.ArgumentList.Add("powershell.exe");
+            // Keep the profile's configured executable and append only
+            // PowerShell arguments. Passing an executable plus arguments as
+            // Terminal's positional commandline can be requoted into one file
+            // name and fail with 0x80070002. --appendCommandLine is Windows
+            // Terminal's documented path for extending a profile command.
+            startInfo.ArgumentList.Add("--appendCommandLine");
+            startInfo.ArgumentList.Add("--");
             startInfo.ArgumentList.Add("-NoLogo");
-            startInfo.ArgumentList.Add("-NoProfile");
+            startInfo.ArgumentList.Add("-NoExit");
             startInfo.ArgumentList.Add("-EncodedCommand");
-            var bridge = PowerShellHost.BuildTerminalBridgeCommand(shell.Path, encodedInitialization);
-            startInfo.ArgumentList.Add(Convert.ToBase64String(Encoding.Unicode.GetBytes(bridge)));
+            startInfo.ArgumentList.Add(encodedInitialization);
             return startInfo;
         }
 

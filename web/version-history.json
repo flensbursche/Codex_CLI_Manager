@@ -1,6 +1,21 @@
 {
-  "generatedAt": "2026-10-30T18:39:24+01:00",
+  "generatedAt": "2026-10-31T13:08:25+01:00",
   "releases": [
+    {
+      "version": "0.10.6",
+      "tag": "v0.10.6",
+      "date": "2026-10-31T13:08:25+01:00",
+      "commit": "bc3a147f591caadd211575c223f03c10adcd0346",
+      "released": true,
+      "commits": [
+        {
+          "hash": "bc3a147f591caadd211575c223f03c10adcd0346",
+          "shortHash": "bc3a147",
+          "date": "2026-10-31T13:08:25+01:00",
+          "subject": "Fix Windows Terminal commandline parsing"
+        }
+      ]
+    },
     {
       "version": "0.10.5",
       "tag": "v0.10.5",
