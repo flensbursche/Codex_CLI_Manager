@@ -11,6 +11,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ("PowerShell package resolution", TestPowerShellPackageResolutionAsync),
     ("PowerShell process launch", TestPowerShellLaunchAsync),
     ("Session mutex and file lock", TestSessionLocksAsync),
+    ("Session process targeting", TestSessionProcessTargetingAsync),
     ("Session health state matrix", TestSessionHealthAsync),
     ("Update checksum verification", TestUpdateChecksumAsync),
     ("Update payload copy and path guard", TestUpdatePayloadAsync),
@@ -198,6 +199,34 @@ static Task TestSessionHealthAsync()
     AssertHealth(new(true, 0, false, true, false), "healthy", true, "open");
     AssertHealth(new(true, 1, false, false, false), "uncertain", true, "uncertain");
     AssertHealth(new(true, 2, true, true, false), "duplicate", true, "open");
+    return Task.CompletedTask;
+}
+
+static Task TestSessionProcessTargetingAsync()
+{
+    var parents = new Dictionary<int, int>
+    {
+        [200] = 100,
+        [201] = 200,
+        [202] = 201,
+        [203] = 201,
+        [300] = 100
+    };
+    var names = new Dictionary<int, string>
+    {
+        [100] = "CodexSessionManager.exe",
+        [200] = "pwsh.exe",
+        [201] = "cmd.exe",
+        [202] = "node.exe",
+        [203] = "conhost.exe",
+        [300] = "pwsh.exe"
+    };
+    Assert(SessionWindowControl.FindShellProcess(202, parents, names) == 200, "The Codex process was not mapped to its PowerShell host.");
+    var family = SessionWindowControl.BuildProcessFamily(200, parents);
+    Assert(family.SetEquals([200, 201, 202, 203]), "The PowerShell process family contains unrelated processes or misses descendants.");
+    Assert(SessionWindowControl.FindShellProcess(300, parents, names) == 300, "A direct PowerShell process was not accepted as a controllable host.");
+    names[300] = "WindowsTerminal.exe";
+    Assert(SessionWindowControl.FindShellProcess(300, parents, names) == 0, "A shared Windows Terminal process must not be treated as a safely controllable session host.");
     return Task.CompletedTask;
 }
 

@@ -193,6 +193,8 @@ app.MapPost("/api/{action}", async (string action, ActionRequest request, CodexC
         switch (action)
         {
             case "resume": await codex.ResumeAsync(request.ThreadId, cancellation); break;
+            case "focus": await codex.FocusSessionAsync(request.ThreadId, cancellation); break;
+            case "stop": await codex.StopSessionAsync(request.ThreadId, cancellation); break;
             case "open-desktop": await codex.OpenDesktopAsync(request.ThreadId, cancellation); break;
             case "open-project": await codex.OpenProjectAsync(request.ThreadId, cancellation); break;
             case "archive": await codex.ArchiveAsync(request.ThreadId, cancellation); break;
@@ -810,7 +812,7 @@ internal sealed class TrayIconHost : IDisposable
             Visible = true
         };
         openBrowser.Click += (_, _) => OpenBrowser(appUrl);
-        openPowerShell.Click += (_, _) => TerminalHost.OpenPowerShell(
+        openPowerShell.Click += (_, _) => _ = TerminalHost.OpenPowerShell(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
         about.Click += (_, _) => OpenBrowser($"{appUrl.TrimEnd('/')}/about");
         update.Click += async (_, _) =>
@@ -1348,7 +1350,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.10.11";
+    public const string Version = "0.10.12";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);
@@ -1831,13 +1833,15 @@ internal static class TerminalHost
         return resolved;
     }
 
-    public static void OpenPowerShell(string workingDirectory, string? command = null)
+    public static int OpenPowerShell(string workingDirectory, string? command = null)
     {
         var preferences = TerminalSettingsStore.LoadCurrent();
         var terminal = ResolveTerminal(preferences.Terminal);
         var shell = PowerShellHost.Resolve(preferences.Shell);
         var executable = terminal == "windows-terminal" ? ExecutablePath : shell.Path;
-        Process.Start(CreateStartInfo(terminal == "windows-terminal", executable, shell, workingDirectory, command));
+        using var process = Process.Start(CreateStartInfo(terminal == "windows-terminal", executable, shell, workingDirectory, command))
+            ?? throw new InvalidOperationException("PowerShell konnte nicht gestartet werden.");
+        return process.Id;
     }
 
     internal static bool TryRunIntegrationSmokeTest()
@@ -1858,7 +1862,7 @@ internal static class TerminalHost
             $"try {{ [IO.File]::WriteAllText('{escapedMarker}', 'ok') }} " +
             "finally { $sessionMutex.ReleaseMutex(); $sessionMutex.Dispose() }; exit";
         var shell = PowerShellHost.Resolve("auto");
-        Process.Start(CreateStartInfo(true, ExecutablePath, shell, AppContext.BaseDirectory, command));
+        _ = Process.Start(CreateStartInfo(true, ExecutablePath, shell, AppContext.BaseDirectory, command));
         return true;
     }
 
@@ -1923,6 +1927,167 @@ internal static class TerminalHost
         }
         return ExecutablePath;
     }
+}
+
+internal static class SessionWindowControl
+{
+    private const uint WmClose = 0x0010;
+    private const int SwRestore = 9;
+    private static readonly object ConsoleAttachmentGate = new();
+
+    internal static int FindShellProcess(int processId, IReadOnlyDictionary<int, int> parents, IReadOnlyDictionary<int, string> names)
+    {
+        var visited = new HashSet<int>();
+        var current = processId;
+        while (current > 0 && visited.Add(current))
+        {
+            if (names.TryGetValue(current, out var name) && IsControllableShell(name)) return current;
+            current = parents.TryGetValue(current, out var parent) ? parent : 0;
+        }
+        return 0;
+    }
+
+    internal static HashSet<int> BuildProcessFamily(int rootProcessId, IReadOnlyDictionary<int, int> parents)
+    {
+        var family = new HashSet<int> { rootProcessId };
+        var changed = true;
+        while (changed)
+        {
+            changed = false;
+            foreach (var (processId, parentId) in parents)
+                if (family.Contains(parentId) && family.Add(processId)) changed = true;
+        }
+        return family;
+    }
+
+    public static nint FindUniqueWindow(int rootProcessId, IReadOnlyDictionary<int, int> parents)
+    {
+        var consoleWindow = TryGetConsoleWindow(rootProcessId);
+        if (consoleWindow != nint.Zero) return consoleWindow;
+        var family = BuildProcessFamily(rootProcessId, parents);
+        var windows = new List<nint>();
+        EnumWindows((window, parameter) =>
+        {
+            if (!IsWindowVisible(window) || GetWindowTextLength(window) <= 0) return true;
+            _ = GetWindowThreadProcessId(window, out var processId);
+            if (family.Contains(unchecked((int)processId))) windows.Add(window);
+            return true;
+        }, nint.Zero);
+        return windows.Distinct().Count() switch
+        {
+            1 => windows[0],
+            0 => throw new InvalidOperationException("Das Terminalfenster dieser Session wurde nicht gefunden."),
+            _ => throw new InvalidOperationException("Mehrere Terminalfenster passen zu dieser Session. Die Aktion wurde aus Sicherheitsgründen abgebrochen.")
+        };
+    }
+
+    private static nint TryGetConsoleWindow(int processId)
+    {
+        lock (ConsoleAttachmentGate)
+        {
+            _ = SetConsoleCtrlHandler(nint.Zero, true);
+            if (!AttachConsole(unchecked((uint)processId)))
+            {
+                _ = SetConsoleCtrlHandler(nint.Zero, false);
+                return nint.Zero;
+            }
+            try
+            {
+                var window = GetConsoleWindow();
+                return window != nint.Zero && IsWindowVisible(window) ? window : nint.Zero;
+            }
+            finally
+            {
+                _ = FreeConsole();
+                _ = SetConsoleCtrlHandler(nint.Zero, false);
+            }
+        }
+    }
+
+    public static bool BringToFront(nint window)
+    {
+        _ = ShowWindowAsync(window, SwRestore);
+        var foreground = GetForegroundWindow();
+        var currentThread = GetCurrentThreadId();
+        var foregroundThread = foreground == nint.Zero ? 0u : GetWindowThreadProcessId(foreground, out _);
+        var attached = foregroundThread != 0 && foregroundThread != currentThread && AttachThreadInput(currentThread, foregroundThread, true);
+        try
+        {
+            _ = BringWindowToTop(window);
+            return SetForegroundWindow(window);
+        }
+        finally
+        {
+            if (attached) _ = AttachThreadInput(currentThread, foregroundThread, false);
+        }
+    }
+
+    public static void RequestClose(nint window)
+    {
+        if (!PostMessage(window, WmClose, nint.Zero, nint.Zero))
+            throw new InvalidOperationException("Das Terminalfenster konnte nicht zum Beenden aufgefordert werden.");
+    }
+
+    private static bool IsControllableShell(string name) =>
+        name.Equals("pwsh.exe", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("powershell.exe", StringComparison.OrdinalIgnoreCase);
+
+    private delegate bool EnumWindowsCallback(nint window, nint parameter);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool EnumWindows(EnumWindowsCallback callback, nint parameter);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsWindowVisible(nint window);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowTextLength(nint window);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(nint window, out uint processId);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ShowWindowAsync(nint window, int command);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool BringWindowToTop(nint window);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetForegroundWindow(nint window);
+
+    [DllImport("user32.dll")]
+    private static extern nint GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool AttachThreadInput(uint attach, uint attachTo, bool attachInput);
+
+    [DllImport("kernel32.dll")]
+    private static extern uint GetCurrentThreadId();
+
+    [DllImport("kernel32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool AttachConsole(uint processId);
+
+    [DllImport("kernel32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool FreeConsole();
+
+    [DllImport("kernel32.dll")]
+    private static extern nint GetConsoleWindow();
+
+    [DllImport("kernel32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetConsoleCtrlHandler(nint handlerRoutine, bool add);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool PostMessage(nint window, uint message, nint wParam, nint lParam);
 }
 
 internal static class UserInstallation
@@ -2292,6 +2457,8 @@ internal sealed class CodexClient
     private readonly ProjectStore _projects;
     private readonly SessionMetadataStore _metadata;
     private readonly GitStatusService _git;
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> _managedSessionProcesses = new(StringComparer.OrdinalIgnoreCase);
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _launchingSessions = new(StringComparer.OrdinalIgnoreCase);
 
     public CodexClient(ProjectStore projects, SessionMetadataStore metadata, GitStatusService git)
     {
@@ -2426,7 +2593,8 @@ internal sealed class CodexClient
         var command = BuildResumeCommand(threadId);
         try
         {
-            TerminalHost.OpenPowerShell(cwd, command);
+            var processId = TerminalHost.OpenPowerShell(cwd, command);
+            _managedSessionProcesses[threadId] = processId;
             _ = Task.Run(async () => { await Task.Delay(TimeSpan.FromSeconds(4)); _launchingSessions.TryRemove(threadId, out _); });
         }
         catch
@@ -2435,8 +2603,6 @@ internal sealed class CodexClient
             throw;
         }
     }
-
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _launchingSessions = new();
 
     private void ApplySessionHealth(JsonObject session, ProcessSessionSnapshot processes)
     {
@@ -2459,6 +2625,75 @@ internal sealed class CodexClient
             ["launching"] = launching,
             ["checkedAt"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
         };
+        var desktop = session["desktop"]?.GetValue<bool>() ?? false;
+        var managed = false;
+        var controllable = !desktop && health.Active && TryResolveSessionProcess(threadId, processes, out _, out managed);
+        session["runtime"] = new JsonObject
+        {
+            ["controllable"] = controllable,
+            ["managed"] = controllable && managed
+        };
+    }
+
+    public async Task FocusSessionAsync(string threadId, CancellationToken cancellation)
+    {
+        _ = await ReadThreadAsync(threadId, cancellation);
+        var processes = DetectActiveProcessSessions();
+        if (!TryResolveSessionProcess(threadId, processes, out var processId, out _))
+            throw new InvalidOperationException("Diese Session kann keinem eindeutigen PowerShell-Prozess zugeordnet werden.");
+        var window = SessionWindowControl.FindUniqueWindow(processId, processes.Parents);
+        if (!SessionWindowControl.BringToFront(window))
+            throw new InvalidOperationException("Windows hat das Terminalfenster markiert, aber nicht in den Vordergrund gelassen.");
+    }
+
+    public async Task StopSessionAsync(string threadId, CancellationToken cancellation)
+    {
+        _ = await ReadThreadAsync(threadId, cancellation);
+        var processes = DetectActiveProcessSessions();
+        if (!TryResolveSessionProcess(threadId, processes, out var processId, out _))
+            throw new InvalidOperationException("Diese Session kann keinem eindeutigen PowerShell-Prozess zugeordnet werden.");
+        var window = SessionWindowControl.FindUniqueWindow(processId, processes.Parents);
+        SessionWindowControl.RequestClose(window);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(10);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            if (!IsProcessAlive(processId) && !IsCodexWriterLocked(threadId) && !HasSessionMutex(threadId))
+            {
+                _managedSessionProcesses.TryRemove(threadId, out _);
+                return;
+            }
+            await Task.Delay(150, cancellation);
+        }
+        throw new InvalidOperationException("Die Session reagiert noch. Sie wurde nicht zwangsweise beendet.");
+    }
+
+    private bool TryResolveSessionProcess(string threadId, ProcessSessionSnapshot processes, out int processId, out bool managed)
+    {
+        managed = false;
+        if (_managedSessionProcesses.TryGetValue(threadId, out processId))
+        {
+            if (IsProcessAlive(processId)) { managed = true; return true; }
+            _managedSessionProcesses.TryRemove(threadId, out _);
+        }
+        if (!processes.Roots.TryGetValue(threadId, out var roots) || roots.Count != 1)
+        {
+            processId = 0;
+            return false;
+        }
+        processId = SessionWindowControl.FindShellProcess(roots[0], processes.Parents, processes.Names);
+        return processId > 0 && IsProcessAlive(processId);
+    }
+
+    private static bool IsProcessAlive(int processId)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(processId);
+            return !process.HasExited;
+        }
+        catch (ArgumentException) { return false; }
+        catch (InvalidOperationException) { return false; }
     }
 
     private bool IsSessionActive(string threadId)
@@ -2510,20 +2745,22 @@ internal sealed class CodexClient
     private static ProcessSessionSnapshot DetectActiveProcessSessions()
     {
         var parents = new Dictionary<int, int>();
+        var names = new Dictionary<int, string>();
         var matches = new Dictionary<int, HashSet<string>>();
         try
         {
             var locatorType = Type.GetTypeFromProgID("WbemScripting.SWbemLocator");
-            if (locatorType is null) return new(false, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
+            if (locatorType is null) return ProcessSessionSnapshot.Empty;
             dynamic locator = Activator.CreateInstance(locatorType)!;
             dynamic services = locator.ConnectServer(".", @"root\cimv2");
-            dynamic processes = services.ExecQuery("SELECT ProcessId, ParentProcessId, CommandLine FROM Win32_Process");
+            dynamic processes = services.ExecQuery("SELECT ProcessId, ParentProcessId, Name, CommandLine FROM Win32_Process");
             foreach (dynamic process in processes)
             {
                 try
                 {
                     int processId = Convert.ToInt32((object)process.ProcessId);
                     parents[processId] = Convert.ToInt32((object)process.ParentProcessId);
+                    names[processId] = process.Name as string ?? "";
                     string? commandLine = process.CommandLine as string;
                     if (string.IsNullOrWhiteSpace(commandLine) || !commandLine.Contains("resume", StringComparison.OrdinalIgnoreCase)) continue;
                     foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(commandLine, @"(?:^|\s)resume\s+['""]?(?<id>[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12})", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
@@ -2538,6 +2775,7 @@ internal sealed class CodexClient
             }
 
             var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var roots = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
             foreach (var (processId, threadIds) in matches)
                 foreach (var threadId in threadIds)
                 {
@@ -2549,15 +2787,38 @@ internal sealed class CodexClient
                         if (matches.TryGetValue(ancestor, out var ancestorThreads) && ancestorThreads.Contains(threadId)) { nested = true; break; }
                         ancestor = parents.TryGetValue(ancestor, out parent) ? parent : 0;
                     }
-                    if (!nested) counts[threadId] = counts.TryGetValue(threadId, out var count) ? count + 1 : 1;
+                    if (!nested)
+                    {
+                        counts[threadId] = counts.TryGetValue(threadId, out var count) ? count + 1 : 1;
+                        if (!roots.TryGetValue(threadId, out var threadRoots)) roots[threadId] = threadRoots = [];
+                        threadRoots.Add(processId);
+                    }
                 }
-            return new(true, counts);
+            return new(
+                true,
+                counts,
+                roots.ToDictionary(entry => entry.Key, entry => (IReadOnlyList<int>)entry.Value, StringComparer.OrdinalIgnoreCase),
+                parents,
+                names);
         }
         catch { }
-        return new(false, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
+        return ProcessSessionSnapshot.Empty;
     }
 
-    private sealed record ProcessSessionSnapshot(bool Available, IReadOnlyDictionary<string, int> Counts);
+    private sealed record ProcessSessionSnapshot(
+        bool Available,
+        IReadOnlyDictionary<string, int> Counts,
+        IReadOnlyDictionary<string, IReadOnlyList<int>> Roots,
+        IReadOnlyDictionary<int, int> Parents,
+        IReadOnlyDictionary<int, string> Names)
+    {
+        public static ProcessSessionSnapshot Empty { get; } = new(
+            false,
+            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase),
+            new Dictionary<string, IReadOnlyList<int>>(StringComparer.OrdinalIgnoreCase),
+            new Dictionary<int, int>(),
+            new Dictionary<int, string>());
+    }
 
     public async Task OpenProjectAsync(string threadId, CancellationToken cancellation)
     {

@@ -1,6 +1,21 @@
 {
-  "generatedAt": "2026-10-31T14:17:52+01:00",
+  "generatedAt": "2026-11-04T10:59:26+01:00",
   "releases": [
+    {
+      "version": "0.10.11",
+      "tag": "v0.10.11",
+      "date": "2026-11-04T10:59:26+01:00",
+      "commit": "0fa9506a6a7c2796921b1e26809554eaae55f547",
+      "released": true,
+      "commits": [
+        {
+          "hash": "0fa9506a6a7c2796921b1e26809554eaae55f547",
+          "shortHash": "0fa9506",
+          "date": "2026-11-04T10:59:26+01:00",
+          "subject": "Add session favorite and archive drop actions"
+        }
+      ]
+    },
     {
       "version": "0.10.10",
       "tag": "v0.10.10",

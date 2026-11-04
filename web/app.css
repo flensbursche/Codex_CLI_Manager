@@ -1824,6 +1824,42 @@ mark.search-match {
   transition: transform 0.12s ease, opacity 0.12s ease;
 }
 
+.session-runtime-controls {
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--button-text);
+  background: var(--button);
+}
+
+.session-runtime-action {
+  width: 38px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+}
+
+.session-runtime-action:hover:not(:disabled) {
+  background: color-mix(in srgb, #fff 12%, transparent);
+}
+
+.session-runtime-action.session-stop:hover:not(:disabled) {
+  color: #fff;
+  background: var(--danger);
+}
+
+.session-runtime-action svg {
+  width: 17px;
+  height: 17px;
+}
+
 .session-launch:hover:not(:disabled) {
   transform: scale(1.05);
 }

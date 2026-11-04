@@ -4,7 +4,7 @@ import vm from "node:vm";
 const script = await readFile(new URL("../web/app.js", import.meta.url), "utf8");
 const html = await readFile(new URL("../web/index.html", import.meta.url), "utf8");
 new vm.Script(script);
-for (const asset of ["/app-icon.svg?v=26", "/app.css?v=26", "/app.js?v=26"])
+for (const asset of ["/app-icon.svg?v=27", "/app.css?v=27", "/app.js?v=27"])
   if (!html.includes(asset)) throw new Error(`Web-Asset verwendet nicht die aktuelle Cache-Version: ${asset}`);
 for (const feature of ['session.internal === true', 'open-desktop', 'session-launch', 'session-details', 'session-actions', 'session-favorite', 'toggleFavorite(threadId, button)', 'project-create-form', 'project-name-clear', 'pendingProjectSessionId', 'newProjectForSession', 'assignSessionToProject(threadId, projectId)', 'removeSessionFromProject(threadId, button)', 'session-project-remove', '/unassign', 'text/codex-thread', 'search-clear', 'sessionTime(session)', 'sessionBundles(sessions)', 'shadow-sessions', 'ChatGPT Desktop', 'session-context', 'new EventSource("/api/events")', '/api/terminal-settings', '/api/language', '/api/update-status', 'window.setTimeout(initialize, 1000)', 'await loadMessages(result.language)', 'header-menu', 'sidebar-collapsed', 'sidebar-version', 'data-language', 'sessionSearchCountMany', 'bindCopyButtons()', '/title', 'terminalSettingsPage()', 'aboutPage()', 'gitIndicator(session.git)', 'sessionHealthIndicator(session.health)', 'healthStateLabel(session.health)', 'compatibility-warning', 'compatibilityLimited', 'role="switch"', 'share-repository', 'menu-update', 'prefers-color-scheme: dark', 'menuDismissBound', 'latest.version !== companionInfo.version', 'window.location.reload()']) {
   if (!script.includes(feature)) throw new Error(`Web-Feature fehlt: ${feature}`);
@@ -26,6 +26,7 @@ if (!agent.includes("GitStatusService") || !agent.includes('"--porcelain=v2"') |
 if (!agent.includes("FindRepositoryRoot(directory)") || !agent.includes('["unavailable"] = true')) throw new Error("Repositories mit blockiertem Git-Status werden nicht als Warnung erkannt.");
 if (!agent.includes("ReadRemoteFromConfig(repositoryRoot)") || !agent.includes('["provider"] = provider')) throw new Error("Der Remote-Anbieter blockierter Repositories wird nicht aus der Git-Konfiguration erkannt.");
 if (!agent.includes("ApplySessionHealth(item, processSnapshot)") || !agent.includes('["processScanAvailable"] = processes.Available') || !agent.includes("SessionHealthEvaluator.Evaluate") || !agent.includes('signals.ProcessCount > 1 ? "duplicate"')) throw new Error("Der mehrsignalige Session Health Check fehlt.");
+if (!agent.includes('case "focus"') || !agent.includes('case "stop"') || !agent.includes("SessionWindowControl.FindUniqueWindow") || !agent.includes("SessionWindowControl.RequestClose") || !agent.includes("SetForegroundWindow")) throw new Error("Sicheres Vorholen und Beenden eindeutig erkannter CLI-Sessions fehlt.");
 if (!agent.includes("CodexStateStore.QueryThreads(archived)") || !agent.includes("BuildThreadListQuery") || !agent.includes("codexCompatibility = CodexStateStore.GetCompatibility()")) throw new Error("Der kontrollierte Codex-Kompatibilitätsmodus fehlt.");
 if (!agent.includes("AcceptanceEnvironment.InstanceMutexName") || !agent.includes("AcceptanceEnvironment.UpdateSignalName") || !agent.includes("AcceptanceEnvironment.DataRoot") || !agent.includes("AcceptanceEnvironment.ApplyTo(restart)")) throw new Error("Der isolierte Release-Acceptance-Modus fehlt.");
 if (!agent.includes('LanguageSettingsStore')) throw new Error("Die gemeinsame Sprachspeicherung fehlt.");
@@ -34,7 +35,7 @@ if (!agent.includes('var openBrowser = new System.Windows.Forms.ToolStripMenuIte
 if (!agent.includes('app.MapGet("/api/language"')) throw new Error("Der Sprach-Endpunkt fehlt.");
 for (const language of ["de", "en", "da"]) {
   const locale = JSON.parse(await readFile(new URL(`../web/locales/${language}.json`, import.meta.url), "utf8"));
-  for (const key of ["sessions", "sessionSearchCountMany", "terminalSettings", "versionHistory", "newProjectForSession", "gitStatus", "gitClean", "gitUnavailable", "gitLocalNoRemote", "healthHealthy", "healthUncertain", "healthDuplicate", "healthSignals", "compatibilityLimited", "removeFromProject", "sessionOpen", "copyPath", "editTitle", "roadmap", "shareRepository", "aboutAndHistory", "updateBadge", "restoreAction", "sessionsLoading", "filterSource", "terminalStarted", "archivingAction", "sessionAssigned", "projectAssignment", "deleteProject", "deleteProjectTitle", "deleteProjectDescription", "deleteProjectAction", "tray.open", "tray.updates", "tray.aboutHistory"])
+  for (const key of ["sessions", "sessionSearchCountMany", "terminalSettings", "versionHistory", "newProjectForSession", "gitStatus", "gitClean", "gitUnavailable", "gitLocalNoRemote", "healthHealthy", "healthUncertain", "healthDuplicate", "healthSignals", "compatibilityLimited", "removeFromProject", "sessionOpen", "copyPath", "editTitle", "roadmap", "shareRepository", "aboutAndHistory", "updateBadge", "restoreAction", "sessionsLoading", "filterSource", "terminalStarted", "archivingAction", "sessionAssigned", "projectAssignment", "deleteProject", "deleteProjectTitle", "deleteProjectDescription", "deleteProjectAction", "focusSession", "stopSession", "stopSessionDescription", "sessionControlUnavailable", "tray.open", "tray.updates", "tray.aboutHistory"])
     if (!locale[key]) throw new Error(`Übersetzung fehlt: ${language}.${key}`);
 }
 if (!agent.includes("TerminalHost.OpenPowerShell(cwd, command)")) throw new Error("Session-Resume verwendet nicht Windows Terminal.");
@@ -106,7 +107,7 @@ const acceptanceWorkflow = await readFile(new URL("../.github/workflows/windows-
 if (!acceptanceWorkflow.includes("codex-manager-ui") || !acceptanceWorkflow.includes("test-release.ps1")) throw new Error("Der interaktive Windows-Acceptance-Workflow fehlt.");
 const appIcon = await readFile(new URL("../web/app-icon.svg", import.meta.url), "utf8");
 if (!appIcon.includes('fill="#ff6537"') || !appIcon.includes('stroke="#fff"')) throw new Error("Das gemeinsame orange-weiße App-Icon fehlt.");
-if (!script.includes('class="mark"><img src="/app-icon.svg?v=26"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
+if (!script.includes('class="mark"><img src="/app-icon.svg?v=27"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
 const shareMenuIndex = script.indexOf('id="share-repository"');
 const aboutMenuIndex = script.indexOf('href="/about"', shareMenuIndex);
 const updateMenuIndex = script.indexOf('id="menu-update"', aboutMenuIndex);
@@ -117,6 +118,7 @@ if (!styles.includes("@keyframes session-active-border-pulse") || !styles.includ
 if (!script.includes("github: brandIcon(") || !script.includes("gitlab: brandIcon(") || !script.includes("providerIcon")) throw new Error("Die Anbieterlogos für GitHub- und GitLab-Remotes fehlen.");
 if (!script.includes('mark class="search-match"') || !styles.includes("mark.search-match")) throw new Error("Die Hervorhebung sichtbarer Suchtreffer fehlt.");
 if (!script.includes('bindNavigationDrop(favoriteTarget, "favorite")') || !script.includes('bindNavigationDrop(archiveTarget, "archive")') || !script.includes('class="session-archive"')) throw new Error("Drag-and-drop auf Favoriten/Archiv oder die Archivaktion der Session-Karte fehlt.");
+if (!script.includes('class="session-runtime-controls"') || !script.includes('confirmStopSession(threadId') || !script.includes('data-action="focus"')) throw new Error("Die Session-Karte bietet Vorholen und kontrolliertes Beenden nicht an.");
 if (!script.includes('navigator.clipboard.writeText(url)') || script.includes('navigator.share')) throw new Error("Copy Link kopiert den Repository-Link nicht direkt.");
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 const project = await readFile(new URL("../agent/CodexSessionManager.Agent.csproj", import.meta.url), "utf8");

@@ -66,7 +66,9 @@ const icons = {
   info: tablerIcon('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.01"/>'),
   share: tablerIcon('<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5l6.8-4M8.6 13.5l6.8 4"/>'),
   refresh: tablerIcon('<path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"/>'),
-  activity: tablerIcon('<path d="M3 12h4l2-7 4 14 2-7h6"/>')
+  activity: tablerIcon('<path d="M3 12h4l2-7 4 14 2-7h6"/>'),
+  focus: tablerIcon('<path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/>'),
+  stop: tablerIcon('<rect x="6" y="6" width="12" height="12" rx="1"/>')
 };
 const colorScheme = window.matchMedia("(prefers-color-scheme: dark)");
 let themePreference = localStorage.getItem("codex-manager-theme") || "auto";
@@ -78,7 +80,7 @@ function header() {
   const autostart = companionInfo.supportsAutostart ? `<button class="menu-row switch-row" id="autostart-toggle" role="switch" aria-label="${t("autostart")}" aria-checked="${companionInfo.autostartEnabled}"><span>${t("autostart")}</span><i class="toggle-switch"><b></b></i></button>` : "";
   const darkMode = document.documentElement.dataset.theme === "dark";
   return `<header class="top">
-    <a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=26" alt=""></span><strong>Codex CLI Manager</strong></a>
+    <a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=27" alt=""></span><strong>Codex CLI Manager</strong></a>
     <span class="live"><i class="dot"></i>${t("live")}</span>
     <button class="header-update" id="header-update" type="button" hidden></button>
     <span class="spacer"></span>
@@ -571,6 +573,8 @@ function renderSessions() {
   document.querySelectorAll(".session-project-remove").forEach((button) => button.onclick = () => removeSessionFromProject(button.dataset.id, button));
   document.querySelectorAll(".session-restore").forEach((button) => button.onclick = () => openFromList(button.dataset.id, "unarchive", button));
   document.querySelectorAll(".session-launch").forEach((button) => button.onclick = () => openFromList(button.dataset.id, button.dataset.action, button));
+  document.querySelectorAll(".session-focus").forEach((button) => button.onclick = () => openFromList(button.dataset.id, "focus", button));
+  document.querySelectorAll(".session-stop").forEach((button) => button.onclick = () => confirmStopSession(button.dataset.id));
   bindCopyButtons();
   bindSessionDragging();
 }
@@ -585,7 +589,8 @@ function sessionRow(session, shadows = [], query = "") {
   const archive = session.archived ? "" : `<button class="session-archive" data-id="${session.id}" type="button" aria-label="${t("archiveAction")}" title="${t("archiveAction")}">${icons.archive}</button>`;
   const utility = `<div class="session-utility">${projectRemove}<button class="session-favorite ${session.pinned ? "active" : ""}" data-id="${session.id}" type="button" aria-label="${favoriteLabel}" aria-pressed="${session.pinned ? "true" : "false"}" title="${favoriteLabel}">${icons.favorite}</button>${archive}</div>`;
   const restore = session.archived ? `<button class="session-restore" data-id="${session.id}" type="button">${t("restoreAction")}</button>` : "";
-  const launch = session.archived ? "" : `<button class="session-launch ${session.desktop ? "desktop" : ""}" data-id="${session.id}" data-action="${action}" ${disabled ? "disabled" : ""} aria-label="${label}" title="${source}: ${label}"><span class="launch-source">${sourceIcon}</span><span class="launch-divider"></span><span class="launch-play">${icons.play}</span></button>`;
+  const runtimeControls = session.active && !session.desktop && session.runtime?.controllable ? `<div class="session-runtime-controls"><span class="launch-source" title="CLI">${sourceIcon}</span><span class="launch-divider"></span><button class="session-runtime-action session-focus" data-id="${session.id}" type="button" aria-label="${t("focusSession")}" title="${t("focusSession")}">${icons.focus}</button><span class="launch-divider"></span><button class="session-runtime-action session-stop" data-id="${session.id}" type="button" aria-label="${t("stopSession")}" title="${t("stopSession")}">${icons.stop}</button></div>` : "";
+  const launch = session.archived ? "" : runtimeControls || `<button class="session-launch ${session.desktop ? "desktop" : ""}" data-id="${session.id}" data-action="${action}" ${disabled ? "disabled" : ""} aria-label="${label}" title="${disabled ? t("sessionControlUnavailable") : `${source}: ${label}`}"><span class="launch-source">${sourceIcon}</span><span class="launch-divider"></span><span class="launch-play">${icons.play}</span></button>`;
   const healthState = session.health?.state || (session.active ? "uncertain" : "closed");
   const healthClass = healthState === "closed" ? "" : `active-session health-${healthState}`;
   return `<article class="session-row ${healthClass}" data-id="${session.id}" draggable="true">
@@ -684,11 +689,46 @@ async function openFromList(threadId, action, button) {
     await fetchJson(`/api/${action}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ threadId }) });
     if (action === "resume") { const session = state.sessions.find((item) => item.id === threadId); if (session) session.active = true; renderSessions(); showListStatus(t("terminalStarted"), "success"); }
     else if (action === "unarchive") { state.sessions = state.sessions.filter((item) => item.id !== threadId); renderProjects(); renderSessions(); showListStatus(t("sessionRestored"), "success"); }
+    else if (action === "focus") { button.disabled = false; showListStatus(t("sessionFocused"), "success"); }
     else button.disabled = false;
+    return true;
   } catch (error) {
     button.disabled = false; button.title = error.message;
     showListError(error.message);
+    return false;
   }
+}
+
+function confirmStopSession(threadId, sessionTitle = "", onStopped = null) {
+  document.querySelector("#session-stop-dialog")?.close();
+  const session = state.sessions.find((item) => item.id === threadId);
+  const dialog = document.createElement("dialog");
+  dialog.className = "confirm-dialog";
+  dialog.id = "session-stop-dialog";
+  dialog.setAttribute("aria-labelledby", "session-stop-title");
+  dialog.setAttribute("aria-describedby", "session-stop-description");
+  dialog.innerHTML = `<form class="confirm-dialog-content">
+    <header><span class="confirm-dialog-icon">${icons.stop}</span><div><span class="eyebrow">Codex Session</span><h2 id="session-stop-title">${t("stopSessionTitle")}</h2></div><button class="dialog-close" type="button" aria-label="${t("close")}">${icons.close}</button></header>
+    <p id="session-stop-description">${esc(t("stopSessionDescription", sessionTitle || session?.title || t("unnamedSession")))}</p>
+    <div class="confirm-dialog-error" role="alert" hidden></div>
+    <footer><button class="secondary" type="button" data-close autofocus>${t("cancel")}</button><button class="danger" type="submit">${t("stopSessionAction")}</button></footer>
+  </form>`;
+  document.body.append(dialog);
+  const form = dialog.querySelector("form"); const errorBox = dialog.querySelector(".confirm-dialog-error"); const controls = [...dialog.querySelectorAll("button")];
+  dialog.querySelectorAll("[data-close], .dialog-close").forEach((button) => button.onclick = () => dialog.close());
+  dialog.onclick = (event) => { if (event.target === dialog) dialog.close(); };
+  dialog.onclose = () => dialog.remove();
+  form.onsubmit = async (event) => {
+    event.preventDefault(); controls.forEach((control) => control.disabled = true); errorBox.hidden = true;
+    try {
+      await fetchJson("/api/stop", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ threadId }) });
+      const listSession = state.sessions.find((item) => item.id === threadId);
+      if (listSession) { listSession.active = false; listSession.openState = "closed"; listSession.health = { ...(listSession.health || {}), state: "closed", processCount: 0, writerLock: false, managerMutex: false, launching: false }; listSession.runtime = { controllable: false, managed: false }; }
+      if (document.querySelector("#sessions")) { renderSessions(); showListStatus(t("sessionStopped"), "success"); }
+      dialog.close(); onStopped?.();
+    } catch (error) { errorBox.textContent = error.message; errorBox.hidden = false; controls.forEach((control) => control.disabled = false); }
+  };
+  dialog.showModal();
 }
 
 async function sessionPage(id) {
@@ -706,10 +746,15 @@ function renderSessionDetail(session) {
   const sessionPath = session.storagePath || session.path || session.rollout_path || session.storage_path || "";
   const projectPath = session.cwd || "";
   const archiveButton = session.archived ? `<button class="secondary" data-action="unarchive">${t("restoreAction")}</button>` : `<button class="danger" data-action="archive">${t("archiveAction")}</button>`;
+  const primaryActions = session.desktop
+    ? `<button class="primary" data-action="open-desktop">${t("openInDesktop")}</button>`
+    : session.active && session.runtime?.controllable
+      ? `<button class="primary" data-action="focus">${t("focusSession")}</button><button class="danger" data-stop-session>${t("stopSession")}</button>`
+      : `<button class="primary" data-action="resume" ${session.active || session.archived ? "disabled" : ""}>${session.active ? t("opened") : t("continue")}</button>`;
   const projectOptions = [`<option value="">${t("noProject")}</option>`, ...state.projects.map((project) => `<option value="${project.id}" ${session.projectId === project.id ? "selected" : ""}>${esc(project.name)}</option>`)].join("");
-  content.innerHTML = `<a class="back" href="/">${t("backSessions")}</a><section class="session-head"><div><span class="eyebrow">Codex Session</span><div class="detail-title-row"><h1>${esc(title)}</h1><button class="edit-title" id="edit-title" type="button" aria-label="${t("editTitle")}" title="${t("editTitle")}">${icons.edit}</button></div>${session.customTitle ? `<p class="original-title"><span>${t("originalTitle")}</span>${esc(session.originalTitle)}</p>` : ""}<form class="title-editor" id="title-editor" hidden><input id="title-input" maxlength="160" value="${esc(title)}" aria-label="${t("titlePlaceholder")}"><button class="primary" type="submit">${t("save")}</button>${session.customTitle ? `<button class="secondary" id="reset-title" type="button">${t("resetTitle")}</button>` : ""}<button class="secondary" id="cancel-title" type="button">${t("cancel")}</button></form><p>${esc(description)}</p><div class="action-error" id="action-error"></div></div><div class="actions"><button class="primary" data-action="resume" ${session.active || session.archived ? "disabled" : ""}>${session.active ? t("opened") : t("continue")}</button><button class="secondary" data-action="open-project">VS Code</button>${archiveButton}</div></section><section class="section project-assignment-section"><h2>${t("projectAssignment")}</h2><form class="project-assignment" id="project-assignment"><label><span>${t("project")}</span><select id="session-project" aria-label="${t("projectAssignment")}">${projectOptions}</select></label><button class="secondary" type="submit">${t("applyProject")}</button></form></section><section class="section"><h2>${t("storageLocations")}</h2><div class="path-grid">${pathCard(t("sessionFile"), sessionPath)}${pathCard(t("projectFolder"), projectPath)}</div></section><section class="section"><h2>${t("overview")}</h2><div class="summary-grid">${summary.map(([key, value]) => `<div class="summary-item"><span>${esc(key)}</span><strong>${esc(formatValue(value))}</strong></div>`).join("")}</div></section><details class="metadata-disclosure"><summary>${t("technicalMetadata")}</summary><div class="metadata">${metadata.map(([key, value]) => `<div class="metadata-row"><div class="metadata-key">${esc(key)}</div><div class="metadata-value"><pre>${esc(formatValue(value))}</pre></div></div>`).join("")}</div></details>`;
-  if (session.desktop) { const desktopButton = content.querySelector('[data-action="resume"]'); desktopButton.dataset.action = "open-desktop"; desktopButton.disabled = false; desktopButton.textContent = t("openInDesktop"); }
+  content.innerHTML = `<a class="back" href="/">${t("backSessions")}</a><section class="session-head"><div><span class="eyebrow">Codex Session</span><div class="detail-title-row"><h1>${esc(title)}</h1><button class="edit-title" id="edit-title" type="button" aria-label="${t("editTitle")}" title="${t("editTitle")}">${icons.edit}</button></div>${session.customTitle ? `<p class="original-title"><span>${t("originalTitle")}</span>${esc(session.originalTitle)}</p>` : ""}<form class="title-editor" id="title-editor" hidden><input id="title-input" maxlength="160" value="${esc(title)}" aria-label="${t("titlePlaceholder")}"><button class="primary" type="submit">${t("save")}</button>${session.customTitle ? `<button class="secondary" id="reset-title" type="button">${t("resetTitle")}</button>` : ""}<button class="secondary" id="cancel-title" type="button">${t("cancel")}</button></form><p>${esc(description)}</p><div class="action-error" id="action-error"></div></div><div class="actions">${primaryActions}<button class="secondary" data-action="open-project">VS Code</button>${archiveButton}</div></section><section class="section project-assignment-section"><h2>${t("projectAssignment")}</h2><form class="project-assignment" id="project-assignment"><label><span>${t("project")}</span><select id="session-project" aria-label="${t("projectAssignment")}">${projectOptions}</select></label><button class="secondary" type="submit">${t("applyProject")}</button></form></section><section class="section"><h2>${t("storageLocations")}</h2><div class="path-grid">${pathCard(t("sessionFile"), sessionPath)}${pathCard(t("projectFolder"), projectPath)}</div></section><section class="section"><h2>${t("overview")}</h2><div class="summary-grid">${summary.map(([key, value]) => `<div class="summary-item"><span>${esc(key)}</span><strong>${esc(formatValue(value))}</strong></div>`).join("")}</div></section><details class="metadata-disclosure"><summary>${t("technicalMetadata")}</summary><div class="metadata">${metadata.map(([key, value]) => `<div class="metadata-row"><div class="metadata-key">${esc(key)}</div><div class="metadata-value"><pre>${esc(formatValue(value))}</pre></div></div>`).join("")}</div></details>`;
   content.querySelectorAll("[data-action]").forEach((button) => button.onclick = () => runAction(button.dataset.action, session.id, button));
+  content.querySelector("[data-stop-session]")?.addEventListener("click", () => confirmStopSession(session.id, title, () => sessionPage(session.id)));
   bindCopyButtons();
   const editor = content.querySelector("#title-editor"); const input = content.querySelector("#title-input");
   content.querySelector("#edit-title").onclick = () => { editor.hidden = false; input.focus(); input.select(); };
@@ -769,7 +814,7 @@ async function runAction(action, threadId, button) {
   try {
     await fetchJson(`/api/${action}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ threadId }) });
     if (action === "archive" || action === "unarchive") window.location.href = "/";
-    else if (action === "resume" && errorBox) { if (button) button.textContent = t("terminalStarted"); errorBox.textContent = t("terminalStarted"); errorBox.classList.add("success"); errorBox.style.display = "block"; }
+    else if ((action === "resume" || action === "focus") && errorBox) { const message = action === "resume" ? t("terminalStarted") : t("sessionFocused"); if (button) { button.disabled = action === "resume"; button.textContent = action === "focus" ? previous : message; } errorBox.textContent = message; errorBox.classList.add("success"); errorBox.style.display = "block"; }
     else if (button) { button.disabled = false; button.textContent = previous; }
   }
   catch (error) { if (button) { button.disabled = false; button.textContent = previous; } if (errorBox) { errorBox.classList.remove("success"); errorBox.textContent = error.message; errorBox.style.display = "block"; } }
