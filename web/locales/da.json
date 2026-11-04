@@ -171,6 +171,8 @@
   "restoringAction": "Gendanner …",
   "openingAction": "Åbner …",
   "terminalStarted": "Terminalen blev startet.",
+  "sessionArchived": "Sessionen blev arkiveret.",
+  "sessionFavorited": "Sessionen blev føjet til favoritter.",
   "sessionRestored": "Sessionen blev gendannet.",
   "sessionAssigned": "Sessionen blev knyttet til projektet.",
   "openInDesktop": "Åbn i Desktop",

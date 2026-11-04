@@ -171,6 +171,8 @@
   "restoringAction": "Restoring …",
   "openingAction": "Opening …",
   "terminalStarted": "Terminal started.",
+  "sessionArchived": "Session archived.",
+  "sessionFavorited": "Session added to favorites.",
   "sessionRestored": "Session restored.",
   "sessionAssigned": "Session assigned to the project.",
   "openInDesktop": "Open in Desktop",

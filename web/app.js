@@ -78,7 +78,7 @@ function header() {
   const autostart = companionInfo.supportsAutostart ? `<button class="menu-row switch-row" id="autostart-toggle" role="switch" aria-label="${t("autostart")}" aria-checked="${companionInfo.autostartEnabled}"><span>${t("autostart")}</span><i class="toggle-switch"><b></b></i></button>` : "";
   const darkMode = document.documentElement.dataset.theme === "dark";
   return `<header class="top">
-    <a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=25" alt=""></span><strong>Codex CLI Manager</strong></a>
+    <a class="brand" href="/"><span class="mark"><img src="/app-icon.svg?v=26" alt=""></span><strong>Codex CLI Manager</strong></a>
     <span class="live"><i class="dot"></i>${t("live")}</span>
     <button class="header-update" id="header-update" type="button" hidden></button>
     <span class="spacer"></span>
@@ -472,12 +472,36 @@ async function assignSessionToProject(threadId, projectId) {
 
 function bindSessionDragging() {
   const unassign = document.querySelector("#project-unassign-drop");
+  const favoriteTarget = document.querySelector('#sidebar-primary [data-view="favorites"]');
+  const archiveTarget = document.querySelector('#sidebar-primary [data-view="archived"]');
+  const dropTargets = [favoriteTarget, archiveTarget].filter(Boolean);
+  const draggedSession = () => state.sessions.find((session) => session.id === state.draggedSessionId);
+  const bindNavigationDrop = (target, action) => {
+    target.ondragover = (event) => {
+      const session = draggedSession();
+      if (!session || (action === "archive" && session.archived)) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      target.classList.add("drop-target");
+    };
+    target.ondragleave = () => target.classList.remove("drop-target");
+    target.ondrop = (event) => {
+      event.preventDefault();
+      target.classList.remove("drop-target");
+      const threadId = event.dataTransfer.getData("text/codex-thread") || state.draggedSessionId;
+      if (!threadId) return;
+      if (action === "favorite") void setFavorite(threadId, true, null, true);
+      else void archiveSessionFromList(threadId, null);
+    };
+  };
+  bindNavigationDrop(favoriteTarget, "favorite");
+  bindNavigationDrop(archiveTarget, "archive");
   unassign.ondragover = (event) => { event.preventDefault(); unassign.classList.add("drop-target"); };
   unassign.ondragleave = () => unassign.classList.remove("drop-target");
   unassign.ondrop = (event) => { event.preventDefault(); unassign.classList.remove("drop-target"); unassign.hidden = true; const threadId = event.dataTransfer.getData("text/codex-thread") || state.draggedSessionId; if (threadId) void removeSessionFromProject(threadId); };
   document.querySelectorAll("article.session-row").forEach((row) => {
-    row.ondragstart = (event) => { state.draggedSessionId = row.dataset.id; event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", row.dataset.id); event.dataTransfer.setData("text/codex-thread", row.dataset.id); row.classList.add("dragging"); unassign.hidden = !state.sessions.find((session) => session.id === row.dataset.id)?.projectId; };
-    row.ondragend = () => { state.draggedSessionId = null; row.classList.remove("dragging"); unassign.hidden = true; unassign.classList.remove("drop-target"); document.querySelectorAll(".projects .drop-target, .project-create-toggle.drop-target").forEach((target) => target.classList.remove("drop-target")); };
+    row.ondragstart = (event) => { state.draggedSessionId = row.dataset.id; event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", row.dataset.id); event.dataTransfer.setData("text/codex-thread", row.dataset.id); row.classList.add("dragging"); unassign.hidden = !state.sessions.find((session) => session.id === row.dataset.id)?.projectId; dropTargets.forEach((target) => target.classList.add("drop-ready")); };
+    row.ondragend = () => { state.draggedSessionId = null; row.classList.remove("dragging"); unassign.hidden = true; unassign.classList.remove("drop-target"); document.querySelectorAll(".projects .drop-target, .project-create-toggle.drop-target, .sidebar-primary .drop-ready, .sidebar-primary .drop-target").forEach((target) => target.classList.remove("drop-ready", "drop-target")); };
   });
 }
 
@@ -543,6 +567,7 @@ function renderSessions() {
   const groups = ["justNow", "today", "yesterdayGroup", "thisWeek", "lastWeek", "thisMonth", "older"];
   document.querySelector("#sessions").innerHTML = !bundles.length ? `<div class="empty">${t("noSessions")}</div>` : sort === "updated" ? groups.map((group) => { const items = bundles.filter((bundle) => activityGroup(bundle.updatedAt) === group); return items.length ? `<section class="session-group"><h2>${t(group)}</h2>${items.map((bundle) => sessionRow(bundle.master, bundle.shadows, query)).join("")}</section>` : ""; }).join("") : bundles.map((bundle) => sessionRow(bundle.master, bundle.shadows, query)).join("");
   document.querySelectorAll(".session-favorite").forEach((button) => button.onclick = () => toggleFavorite(button.dataset.id, button));
+  document.querySelectorAll(".session-archive").forEach((button) => button.onclick = () => archiveSessionFromList(button.dataset.id, button));
   document.querySelectorAll(".session-project-remove").forEach((button) => button.onclick = () => removeSessionFromProject(button.dataset.id, button));
   document.querySelectorAll(".session-restore").forEach((button) => button.onclick = () => openFromList(button.dataset.id, "unarchive", button));
   document.querySelectorAll(".session-launch").forEach((button) => button.onclick = () => openFromList(button.dataset.id, button.dataset.action, button));
@@ -557,7 +582,8 @@ function sessionRow(session, shadows = [], query = "") {
   const shadowList = shadows.length ? `<div class="shadow-sessions">${shadows.map((shadow) => shadowSessionRow(shadow, query)).join("")}</div>` : "";
   const favoriteLabel = session.pinned ? t("removeFavorite") : t("addFavorite");
   const projectRemove = session.projectId ? `<button class="session-project-remove" data-id="${session.id}" aria-label="${t("removeFromProject")}" title="${t("removeFromProject")}">${icons.unlink}</button>` : "";
-  const utility = `<div class="session-utility">${projectRemove}<button class="session-favorite ${session.pinned ? "active" : ""}" data-id="${session.id}" aria-label="${favoriteLabel}" aria-pressed="${session.pinned ? "true" : "false"}" title="${favoriteLabel}">${icons.favorite}</button></div>`;
+  const archive = session.archived ? "" : `<button class="session-archive" data-id="${session.id}" type="button" aria-label="${t("archiveAction")}" title="${t("archiveAction")}">${icons.archive}</button>`;
+  const utility = `<div class="session-utility">${projectRemove}<button class="session-favorite ${session.pinned ? "active" : ""}" data-id="${session.id}" type="button" aria-label="${favoriteLabel}" aria-pressed="${session.pinned ? "true" : "false"}" title="${favoriteLabel}">${icons.favorite}</button>${archive}</div>`;
   const restore = session.archived ? `<button class="session-restore" data-id="${session.id}" type="button">${t("restoreAction")}</button>` : "";
   const launch = session.archived ? "" : `<button class="session-launch ${session.desktop ? "desktop" : ""}" data-id="${session.id}" data-action="${action}" ${disabled ? "disabled" : ""} aria-label="${label}" title="${source}: ${label}"><span class="launch-source">${sourceIcon}</span><span class="launch-divider"></span><span class="launch-play">${icons.play}</span></button>`;
   const healthState = session.health?.state || (session.active ? "uncertain" : "closed");
@@ -608,12 +634,32 @@ function shadowSessionRow(session, query = "") {
 
 async function toggleFavorite(threadId, button) {
   const session = state.sessions.find((item) => item.id === threadId); if (!session) return;
-  const next = !session.pinned; button.disabled = true;
+  await setFavorite(threadId, !session.pinned, button, false);
+}
+
+async function setFavorite(threadId, pinned, button, announce = true) {
+  const session = state.sessions.find((item) => item.id === threadId); if (!session) return;
+  if (session.pinned === pinned) { if (announce) showListStatus(t("sessionFavorited"), "success"); return; }
+  if (button) button.disabled = true;
   try {
-    const result = await fetchJson(`/api/session/${encodeURIComponent(threadId)}/pinned/${next}`, { method: "POST" });
+    const result = await fetchJson(`/api/session/${encodeURIComponent(threadId)}/pinned/${pinned}`, { method: "POST" });
     session.pinned = result.pinned; renderSessions();
+    if (announce && result.pinned) showListStatus(t("sessionFavorited"), "success");
   } catch (error) {
-    button.disabled = false; button.title = error.message;
+    if (button) { button.disabled = false; button.title = error.message; }
+    showListError(error.message);
+  }
+}
+
+async function archiveSessionFromList(threadId, button) {
+  const session = state.sessions.find((item) => item.id === threadId); if (!session || session.archived) return;
+  if (button) button.disabled = true;
+  try {
+    await fetchJson("/api/archive", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ threadId }) });
+    state.sessions = state.sessions.filter((item) => item.id !== threadId);
+    renderProjects(); renderSessions(); showListStatus(t("sessionArchived"), "success");
+  } catch (error) {
+    if (button) { button.disabled = false; button.title = error.message; }
     showListError(error.message);
   }
 }

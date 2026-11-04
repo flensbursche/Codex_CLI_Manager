@@ -1,6 +1,21 @@
 {
-  "generatedAt": "2026-10-31T14:06:59+01:00",
+  "generatedAt": "2026-10-31T14:17:52+01:00",
   "releases": [
+    {
+      "version": "0.10.10",
+      "tag": "v0.10.10",
+      "date": "2026-10-31T14:17:52+01:00",
+      "commit": "a06972f6f76787e6fe71b829f97fe9a2da345e75",
+      "released": true,
+      "commits": [
+        {
+          "hash": "a06972f6f76787e6fe71b829f97fe9a2da345e75",
+          "shortHash": "a06972f",
+          "date": "2026-10-31T14:17:52+01:00",
+          "subject": "Make tray header open the manager"
+        }
+      ]
+    },
     {
       "version": "0.10.9",
       "tag": "v0.10.9",

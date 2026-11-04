@@ -4,7 +4,7 @@ import vm from "node:vm";
 const script = await readFile(new URL("../web/app.js", import.meta.url), "utf8");
 const html = await readFile(new URL("../web/index.html", import.meta.url), "utf8");
 new vm.Script(script);
-for (const asset of ["/app-icon.svg?v=25", "/app.css?v=25", "/app.js?v=25"])
+for (const asset of ["/app-icon.svg?v=26", "/app.css?v=26", "/app.js?v=26"])
   if (!html.includes(asset)) throw new Error(`Web-Asset verwendet nicht die aktuelle Cache-Version: ${asset}`);
 for (const feature of ['session.internal === true', 'open-desktop', 'session-launch', 'session-details', 'session-actions', 'session-favorite', 'toggleFavorite(threadId, button)', 'project-create-form', 'project-name-clear', 'pendingProjectSessionId', 'newProjectForSession', 'assignSessionToProject(threadId, projectId)', 'removeSessionFromProject(threadId, button)', 'session-project-remove', '/unassign', 'text/codex-thread', 'search-clear', 'sessionTime(session)', 'sessionBundles(sessions)', 'shadow-sessions', 'ChatGPT Desktop', 'session-context', 'new EventSource("/api/events")', '/api/terminal-settings', '/api/language', '/api/update-status', 'window.setTimeout(initialize, 1000)', 'await loadMessages(result.language)', 'header-menu', 'sidebar-collapsed', 'sidebar-version', 'data-language', 'sessionSearchCountMany', 'bindCopyButtons()', '/title', 'terminalSettingsPage()', 'aboutPage()', 'gitIndicator(session.git)', 'sessionHealthIndicator(session.health)', 'healthStateLabel(session.health)', 'compatibility-warning', 'compatibilityLimited', 'role="switch"', 'share-repository', 'menu-update', 'prefers-color-scheme: dark', 'menuDismissBound', 'latest.version !== companionInfo.version', 'window.location.reload()']) {
   if (!script.includes(feature)) throw new Error(`Web-Feature fehlt: ${feature}`);
@@ -106,7 +106,7 @@ const acceptanceWorkflow = await readFile(new URL("../.github/workflows/windows-
 if (!acceptanceWorkflow.includes("codex-manager-ui") || !acceptanceWorkflow.includes("test-release.ps1")) throw new Error("Der interaktive Windows-Acceptance-Workflow fehlt.");
 const appIcon = await readFile(new URL("../web/app-icon.svg", import.meta.url), "utf8");
 if (!appIcon.includes('fill="#ff6537"') || !appIcon.includes('stroke="#fff"')) throw new Error("Das gemeinsame orange-weiße App-Icon fehlt.");
-if (!script.includes('class="mark"><img src="/app-icon.svg?v=25"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
+if (!script.includes('class="mark"><img src="/app-icon.svg?v=26"')) throw new Error("Das App-Icon fehlt im Seiten-Header.");
 const shareMenuIndex = script.indexOf('id="share-repository"');
 const aboutMenuIndex = script.indexOf('href="/about"', shareMenuIndex);
 const updateMenuIndex = script.indexOf('id="menu-update"', aboutMenuIndex);
@@ -116,6 +116,7 @@ if (!script.includes("git: brandIcon(") || !styles.includes("color: #f05032")) t
 if (!styles.includes("@keyframes session-active-border-pulse") || !styles.includes(".session-row.health-healthy") || !styles.includes("prefers-reduced-motion: reduce")) throw new Error("Das dezente, barrierearme Pulsieren aktiver Sessions fehlt.");
 if (!script.includes("github: brandIcon(") || !script.includes("gitlab: brandIcon(") || !script.includes("providerIcon")) throw new Error("Die Anbieterlogos für GitHub- und GitLab-Remotes fehlen.");
 if (!script.includes('mark class="search-match"') || !styles.includes("mark.search-match")) throw new Error("Die Hervorhebung sichtbarer Suchtreffer fehlt.");
+if (!script.includes('bindNavigationDrop(favoriteTarget, "favorite")') || !script.includes('bindNavigationDrop(archiveTarget, "archive")') || !script.includes('class="session-archive"')) throw new Error("Drag-and-drop auf Favoriten/Archiv oder die Archivaktion der Session-Karte fehlt.");
 if (!script.includes('navigator.clipboard.writeText(url)') || script.includes('navigator.share')) throw new Error("Copy Link kopiert den Repository-Link nicht direkt.");
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 const project = await readFile(new URL("../agent/CodexSessionManager.Agent.csproj", import.meta.url), "utf8");

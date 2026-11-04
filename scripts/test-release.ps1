@@ -261,6 +261,9 @@ try {
         $helperStart = New-ManagerStartInfo $candidate.Executable @('--apply-update', $acceptanceRoot, [string] $started.Id) $acceptanceId $acceptanceRoot
         $helper = [Diagnostics.Process]::Start($helperStart)
         Assert-True ($helper.WaitForExit(60000)) "Isolierter Update-Helfer wurde nicht rechtzeitig beendet."
+        $updateErrorPath = Join-Path $acceptanceRoot 'update-error.txt'
+        $updateError = if (Test-Path -LiteralPath $updateErrorPath) { Get-Content -LiteralPath $updateErrorPath -Raw } else { '' }
+        Assert-True ($helper.ExitCode -eq 0) "Isolierter Update-Helfer ist fehlgeschlagen. $updateError"
         $manager = Wait-Manager $endpoint $ExpectedVersion 60
         $projects = Invoke-RestMethod -UseBasicParsing -Uri "$($manager.Url)/api/projects" -TimeoutSec 10
         Assert-True (@($projects.data | Where-Object name -eq $projectName).Count -eq 1) "Projekte wurden beim isolierten Update nicht erhalten."

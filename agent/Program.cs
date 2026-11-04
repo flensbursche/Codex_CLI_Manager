@@ -1348,7 +1348,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.10.10";
+    public const string Version = "0.10.11";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);
@@ -1496,11 +1496,19 @@ internal static class UpdateService
         }
         catch (Exception error)
         {
-            System.Windows.Forms.MessageBox.Show(
-                error.Message,
-                language.Text("failed"),
-                System.Windows.Forms.MessageBoxButtons.OK,
-                System.Windows.Forms.MessageBoxIcon.Error);
+            if (AcceptanceEnvironment.Enabled && AcceptanceEnvironment.DataRoot is string acceptanceRoot)
+            {
+                try { File.WriteAllText(Path.Combine(acceptanceRoot, "update-error.txt"), error.ToString()); } catch { }
+                Environment.ExitCode = 1;
+            }
+            else
+            {
+                System.Windows.Forms.MessageBox.Show(
+                    error.Message,
+                    language.Text("failed"),
+                    System.Windows.Forms.MessageBoxButtons.OK,
+                    System.Windows.Forms.MessageBoxIcon.Error);
+            }
         }
         return true;
     }

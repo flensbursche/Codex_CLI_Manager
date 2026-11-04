@@ -21,6 +21,7 @@ Codex CLI Manager ist ein lokales Windows-Cockpit zum Finden, Sortieren, Öffnen
 - blendet interne Guardian- und Memory-Sessions standardmäßig aus
 - erkennt offene Threads über Codex-Prozess und Writer-Lock, kennzeichnet unklare Zustände und verhindert Doppelstarts
 - verwaltet Favoriten in app-eigenen Metadaten und frei angelegte Projekte mit Drag-and-drop-Zuordnung
+- favorisiert oder archiviert Sessions per Drag-and-drop und bietet beide Aktionen direkt in der Session-Karte an
 - löst Projektzuordnungen direkt wieder an der jeweiligen Session
 - erkennt Git-Repositories, Branch, Arbeitsbaumstatus, Konflikte und den letzten Commit ohne Schreibzugriff
 - bündelt About, die aus Release-Tags und Git-Commits erzeugte Versionshistorie und eine erweiterbare 1.0-Roadmap
@@ -75,7 +76,7 @@ Pushes und Pull Requests gegen `main` führen den Web-Smoke-Test, einen .NET-Rel
 pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/test-release.ps1 `
   -PackagePath ./CodexSessionManager-Setup-win-x64.zip `
   -ChecksumPath ./CodexSessionManager-Setup-win-x64.zip.sha256 `
-  -ExpectedVersion 0.10.10 `
+  -ExpectedVersion 0.10.11 `
   -InteractiveTerminal `
   -ReportPath ./release-acceptance.json
 ```
