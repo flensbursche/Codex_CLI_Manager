@@ -1,5 +1,5 @@
 const app = document.querySelector("#app");
-const state = { sessions: [], projects: [], project: null, view: "all", pendingProjectSessionId: null, sessionsLoading: false, draggedSessionId: null, pendingSessionsRefresh: false };
+const state = { sessions: [], projects: [], project: null, view: "all", pendingProjectSessionId: null, sessionsLoading: false, sessionsLoadActive: false, queuedSessionsLoad: null, draggedSessionId: null, pendingSessionsRefresh: false };
 let actionToken = "";
 let companionInfo = { supportsAutostart: false, autostartEnabled: false };
 let language = "de";
@@ -329,11 +329,22 @@ async function loadProjects() {
 }
 
 async function loadSessions({ preserveProject = false, silent = false } = {}) {
+  if (state.sessionsLoadActive) {
+    const queued = state.queuedSessionsLoad;
+    state.queuedSessionsLoad = queued
+      ? { preserveProject: queued.preserveProject && preserveProject, silent: queued.silent && silent }
+      : { preserveProject, silent };
+    if (!silent) { state.sessionsLoading = true; renderSessions(); }
+    return;
+  }
+  state.sessionsLoadActive = true;
   if (!silent) { state.sessionsLoading = true; renderSessions(); }
   try {
     const archived = document.querySelector("#archive").value === "archived";
     const sessions = await fetchJson(`/api/sessions?archived=${archived ? "true" : "false"}`);
+    if (archived !== (document.querySelector("#archive").value === "archived")) return;
     if (silent && hasInlineEditor()) { state.pendingSessionsRefresh = true; return; }
+    state.pendingSessionsRefresh = false;
     state.sessions = sessions;
     if (!preserveProject) state.project = null;
     else if (state.project && !state.sessions.some((session) => session.projectId === state.project) && !state.projects.some((project) => project.id === state.project)) state.project = null;
@@ -344,6 +355,14 @@ async function loadSessions({ preserveProject = false, silent = false } = {}) {
     showListError(t("sessionsLoadFailed"));
     document.querySelector("#sessions").innerHTML = `<div class="empty">${esc(error.message)}<br><button class="retry-load" id="retry-load">${t("retry")}</button></div>`;
     document.querySelector("#retry-load").onclick = () => loadSessions();
+  } finally {
+    state.sessionsLoadActive = false;
+    const queued = state.queuedSessionsLoad;
+    state.queuedSessionsLoad = null;
+    if (queued) {
+      if (queued.silent && hasInlineEditor()) state.pendingSessionsRefresh = true;
+      else void loadSessions(queued);
+    }
   }
 }
 
@@ -502,7 +521,23 @@ function bindProjectCreator() {
   input.oninput = () => { clearInput.hidden = !input.value; };
   clearInput.onclick = () => { input.value = ""; clearInput.hidden = true; input.focus(); };
   form.onkeydown = (event) => { if (event.key === "Escape") { event.preventDefault(); closeCreator(true); } };
-  form.onsubmit = async (event) => { event.preventDefault(); const name = input.value.trim(); if (!name) return; const pendingThreadId = state.pendingProjectSessionId; const project = await fetchJson("/api/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) }); state.projects.push(project); if (pendingThreadId) await assignSessionToProject(pendingThreadId, project.id); input.value = ""; clearInput.hidden = true; form.hidden = true; resetPendingAssignment(); renderProjects(); };
+  form.onsubmit = async (event) => {
+    event.preventDefault(); const name = input.value.trim(); if (!name) return;
+    const pendingThreadId = state.pendingProjectSessionId; const controls = form.querySelectorAll("input, button"); controls.forEach((control) => control.disabled = true);
+    try {
+      const project = pendingThreadId
+        ? await fetchJson(`/api/projects/for-session/${encodeURIComponent(pendingThreadId)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) })
+        : await fetchJson("/api/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+      if (!state.projects.some((item) => item.id === project.id)) state.projects.push(project);
+      if (pendingThreadId) {
+        const session = state.sessions.find((item) => item.id === pendingThreadId);
+        if (session) { session.projectId = project.id; session.project = project.name; }
+      }
+      input.value = ""; clearInput.hidden = true; form.hidden = true; resetPendingAssignment(); renderProjects(); renderSessions();
+      showListStatus(t(pendingThreadId ? "sessionAssigned" : "projectCreated"), "success");
+    } catch (error) { showListError(error.message); input.focus(); input.select(); }
+    finally { controls.forEach((control) => control.disabled = false); }
+  };
 }
 
 async function assignSessionToProject(threadId, projectId) {
@@ -712,9 +747,8 @@ function beginInlineProjectEdit(threadId, projectElement) {
         Object.assign(project, updated);
         state.sessions.filter((item) => item.projectId === project.id).forEach((item) => { item.project = updated.name; });
       } else {
-        project = await fetchJson("/api/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
-        state.projects.push(project);
-        await fetchJson(`/api/projects/${encodeURIComponent(project.id)}/sessions/${encodeURIComponent(session.id)}`, { method: "POST" });
+        project = await fetchJson(`/api/projects/for-session/${encodeURIComponent(session.id)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+        if (!state.projects.some((item) => item.id === project.id)) state.projects.push(project);
         session.projectId = project.id; session.project = project.name;
       }
       renderProjects(); renderSessions(); showListStatus(t("projectRenamed"), "success"); flushPendingSessionsRefresh();

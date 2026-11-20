@@ -67,6 +67,7 @@
   "projectDeleted": "Project deleted.",
   "clearProjectName": "Clear project name",
   "createProject": "Create project",
+  "projectCreated": "Project created.",
   "sessionSearch": "Search sessions",
   "sessionSearchCountOne": "Search 1 session",
   "sessionSearchCountMany": "Search {0} sessions",

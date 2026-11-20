@@ -19,6 +19,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ("Update process shutdown", TestUpdateProcessShutdownAsync),
     ("Update URL and release tag validation", TestUpdateUrlsAsync),
     ("Autostart scheduled task definition", TestAutostartTaskDefinitionAsync),
+    ("Atomic project creation and assignment", TestAtomicProjectAssignmentAsync),
     ("Internal Codex session classification", TestInternalSessionClassificationAsync),
     ("Subagent session association", TestSubagentSessionAssociationAsync),
     ("Codex schema compatibility query", TestCodexSchemaCompatibilityAsync),
@@ -64,6 +65,35 @@ static Task TestAutostartTaskDefinitionAsync()
     Assert(xml.Contains("<Arguments>--background</Arguments>", StringComparison.Ordinal), "The autostart task misses background mode.");
     Assert(xml.Contains(executable, StringComparison.Ordinal), "The autostart task misses the executable path.");
     return Task.CompletedTask;
+}
+
+static Task TestAtomicProjectAssignmentAsync()
+{
+    var root = CreateTestRoot();
+    try
+    {
+        var path = Path.Combine(root, "projects.json");
+        var firstThread = Guid.NewGuid().ToString();
+        var secondThread = Guid.NewGuid().ToString();
+        var store = new ProjectStore(path);
+        var first = store.CreateAndAssign(firstThread, "Smart Project");
+        var second = store.CreateAndAssign(secondThread, "  Smart   Project  ");
+        Assert(first["created"]?.GetValue<bool>() == true, "The first project was not marked as newly created.");
+        Assert(second["created"]?.GetValue<bool>() == false, "An existing project was duplicated instead of reused.");
+        Assert(first["id"]?.GetValue<string>() == second["id"]?.GetValue<string>(), "Equal project names produced different project IDs.");
+        Assert(store.List().Count == 1, "Atomic assignment created duplicate projects.");
+
+        var reloaded = new ProjectStore(path);
+        var session = new JsonObject { ["id"] = secondThread, ["project"] = "Detected folder" };
+        reloaded.Apply(session);
+        Assert(session["projectId"]?.GetValue<string>() == first["id"]?.GetValue<string>(), "The atomic assignment was not persisted.");
+        Assert(session["project"]?.GetValue<string>() == "Smart Project", "The persisted project name was not applied.");
+        return Task.CompletedTask;
+    }
+    finally
+    {
+        DeleteTestRoot(root);
+    }
 }
 
 static Task TestInternalSessionClassificationAsync()

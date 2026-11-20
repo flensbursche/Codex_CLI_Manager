@@ -149,6 +149,12 @@ app.MapPost("/api/projects/{projectId}/rename", (string projectId, CreateProject
     catch (Exception error) { return Results.Problem(error.Message, statusCode: 400); }
 });
 
+app.MapPost("/api/projects/for-session/{threadId}", (string threadId, CreateProjectRequest request, ProjectStore projects) =>
+{
+    try { return Results.Ok(new { data = projects.CreateAndAssign(threadId, request.Name) }); }
+    catch (Exception error) { return Results.Problem(error.Message, statusCode: 400); }
+});
+
 app.MapPost("/api/projects/{projectId}/delete", (string projectId, ProjectStore projects) =>
 {
     try
@@ -386,10 +392,16 @@ internal sealed class ProjectStore
 {
     private static readonly JsonSerializerOptions StorageJson = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private readonly object _sync = new();
-    private readonly string _path = Path.Combine(UserInstallation.InstallDirectory, "projects.json");
+    private readonly string _path;
     private StoredProjectState _state;
 
-    public ProjectStore() => _state = Load();
+    public ProjectStore() : this(Path.Combine(UserInstallation.InstallDirectory, "projects.json")) { }
+
+    internal ProjectStore(string path)
+    {
+        _path = path;
+        _state = Load();
+    }
 
     public JsonArray List()
     {
@@ -432,6 +444,29 @@ internal sealed class ProjectStore
             _state.Projects[index] = project;
             Save();
             return new JsonObject { ["id"] = project.Id, ["name"] = project.Name, ["createdAt"] = project.CreatedAt };
+        }
+    }
+
+    public JsonObject CreateAndAssign(string threadId, string? value)
+    {
+        if (!Guid.TryParse(threadId, out _)) throw new ArgumentException("Ungültige Session-ID.");
+        var name = NormalizeName(value);
+        lock (_sync)
+        {
+            var projects = _state.Projects.ToList();
+            var assignments = new Dictionary<string, string>(_state.Assignments, StringComparer.OrdinalIgnoreCase);
+            var project = projects.FirstOrDefault(candidate => candidate.Name.Equals(name, StringComparison.CurrentCultureIgnoreCase));
+            var created = project is null;
+            if (project is null)
+            {
+                project = new StoredProject(Guid.NewGuid().ToString("N"), name, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+                projects.Add(project);
+            }
+            assignments[threadId] = project.Id;
+            var next = new StoredProjectState { Projects = projects, Assignments = assignments };
+            Persist(next);
+            _state = next;
+            return new JsonObject { ["id"] = project.Id, ["name"] = project.Name, ["createdAt"] = project.CreatedAt, ["created"] = created };
         }
     }
 
@@ -1376,7 +1411,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.10.16";
+    public const string Version = "0.10.17";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);

@@ -67,6 +67,7 @@
   "projectDeleted": "Projekt wurde gelöscht.",
   "clearProjectName": "Projektname leeren",
   "createProject": "Projekt anlegen",
+  "projectCreated": "Projekt wurde angelegt.",
   "sessionSearch": "Session suchen",
   "sessionSearchCountOne": "1 Session durchsuchen",
   "sessionSearchCountMany": "{0} Sessions durchsuchen",

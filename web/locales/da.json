@@ -67,6 +67,7 @@
   "projectDeleted": "Projektet blev slettet.",
   "clearProjectName": "Ryd projektnavn",
   "createProject": "Opret projekt",
+  "projectCreated": "Projektet blev oprettet.",
   "sessionSearch": "Søg sessioner",
   "sessionSearchCountOne": "Søg i 1 session",
   "sessionSearchCountMany": "Søg i {0} sessioner",
