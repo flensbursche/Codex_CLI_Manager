@@ -391,8 +391,9 @@ function renderProjects() {
   const entries = state.projects.map((project) => ({ ...project, ...(stats.get(project.id) || { count: 0, updatedAt: 0 }) })).sort((a, b) => b.updatedAt - a.updatedAt || a.name.localeCompare(b.name));
   const projects = document.querySelector("#projects");
   projects.innerHTML = entries.map(projectButton).join("");
-  projects.querySelectorAll("[data-project-id]").forEach((button) => {
-    button.onclick = () => { state.project = button.dataset.projectId; state.view = "project"; renderSidebarNav(); renderProjects(); renderSessions(); };
+  projects.querySelectorAll(".project-select").forEach((button) => {
+    button.onclick = () => { state.project = button.dataset.projectId; state.view = "project"; renderSidebarNav(); projects.querySelectorAll(".project-select").forEach((item) => item.classList.toggle("active", item.dataset.projectId === state.project)); renderSessions(); };
+    button.ondblclick = (event) => { event.preventDefault(); event.stopPropagation(); beginProjectNameEdit(button.dataset.projectId, button); };
     button.ondragover = (event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; button.classList.add("drop-target"); };
     button.ondragleave = () => button.classList.remove("drop-target");
     button.ondrop = (event) => { event.preventDefault(); button.classList.remove("drop-target"); const threadId = event.dataTransfer.getData("text/codex-thread") || state.draggedSessionId; if (threadId) void assignSessionToProject(threadId, button.dataset.projectId); };
@@ -403,7 +404,33 @@ function renderProjects() {
 function projectButton(project) {
   const deleteLabel = esc(t("deleteProject", project.name));
   const remove = project.count === 0 ? `<button class="project-delete" type="button" data-project-id="${project.id}" data-project-name="${esc(project.name)}" aria-label="${deleteLabel}" title="${deleteLabel}">${icons.trash}</button>` : "";
-  return `<div class="project-entry"><button class="project-select ${state.project === project.id ? "active" : ""}" data-project-id="${project.id}"><span class="project-dot"></span><span>${esc(project.name)}</span><small>${project.count}</small></button>${remove}</div>`;
+  return `<div class="project-entry"><button class="project-select ${state.project === project.id ? "active" : ""}" data-project-id="${project.id}" title="${esc(t("doubleClickEditProjectName"))}"><span class="project-dot"></span><span class="project-name">${esc(project.name)}</span><small>${project.count}</small></button>${remove}</div>`;
+}
+
+function beginProjectNameEdit(projectId, button) {
+  if (document.querySelector(".project-name-editor")) return;
+  const project = state.projects.find((item) => item.id === projectId); if (!project) return;
+  const entry = button.closest(".project-entry");
+  const form = document.createElement("form"); form.className = "project-name-editor";
+  const input = document.createElement("input"); input.maxLength = 64; input.value = project.name; input.setAttribute("aria-label", t("projectName"));
+  form.append(input); button.hidden = true; entry.prepend(form); input.focus(); input.select();
+  let finished = false;
+  const cancel = () => { if (finished) return; finished = true; form.remove(); button.hidden = false; };
+  const save = async () => {
+    if (finished) return;
+    const name = input.value.trim();
+    if (name === project.name) { cancel(); return; }
+    finished = true; input.disabled = true;
+    try {
+      const updated = await fetchJson(`/api/projects/${encodeURIComponent(project.id)}/rename`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+      Object.assign(project, updated);
+      state.sessions.filter((session) => session.projectId === project.id).forEach((session) => { session.project = updated.name; });
+      renderProjects(); renderSessions(); showListStatus(t("projectRenamed"), "success");
+    } catch (error) { finished = false; input.disabled = false; input.focus(); input.select(); showListError(error.message); }
+  };
+  form.onsubmit = (event) => { event.preventDefault(); void save(); };
+  input.onkeydown = (event) => { if (event.key === "Escape") { event.preventDefault(); cancel(); } };
+  input.onblur = () => void save();
 }
 
 async function deleteProject(projectId, name) {
@@ -653,29 +680,37 @@ function beginInlineProjectEdit(threadId, projectElement) {
   if (document.querySelector(".session-inline-editor")) return;
   const session = state.sessions.find((item) => item.id === threadId); if (!session) return;
   const row = projectElement.closest(".session-row"); row.draggable = false;
-  const select = document.createElement("select");
-  select.className = "session-inline-editor session-inline-project";
-  select.setAttribute("aria-label", t("projectAssignment"));
-  select.innerHTML = [`<option value="">${t("noProject")}</option>`, ...state.projects.map((project) => `<option value="${project.id}" ${session.projectId === project.id ? "selected" : ""}>${esc(project.name)}</option>`)].join("");
-  projectElement.hidden = true; projectElement.after(select); select.focus();
+  const input = document.createElement("input");
+  input.className = "session-inline-editor session-inline-project"; input.maxLength = 64; input.value = session.project || "";
+  input.setAttribute("aria-label", t("projectName"));
+  projectElement.hidden = true; projectElement.after(input); input.focus(); input.select();
   let finished = false;
-  const cancel = () => { if (finished) return; finished = true; select.remove(); projectElement.hidden = false; row.draggable = true; };
+  const cancel = () => { if (finished) return; finished = true; input.remove(); projectElement.hidden = false; row.draggable = true; };
   const save = async () => {
     if (finished) return;
-    const projectId = select.value;
-    if (projectId === (session.projectId || "")) { cancel(); return; }
-    finished = true; select.disabled = true;
+    const name = input.value.trim();
+    if (name === (session.project || "")) { cancel(); return; }
+    finished = true; input.disabled = true;
     try {
-      if (projectId) await fetchJson(`/api/projects/${encodeURIComponent(projectId)}/sessions/${encodeURIComponent(session.id)}`, { method: "POST" });
-      else await fetchJson(`/api/projects/sessions/${encodeURIComponent(session.id)}/unassign`, { method: "POST" });
-      const project = state.projects.find((item) => item.id === projectId);
-      session.projectId = project?.id || null; session.project = project?.name || session.baseProject || t("noProject");
-      renderProjects(); renderSessions();
-    } catch (error) { select.remove(); projectElement.hidden = false; row.draggable = true; showListError(error.message); }
+      let project = state.projects.find((item) => item.id === session.projectId);
+      if (project) {
+        const updated = await fetchJson(`/api/projects/${encodeURIComponent(project.id)}/rename`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+        Object.assign(project, updated);
+        state.sessions.filter((item) => item.projectId === project.id).forEach((item) => { item.project = updated.name; });
+      } else {
+        project = await fetchJson("/api/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+        state.projects.push(project);
+        await fetchJson(`/api/projects/${encodeURIComponent(project.id)}/sessions/${encodeURIComponent(session.id)}`, { method: "POST" });
+        session.projectId = project.id; session.project = project.name;
+      }
+      renderProjects(); renderSessions(); showListStatus(t("projectRenamed"), "success");
+    } catch (error) { input.remove(); projectElement.hidden = false; row.draggable = true; showListError(error.message); }
   };
-  select.onchange = () => void save();
-  select.onkeydown = (event) => { if (event.key === "Escape") { event.preventDefault(); cancel(); } };
-  select.onblur = () => window.setTimeout(cancel, 0);
+  input.onkeydown = (event) => {
+    if (event.key === "Enter") { event.preventDefault(); void save(); }
+    else if (event.key === "Escape") { event.preventDefault(); cancel(); }
+  };
+  input.onblur = () => void save();
 }
 
 function subagentIndicator(count) {

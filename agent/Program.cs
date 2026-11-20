@@ -143,6 +143,12 @@ app.MapPost("/api/projects", (CreateProjectRequest request, ProjectStore project
     catch (Exception error) { return Results.Problem(error.Message, statusCode: 400); }
 });
 
+app.MapPost("/api/projects/{projectId}/rename", (string projectId, CreateProjectRequest request, ProjectStore projects) =>
+{
+    try { return Results.Ok(new { data = projects.Rename(projectId, request.Name) }); }
+    catch (Exception error) { return Results.Problem(error.Message, statusCode: 400); }
+});
+
 app.MapPost("/api/projects/{projectId}/delete", (string projectId, ProjectStore projects) =>
 {
     try
@@ -407,6 +413,23 @@ internal sealed class ProjectStore
                 throw new InvalidOperationException("Ein Projekt mit diesem Namen existiert bereits.");
             var project = new StoredProject(Guid.NewGuid().ToString("N"), name, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             _state.Projects.Add(project);
+            Save();
+            return new JsonObject { ["id"] = project.Id, ["name"] = project.Name, ["createdAt"] = project.CreatedAt };
+        }
+    }
+
+    public JsonObject Rename(string projectId, string? value)
+    {
+        if (!Guid.TryParse(projectId, out _)) throw new ArgumentException("Ungültige Projekt-ID.");
+        var name = NormalizeName(value);
+        lock (_sync)
+        {
+            var index = _state.Projects.FindIndex(project => project.Id.Equals(projectId, StringComparison.OrdinalIgnoreCase));
+            if (index < 0) throw new KeyNotFoundException("Projekt wurde nicht gefunden.");
+            if (_state.Projects.Any(project => !project.Id.Equals(projectId, StringComparison.OrdinalIgnoreCase) && project.Name.Equals(name, StringComparison.CurrentCultureIgnoreCase)))
+                throw new InvalidOperationException("Ein Projekt mit diesem Namen existiert bereits.");
+            var project = _state.Projects[index] with { Name = name };
+            _state.Projects[index] = project;
             Save();
             return new JsonObject { ["id"] = project.Id, ["name"] = project.Name, ["createdAt"] = project.CreatedAt };
         }
@@ -1353,7 +1376,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.10.14";
+    public const string Version = "0.10.15";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);

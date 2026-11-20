@@ -956,6 +956,29 @@ summary {
   padding-right: 38px;
 }
 
+.project-name-editor {
+  width: 100%;
+  padding-right: 36px;
+}
+
+.project-name-editor input {
+  width: 100%;
+  min-height: 32px;
+  padding: 5px 8px;
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  color: var(--text);
+  background: var(--panel);
+  font: inherit;
+  font-size: 0.75rem;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 13%, transparent);
+  outline: 0;
+}
+
+.project-entry:has(.project-name-editor) .project-delete {
+  display: none;
+}
+
 .project-entry .project-delete {
   position: absolute;
   top: 50%;
