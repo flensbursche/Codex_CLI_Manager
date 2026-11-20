@@ -1,5 +1,5 @@
 const app = document.querySelector("#app");
-const state = { sessions: [], projects: [], project: null, view: "all", pendingProjectSessionId: null, sessionsLoading: false, draggedSessionId: null };
+const state = { sessions: [], projects: [], project: null, view: "all", pendingProjectSessionId: null, sessionsLoading: false, draggedSessionId: null, pendingSessionsRefresh: false };
 let actionToken = "";
 let companionInfo = { supportsAutostart: false, autostartEnabled: false };
 let language = "de";
@@ -332,7 +332,9 @@ async function loadSessions({ preserveProject = false, silent = false } = {}) {
   if (!silent) { state.sessionsLoading = true; renderSessions(); }
   try {
     const archived = document.querySelector("#archive").value === "archived";
-    state.sessions = await fetchJson(`/api/sessions?archived=${archived ? "true" : "false"}`);
+    const sessions = await fetchJson(`/api/sessions?archived=${archived ? "true" : "false"}`);
+    if (silent && hasInlineEditor()) { state.pendingSessionsRefresh = true; return; }
+    state.sessions = sessions;
     if (!preserveProject) state.project = null;
     else if (state.project && !state.sessions.some((session) => session.projectId === state.project) && !state.projects.some((project) => project.id === state.project)) state.project = null;
     state.sessionsLoading = false; renderSidebarNav(); renderSources(); renderProjects(); renderSessions();
@@ -343,6 +345,16 @@ async function loadSessions({ preserveProject = false, silent = false } = {}) {
     document.querySelector("#sessions").innerHTML = `<div class="empty">${esc(error.message)}<br><button class="retry-load" id="retry-load">${t("retry")}</button></div>`;
     document.querySelector("#retry-load").onclick = () => loadSessions();
   }
+}
+
+function hasInlineEditor() {
+  return Boolean(document.querySelector(".session-inline-editor, .project-name-editor"));
+}
+
+function flushPendingSessionsRefresh() {
+  if (!state.pendingSessionsRefresh || hasInlineEditor() || !document.querySelector("#sessions")) return;
+  state.pendingSessionsRefresh = false;
+  void loadSessions({ preserveProject: true, silent: true });
 }
 
 function showListError(message) {
@@ -361,7 +373,9 @@ function connectSessionEvents() {
   sessionEvents?.close();
   sessionEvents = new EventSource("/api/events");
   sessionEvents.addEventListener("sessions", () => {
-    if (document.querySelector("#sessions")) void loadSessions({ preserveProject: true, silent: true });
+    if (!document.querySelector("#sessions")) return;
+    if (hasInlineEditor()) { state.pendingSessionsRefresh = true; return; }
+    void loadSessions({ preserveProject: true, silent: true });
   });
   sessionEvents.onopen = async () => {
     document.querySelector(".live")?.classList.add("connected");
@@ -415,7 +429,7 @@ function beginProjectNameEdit(projectId, button) {
   const input = document.createElement("input"); input.maxLength = 64; input.value = project.name; input.setAttribute("aria-label", t("projectName"));
   form.append(input); button.hidden = true; entry.prepend(form); input.focus(); input.select();
   let finished = false;
-  const cancel = () => { if (finished) return; finished = true; form.remove(); button.hidden = false; };
+  const cancel = () => { if (finished) return; finished = true; form.remove(); button.hidden = false; flushPendingSessionsRefresh(); };
   const save = async () => {
     if (finished) return;
     const name = input.value.trim();
@@ -425,7 +439,7 @@ function beginProjectNameEdit(projectId, button) {
       const updated = await fetchJson(`/api/projects/${encodeURIComponent(project.id)}/rename`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
       Object.assign(project, updated);
       state.sessions.filter((session) => session.projectId === project.id).forEach((session) => { session.project = updated.name; });
-      renderProjects(); renderSessions(); showListStatus(t("projectRenamed"), "success");
+      renderProjects(); renderSessions(); showListStatus(t("projectRenamed"), "success"); flushPendingSessionsRefresh();
     } catch (error) { finished = false; input.disabled = false; input.focus(); input.select(); showListError(error.message); }
   };
   form.onsubmit = (event) => { event.preventDefault(); void save(); };
@@ -658,7 +672,7 @@ function beginInlineTitleEdit(threadId, titleElement) {
   input.maxLength = 160; input.value = session.title || ""; input.setAttribute("aria-label", t("titlePlaceholder"));
   titleElement.hidden = true; titleElement.after(input); input.focus(); input.select();
   let finished = false;
-  const cancel = () => { if (finished) return; finished = true; input.remove(); titleElement.hidden = false; row.draggable = true; };
+  const cancel = () => { if (finished) return; finished = true; input.remove(); titleElement.hidden = false; row.draggable = true; flushPendingSessionsRefresh(); };
   const save = async () => {
     if (finished) return;
     const value = input.value.trim();
@@ -666,8 +680,8 @@ function beginInlineTitleEdit(threadId, titleElement) {
     finished = true; input.disabled = true;
     try {
       const result = await fetchJson(`/api/session/${encodeURIComponent(session.id)}/title`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: value }) });
-      Object.assign(session, result); renderProjects(); renderSessions();
-    } catch (error) { input.remove(); titleElement.hidden = false; row.draggable = true; showListError(error.message); }
+      Object.assign(session, result); renderProjects(); renderSessions(); flushPendingSessionsRefresh();
+    } catch (error) { input.remove(); titleElement.hidden = false; row.draggable = true; showListError(error.message); flushPendingSessionsRefresh(); }
   };
   input.onkeydown = (event) => {
     if (event.key === "Enter") { event.preventDefault(); void save(); }
@@ -685,7 +699,7 @@ function beginInlineProjectEdit(threadId, projectElement) {
   input.setAttribute("aria-label", t("projectName"));
   projectElement.hidden = true; projectElement.after(input); input.focus(); input.select();
   let finished = false;
-  const cancel = () => { if (finished) return; finished = true; input.remove(); projectElement.hidden = false; row.draggable = true; };
+  const cancel = () => { if (finished) return; finished = true; input.remove(); projectElement.hidden = false; row.draggable = true; flushPendingSessionsRefresh(); };
   const save = async () => {
     if (finished) return;
     const name = input.value.trim();
@@ -703,8 +717,8 @@ function beginInlineProjectEdit(threadId, projectElement) {
         await fetchJson(`/api/projects/${encodeURIComponent(project.id)}/sessions/${encodeURIComponent(session.id)}`, { method: "POST" });
         session.projectId = project.id; session.project = project.name;
       }
-      renderProjects(); renderSessions(); showListStatus(t("projectRenamed"), "success");
-    } catch (error) { input.remove(); projectElement.hidden = false; row.draggable = true; showListError(error.message); }
+      renderProjects(); renderSessions(); showListStatus(t("projectRenamed"), "success"); flushPendingSessionsRefresh();
+    } catch (error) { input.remove(); projectElement.hidden = false; row.draggable = true; showListError(error.message); flushPendingSessionsRefresh(); }
   };
   input.onkeydown = (event) => {
     if (event.key === "Enter") { event.preventDefault(); void save(); }
