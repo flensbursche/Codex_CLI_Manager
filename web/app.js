@@ -67,6 +67,7 @@ const icons = {
   share: tablerIcon('<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5l6.8-4M8.6 13.5l6.8 4"/>'),
   refresh: tablerIcon('<path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"/>'),
   activity: tablerIcon('<path d="M3 12h4l2-7 4 14 2-7h6"/>'),
+  robot: tablerIcon('<path d="M7 7h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zM9 13v.01M15 13v.01M10 17h4M12 7V4M9 4h6"/>'),
   focus: tablerIcon('<path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/>'),
   stop: tablerIcon('<rect x="6" y="6" width="12" height="12" rx="1"/>')
 };
@@ -534,8 +535,8 @@ function activityGroup(timestamp) {
 
 function isInternalSession(session) {
   if (session.internal === true) return true;
-  const source = String(session.threadSource || session.thread_source || session.source || "").trim().toLowerCase();
-  return source === "guardian" || source === "guardian_review" || source === "memory_consolidation" || source.includes("guardian") || source.includes("memory consolidation");
+  const source = String(session.threadSource || session.thread_source || session.source || "").trim().toLowerCase().replaceAll("-", "_").replaceAll(" ", "_");
+  return source === "guardian" || source === "guardian_review" || source === "memory_consolidation" || source === "subagent" || source === "sub_agent" || source === "agent_created_thread" || source.includes("guardian");
 }
 
 function sessionsWithoutInternalFilter() {
@@ -597,12 +598,19 @@ function sessionRow(session, shadows = [], query = "") {
     <div class="session-copy">
       <div class="session-context"><button class="session-path-copy copy-value" type="button" data-copy="${esc(session.cwd)}" title="${t("copyPath")}"><code>${highlight(directoryLabel(session.cwd), query)}</code>${icons.copy}</button><time class="session-time">${sessionTime(session)}</time></div>
       <div class="session-body">
-        <div class="session-summary"><div class="session-title-line"><strong class="session-title" title="${esc(session.title)}">${highlight(session.title, query)}</strong>${sessionHealthIndicator(session.health)}${gitIndicator(session.git)}</div>${session.customTitle ? `<span class="session-original-title">${t("originalTitle")}: ${highlight(session.originalTitle, query)}</span>` : ""}${session.preview ? `<span class="session-prompt">${highlight(session.preview, query)}</span>` : ""}</div>
+        <div class="session-summary"><div class="session-title-line"><strong class="session-title" title="${esc(session.title)}">${highlight(session.title, query)}</strong>${subagentIndicator(session.subagentCount)}${sessionHealthIndicator(session.health)}${gitIndicator(session.git)}</div>${session.customTitle ? `<span class="session-original-title">${t("originalTitle")}: ${highlight(session.originalTitle, query)}</span>` : ""}${session.preview ? `<span class="session-prompt">${highlight(session.preview, query)}</span>` : ""}</div>
         <div class="session-actions">${utility}<a class="session-details" href="/session/${encodeURIComponent(session.id)}">${t("details")}</a>${restore}${launch}</div>
       </div>
       ${shadowList}
     </div>
   </article>`;
+}
+
+function subagentIndicator(count) {
+  const value = Number(count) || 0;
+  if (!value) return "";
+  const label = t("subagents", value);
+  return `<span class="session-subagents" title="${esc(label)}" aria-label="${esc(label)}">${icons.robot}<b>${value}</b></span>`;
 }
 
 function gitIndicator(git) {

@@ -14,6 +14,8 @@ for (const feature of ['session-restore', 'sessionsLoading', 'aria-label="${t("f
 }
 if (script.includes('window.confirm(t("deleteProjectConfirm"')) throw new Error("Projektlöschung verwendet weiterhin den nativen Browser-Dialog.");
 const agent = await readFile(new URL("../agent/Program.cs", import.meta.url), "utf8");
+if (!script.includes('source === "subagent"') || !agent.includes('IsInternalThreadSource(rawSource)')) throw new Error("Interne Subagent-Sessions werden nicht standardmäßig ausgeblendet.");
+if (!script.includes('subagentIndicator(session.subagentCount)') || !agent.includes('parent["subagentCount"]')) throw new Error("Hauptsessions zeigen ihre zugeordneten Subagents nicht an.");
 if (!agent.includes("thread-writer-locks")) throw new Error("Aktive Codex-Threads werden nicht über Writer-Locks erkannt.");
 if (!agent.includes("AttachShadowSessions(items)")) throw new Error("Agent-erzeugte Schatten-Sessions werden keinem Master zugeordnet.");
 if (!agent.includes("_metadata.SavePinned(threadId, pinned)")) throw new Error("Favoriten werden nicht in app-eigenen Metadaten gespeichert.");
@@ -61,6 +63,7 @@ if (!agent.includes('SHA256.HashDataAsync')) throw new Error("Update-Pakete werd
 if (!agent.includes('TryApplyStagedUpdate(args)')) throw new Error("Der separate Update-Helfer fehlt.");
 if (!agent.includes('lifetime.ApplicationStopping') || !agent.includes('WaitForManagerExit(processId)') || !agent.includes('process.WaitForExit(timeoutMilliseconds)') || !agent.includes('process.Kill();') || !agent.includes('UpdateShutdownListener.RequestStop()')) throw new Error("Der Update-Neustart beendet Live-Verbindungen oder den alten Prozess nicht sicher.");
 if (!agent.includes('autostartWasEnabled') || !agent.includes('else AutoStartManager.Disable()')) throw new Error("Updates bewahren die Autostart-Einstellung nicht.");
+if (!agent.includes('RestartOnFailure') || !agent.includes('MigrateIfNeeded()') || !agent.includes('schtasks.exe')) throw new Error("Der robuste Benutzer-Autostart samt Fehlerselbstheilung fehlt.");
 if (!agent.includes('UpdateProgressWindow') || !agent.includes('UpdateStage.Verifying') || !agent.includes('language.Text("restarting")') || !agent.includes('PictureBoxSizeMode.Zoom')) throw new Error("Der sichtbare Update-Fortschritt samt App-Icon fehlt.");
 if (!agent.includes('EnsureMinimumStageAsync') || !agent.includes('EnsureMinimumStage(stageDuration, 1100)')) throw new Error("Kurze Update-Phasen bleiben nicht lange genug sichtbar.");
 if (agent.includes("AllocConsole")) throw new Error("Die rohe Win32-Konsole ist weiterhin aktiv.");

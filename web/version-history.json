@@ -1,6 +1,21 @@
 {
-  "generatedAt": "2026-11-04T10:59:26+01:00",
+  "generatedAt": "2026-11-04T11:38:49+01:00",
   "releases": [
+    {
+      "version": "0.10.12",
+      "tag": "v0.10.12",
+      "date": "2026-11-04T11:38:49+01:00",
+      "commit": "862a182f7a4e89c3260b5870589a9ef20b5d8a7b",
+      "released": true,
+      "commits": [
+        {
+          "hash": "862a182f7a4e89c3260b5870589a9ef20b5d8a7b",
+          "shortHash": "862a182",
+          "date": "2026-11-04T11:38:49+01:00",
+          "subject": "Control active CLI session windows safely"
+        }
+      ]
+    },
     {
       "version": "0.10.11",
       "tag": "v0.10.11",

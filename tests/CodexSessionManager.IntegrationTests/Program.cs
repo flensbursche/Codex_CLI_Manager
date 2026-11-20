@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json.Nodes;
 
 var tests = new (string Name, Func<Task> Run)[]
 {
@@ -17,6 +18,9 @@ var tests = new (string Name, Func<Task> Run)[]
     ("Update payload copy and path guard", TestUpdatePayloadAsync),
     ("Update process shutdown", TestUpdateProcessShutdownAsync),
     ("Update URL and release tag validation", TestUpdateUrlsAsync),
+    ("Autostart scheduled task definition", TestAutostartTaskDefinitionAsync),
+    ("Internal Codex session classification", TestInternalSessionClassificationAsync),
+    ("Subagent session association", TestSubagentSessionAssociationAsync),
     ("Codex schema compatibility query", TestCodexSchemaCompatibilityAsync),
     ("Codex schema fixture matrix", TestCodexSchemaFixtureMatrixAsync),
     ("Codex state read-only compatibility", TestCodexStateCompatibilityAsync)
@@ -45,6 +49,67 @@ if (failures.Count > 0)
 
 Console.WriteLine($"All {tests.Length} integration tests passed.");
 return 0;
+
+static Task TestAutostartTaskDefinitionAsync()
+{
+    const string executable = @"C:\Users\Test User\AppData\Local\CodexSessionManager\CodexSessionManager.exe";
+    const string sid = "S-1-5-21-1000";
+    var xml = AutoStartManager.BuildTaskXml(executable, sid);
+    Assert(xml.Contains("<LogonTrigger>", StringComparison.Ordinal), "The autostart task has no sign-in trigger.");
+    Assert(xml.Contains("<RestartOnFailure>", StringComparison.Ordinal), "The autostart task does not restart after failures.");
+    Assert(xml.Contains("<Interval>PT1M</Interval>", StringComparison.Ordinal), "The autostart retry interval differs.");
+    Assert(xml.Contains("<Count>5</Count>", StringComparison.Ordinal), "The autostart retry count differs.");
+    Assert(xml.Contains("<LogonType>InteractiveToken</LogonType>", StringComparison.Ordinal), "The autostart task does not use the signed-in user.");
+    Assert(xml.Contains("<RunLevel>LeastPrivilege</RunLevel>", StringComparison.Ordinal), "The autostart task requests elevated privileges.");
+    Assert(xml.Contains("<Arguments>--background</Arguments>", StringComparison.Ordinal), "The autostart task misses background mode.");
+    Assert(xml.Contains(executable, StringComparison.Ordinal), "The autostart task misses the executable path.");
+    return Task.CompletedTask;
+}
+
+static Task TestInternalSessionClassificationAsync()
+{
+    foreach (var source in new[] { "guardian_review", "memory_consolidation", "subagent", "subAgent", "sub-agent", "agent_created_thread" })
+        Assert(CodexClient.IsInternalThreadSource(source), $"Internal Codex source was not classified as internal: {source}");
+    foreach (var source in new[] { "cli", "user", "Codex Desktop" })
+        Assert(!CodexClient.IsInternalThreadSource(source), $"User-facing source was incorrectly classified as internal: {source}");
+    return Task.CompletedTask;
+}
+
+static Task TestSubagentSessionAssociationAsync()
+{
+    var root = CreateTestRoot();
+    try
+    {
+        var rollout = Path.Combine(root, "subagent.jsonl");
+        File.WriteAllText(rollout, "{\"payload\":{\"source\":{\"subagent\":{\"thread_spawn\":{\"parent_thread_id\":\"parent-session\"}}}}}");
+        var parent = new JsonObject
+        {
+            ["id"] = "parent-session",
+            ["threadSource"] = "user",
+            ["originator"] = "codex-tui",
+            ["createdAt"] = 100_000L,
+            ["updatedAt"] = 100_000L
+        };
+        var child = new JsonObject
+        {
+            ["id"] = "child-session",
+            ["threadSource"] = "subagent",
+            ["originator"] = "different-originator",
+            ["createdAt"] = 9_000_000L,
+            ["updatedAt"] = 9_000_000L,
+            ["storagePath"] = rollout
+        };
+        CodexClient.AttachShadowSessions([parent, child]);
+        Assert(CodexClient.ReadDeclaredParentThreadId(rollout) == "parent-session", "Parent thread ID was not read from subagent rollout metadata.");
+        Assert(child["parentId"]?.GetValue<string>() == "parent-session", "Subagent session was not associated with its declared parent.");
+        Assert(parent["subagentCount"]?.GetValue<int>() == 1, "Parent session does not expose its subagent count.");
+        return Task.CompletedTask;
+    }
+    finally
+    {
+        DeleteTestRoot(root);
+    }
+}
 
 static Task TestWindowsTerminalArgumentsAsync()
 {

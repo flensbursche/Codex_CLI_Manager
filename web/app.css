@@ -1632,6 +1632,31 @@ summary {
   text-overflow: ellipsis;
 }
 
+.session-subagents {
+  height: 22px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 6px 0 5px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel-soft);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.session-subagents svg {
+  width: 15px;
+  height: 15px;
+}
+
+.session-subagents b {
+  color: var(--text-soft);
+  font-weight: 650;
+}
+
 .session-git {
   position: relative;
   width: 21px;

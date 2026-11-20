@@ -2,9 +2,11 @@ using System.Diagnostics;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Runtime.InteropServices;
+using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Xml.Linq;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Win32;
 
@@ -15,6 +17,7 @@ if (!args.Contains("--portable", StringComparer.OrdinalIgnoreCase) && !UserInsta
     UserInstallation.InstallAndStart();
     return;
 }
+AutoStartManager.MigrateIfNeeded();
 UpdateService.ScheduleStagingCleanup();
 var openBrowserOnStart = !args.Contains("--no-browser", StringComparer.OrdinalIgnoreCase);
 using var singleInstance = new Mutex(true, AcceptanceEnvironment.InstanceMutexName, out var isFirstInstance);
@@ -1350,7 +1353,7 @@ internal static class AppIcon
 
 internal static class ProductInfo
 {
-    public const string Version = "0.10.12";
+    public const string Version = "0.10.13";
 }
 
 internal sealed record UpdateInfo(string Version, string PackageUrl, string ChecksumUrl);
@@ -2120,18 +2123,24 @@ internal static class AutoStartManager
 {
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string ValueName = "CodexSessionManager";
+    private const string TaskName = @"\CodexSessionManager";
 
     public static bool IsEnabled()
     {
         if (AcceptanceEnvironment.Enabled) return false;
-        using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: false);
-        return key?.GetValue(ValueName) is string value && !string.IsNullOrWhiteSpace(value);
+        return ScheduledTaskEnabled() || LegacyRegistryEnabled();
     }
 
     public static void Enable(string? executable = null)
     {
         if (AcceptanceEnvironment.Enabled) return;
         executable ??= Environment.ProcessPath ?? throw new InvalidOperationException("Pfad zur Anwendung konnte nicht ermittelt werden.");
+        if (TryCreateScheduledTask(executable))
+        {
+            DisableLegacyRegistry();
+            return;
+        }
+
         using var key = Registry.CurrentUser.CreateSubKey(RunKey, writable: true);
         key.SetValue(ValueName, $"\"{executable}\" --background", RegistryValueKind.String);
     }
@@ -2139,9 +2148,140 @@ internal static class AutoStartManager
     public static void Disable()
     {
         if (AcceptanceEnvironment.Enabled) return;
+        _ = RunTaskScheduler("/Delete", "/TN", TaskName, "/F");
+        DisableLegacyRegistry();
+    }
+
+    public static void MigrateIfNeeded()
+    {
+        if (AcceptanceEnvironment.Enabled || ScheduledTaskEnabled() || !LegacyRegistryEnabled()) return;
+        Enable();
+    }
+
+    internal static string BuildTaskXml(string executable, string userSid)
+    {
+        XNamespace task = "http://schemas.microsoft.com/windows/2004/02/mit/task";
+        return new XDocument(
+            new XDeclaration("1.0", "utf-16", null),
+            new XElement(task + "Task",
+                new XAttribute("version", "1.4"),
+                new XElement(task + "RegistrationInfo",
+                    new XElement(task + "Description", "Starts the Codex CLI Manager at sign-in and restarts it after unexpected failures.")),
+                new XElement(task + "Triggers",
+                    new XElement(task + "LogonTrigger",
+                        new XElement(task + "Enabled", true),
+                        new XElement(task + "UserId", userSid))),
+                new XElement(task + "Principals",
+                    new XElement(task + "Principal",
+                        new XAttribute("id", "Author"),
+                        new XElement(task + "UserId", userSid),
+                        new XElement(task + "LogonType", "InteractiveToken"),
+                        new XElement(task + "RunLevel", "LeastPrivilege"))),
+                new XElement(task + "Settings",
+                    new XElement(task + "MultipleInstancesPolicy", "IgnoreNew"),
+                    new XElement(task + "DisallowStartIfOnBatteries", false),
+                    new XElement(task + "StopIfGoingOnBatteries", false),
+                    new XElement(task + "AllowHardTerminate", true),
+                    new XElement(task + "StartWhenAvailable", true),
+                    new XElement(task + "RunOnlyIfNetworkAvailable", false),
+                    new XElement(task + "RestartOnFailure",
+                        new XElement(task + "Interval", "PT1M"),
+                        new XElement(task + "Count", 5)),
+                    new XElement(task + "AllowStartOnDemand", true),
+                    new XElement(task + "Enabled", true),
+                    new XElement(task + "Hidden", false),
+                    new XElement(task + "RunOnlyIfIdle", false),
+                    new XElement(task + "WakeToRun", false),
+                    new XElement(task + "ExecutionTimeLimit", "PT0S"),
+                    new XElement(task + "Priority", 7)),
+                new XElement(task + "Actions",
+                    new XAttribute("Context", "Author"),
+                    new XElement(task + "Exec",
+                        new XElement(task + "Command", Path.GetFullPath(executable)),
+                        new XElement(task + "Arguments", "--background"),
+                        new XElement(task + "WorkingDirectory", Path.GetDirectoryName(Path.GetFullPath(executable))!)))))
+            .ToString(SaveOptions.DisableFormatting);
+    }
+
+    private static bool TryCreateScheduledTask(string executable)
+    {
+        var sid = WindowsIdentity.GetCurrent().User?.Value;
+        if (string.IsNullOrWhiteSpace(sid)) return false;
+
+        var taskFile = Path.Combine(Path.GetTempPath(), $"CodexSessionManager-{Guid.NewGuid():N}.xml");
+        try
+        {
+            File.WriteAllText(taskFile, BuildTaskXml(executable, sid), Encoding.Unicode);
+            return RunTaskScheduler("/Create", "/TN", TaskName, "/XML", taskFile, "/F").Success;
+        }
+        catch
+        {
+            return false;
+        }
+        finally
+        {
+            try { File.Delete(taskFile); } catch { }
+        }
+    }
+
+    private static bool ScheduledTaskEnabled()
+    {
+        var query = RunTaskScheduler("/Query", "/TN", TaskName, "/XML");
+        if (!query.Success || string.IsNullOrWhiteSpace(query.Output)) return false;
+        try
+        {
+            var document = XDocument.Parse(query.Output);
+            XNamespace task = "http://schemas.microsoft.com/windows/2004/02/mit/task";
+            return !string.Equals(document.Root?.Element(task + "Settings")?.Element(task + "Enabled")?.Value, "false", StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool LegacyRegistryEnabled()
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: false);
+        return key?.GetValue(ValueName) is string value && !string.IsNullOrWhiteSpace(value);
+    }
+
+    private static void DisableLegacyRegistry()
+    {
         using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: true);
         key?.DeleteValue(ValueName, throwOnMissingValue: false);
     }
+
+    private static TaskSchedulerResult RunTaskScheduler(params string[] arguments)
+    {
+        try
+        {
+            var startInfo = new ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "schtasks.exe"))
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+            foreach (var argument in arguments) startInfo.ArgumentList.Add(argument);
+            using var process = Process.Start(startInfo);
+            if (process is null) return new(false, "");
+            var output = process.StandardOutput.ReadToEnd();
+            var error = process.StandardError.ReadToEnd();
+            if (!process.WaitForExit(10000))
+            {
+                process.Kill(true);
+                return new(false, output + error);
+            }
+            return new(process.ExitCode == 0, output + error);
+        }
+        catch (Exception error)
+        {
+            return new(false, error.Message);
+        }
+    }
+
+    private sealed record TaskSchedulerResult(bool Success, string Output);
 }
 
 internal sealed class GitStatusService
@@ -2493,18 +2633,25 @@ internal sealed class CodexClient
         return normalized;
     }
 
-    private static void AttachShadowSessions(IReadOnlyList<JsonObject> items)
+    internal static void AttachShadowSessions(IReadOnlyList<JsonObject> items)
     {
         var parents = items
-            .Where(item => !string.Equals(item["threadSource"]?.GetValue<string>(), "agent_created_thread", StringComparison.OrdinalIgnoreCase))
+            .Where(item => !IsSubagentThreadSource(item["threadSource"]?.GetValue<string>() ?? ""))
             .ToArray();
+        var parentsById = parents
+            .Where(item => item["id"]?.GetValue<string>() is { Length: > 0 })
+            .ToDictionary(item => item["id"]!.GetValue<string>(), StringComparer.OrdinalIgnoreCase);
 
-        foreach (var child in items.Where(item => string.Equals(item["threadSource"]?.GetValue<string>(), "agent_created_thread", StringComparison.OrdinalIgnoreCase)))
+        foreach (var child in items.Where(item => IsSubagentThreadSource(item["threadSource"]?.GetValue<string>() ?? "")))
         {
             var childId = child["id"]?.GetValue<string>();
             var childCreated = child["createdAt"]?.GetValue<long>() ?? 0;
             var originator = child["originator"]?.GetValue<string>() ?? "";
             if (string.IsNullOrWhiteSpace(childId) || childCreated <= 0) continue;
+
+            JsonObject? parent = null;
+            var declaredParentId = ReadDeclaredParentThreadId(child["storagePath"]?.GetValue<string>());
+            if (declaredParentId is not null) parentsById.TryGetValue(declaredParentId, out parent);
 
             var candidates = parents
                 .Where(candidate => string.Equals(candidate["originator"]?.GetValue<string>() ?? "", originator, StringComparison.OrdinalIgnoreCase))
@@ -2520,13 +2667,60 @@ internal sealed class CodexClient
                 .Take(8)
                 .ToArray();
 
-            var parent = candidates
+            parent ??= candidates
                 .Select(candidate => candidate.Item)
                 .FirstOrDefault(candidate => RolloutReferencesThread(candidate["storagePath"]?.GetValue<string>(), childId));
             parent ??= candidates.FirstOrDefault(candidate => candidate.Distance <= TimeSpan.FromMinutes(1).TotalMilliseconds)?.Item;
 
-            if (parent?["id"] is JsonValue parentId) child["parentId"] = parentId.DeepClone();
+            if (parent?["id"] is JsonValue parentId)
+            {
+                child["parentId"] = parentId.DeepClone();
+                parent["subagentCount"] = (parent["subagentCount"]?.GetValue<int>() ?? 0) + 1;
+            }
         }
+    }
+
+    internal static string? ReadDeclaredParentThreadId(string? rolloutPath)
+    {
+        if (string.IsNullOrWhiteSpace(rolloutPath) || !File.Exists(rolloutPath)) return null;
+        try
+        {
+            foreach (var line in File.ReadLines(rolloutPath).Take(120))
+            {
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                var parentId = FindStringProperty(JsonNode.Parse(line), "parent_thread_id");
+                if (!string.IsNullOrWhiteSpace(parentId)) return parentId;
+            }
+        }
+        catch
+        {
+        }
+        return null;
+    }
+
+    private static string? FindStringProperty(JsonNode? node, string propertyName)
+    {
+        if (node is JsonObject value)
+        {
+            foreach (var entry in value)
+            {
+                if (entry.Key.Equals(propertyName, StringComparison.OrdinalIgnoreCase)
+                    && entry.Value is JsonValue property
+                    && property.TryGetValue<string>(out var text)
+                    && !string.IsNullOrWhiteSpace(text)) return text;
+                var nested = FindStringProperty(entry.Value, propertyName);
+                if (nested is not null) return nested;
+            }
+        }
+        else if (node is JsonArray array)
+        {
+            foreach (var item in array)
+            {
+                var nested = FindStringProperty(item, propertyName);
+                if (nested is not null) return nested;
+            }
+        }
+        return null;
     }
 
     private static bool RolloutReferencesThread(string? rolloutPath, string threadId)
@@ -2949,7 +3143,7 @@ internal sealed class CodexClient
         var originator = FirstText(thread, "originator") ?? "";
         var isDesktop = originator.Contains("Codex Desktop", StringComparison.OrdinalIgnoreCase);
         var rawSource = FirstText(thread, "thread_source", "source") ?? "cli";
-        var isInternal = rawSource.Contains("guardian", StringComparison.OrdinalIgnoreCase) || rawSource.Contains("memory_consolidation", StringComparison.OrdinalIgnoreCase);
+        var isInternal = IsInternalThreadSource(rawSource);
         var source = isDesktop ? "Codex Desktop" : rawSource;
         var project = string.IsNullOrEmpty(cwd) ? "Ohne Projekt" : Path.GetFileName(cwd.TrimEnd('\\', '/'));
         if (isDesktop && IsDesktopScratchDirectory(cwd)) project = "Codex Desktop";
@@ -2979,6 +3173,22 @@ internal sealed class CodexClient
     {
         var marker = $"{Path.DirectorySeparatorChar}Documents{Path.DirectorySeparatorChar}Codex{Path.DirectorySeparatorChar}";
         return cwd.Contains(marker, StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static bool IsInternalThreadSource(string source)
+    {
+        var normalized = source.Trim().Replace('-', '_').Replace(' ', '_');
+        return normalized.Contains("guardian", StringComparison.OrdinalIgnoreCase)
+            || normalized.Contains("memory_consolidation", StringComparison.OrdinalIgnoreCase)
+            || IsSubagentThreadSource(normalized);
+    }
+
+    internal static bool IsSubagentThreadSource(string source)
+    {
+        var normalized = source.Trim().Replace('-', '_').Replace(' ', '_');
+        return normalized.Equals("subagent", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("sub_agent", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("agent_created_thread", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string? FirstText(JsonObject value, params string[] keys)

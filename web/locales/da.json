@@ -162,6 +162,7 @@
   "backSessions": "← Sessioner",
   "sessionLoading": "Indlæser session …",
   "unnamedSession": "Unavngiven session",
+  "subagents": "{0} underagenter",
   "status": "Status",
   "ready": "Klar",
   "source": "Kilde",

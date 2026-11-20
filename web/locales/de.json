@@ -162,6 +162,7 @@
   "backSessions": "← Sessions",
   "sessionLoading": "Session wird geladen …",
   "unnamedSession": "Unbenannte Session",
+  "subagents": "{0} Subagents",
   "status": "Status",
   "ready": "Bereit",
   "source": "Quelle",
