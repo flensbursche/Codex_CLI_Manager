@@ -503,7 +503,7 @@ function bindSessionDragging() {
   unassign.ondragleave = () => unassign.classList.remove("drop-target");
   unassign.ondrop = (event) => { event.preventDefault(); unassign.classList.remove("drop-target"); unassign.hidden = true; const threadId = event.dataTransfer.getData("text/codex-thread") || state.draggedSessionId; if (threadId) void removeSessionFromProject(threadId); };
   document.querySelectorAll("article.session-row").forEach((row) => {
-    row.ondragstart = (event) => { state.draggedSessionId = row.dataset.id; event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", row.dataset.id); event.dataTransfer.setData("text/codex-thread", row.dataset.id); row.classList.add("dragging"); unassign.hidden = !state.sessions.find((session) => session.id === row.dataset.id)?.projectId; dropTargets.forEach((target) => target.classList.add("drop-ready")); };
+    row.ondragstart = (event) => { if (event.target.closest("input, select, button, a")) { event.preventDefault(); return; } state.draggedSessionId = row.dataset.id; event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", row.dataset.id); event.dataTransfer.setData("text/codex-thread", row.dataset.id); row.classList.add("dragging"); unassign.hidden = !state.sessions.find((session) => session.id === row.dataset.id)?.projectId; dropTargets.forEach((target) => target.classList.add("drop-ready")); };
     row.ondragend = () => { state.draggedSessionId = null; row.classList.remove("dragging"); unassign.hidden = true; unassign.classList.remove("drop-target"); document.querySelectorAll(".projects .drop-target, .project-create-toggle.drop-target, .sidebar-primary .drop-ready, .sidebar-primary .drop-target").forEach((target) => target.classList.remove("drop-ready", "drop-target")); };
   });
 }
@@ -576,6 +576,7 @@ function renderSessions() {
   document.querySelectorAll(".session-launch").forEach((button) => button.onclick = () => openFromList(button.dataset.id, button.dataset.action, button));
   document.querySelectorAll(".session-focus").forEach((button) => button.onclick = () => openFromList(button.dataset.id, "focus", button));
   document.querySelectorAll(".session-stop").forEach((button) => button.onclick = () => confirmStopSession(button.dataset.id));
+  bindInlineSessionEditing();
   bindCopyButtons();
   bindSessionDragging();
 }
@@ -598,12 +599,83 @@ function sessionRow(session, shadows = [], query = "") {
     <div class="session-copy">
       <div class="session-context"><button class="session-path-copy copy-value" type="button" data-copy="${esc(session.cwd)}" title="${t("copyPath")}"><code>${highlight(directoryLabel(session.cwd), query)}</code>${icons.copy}</button><time class="session-time">${sessionTime(session)}</time></div>
       <div class="session-body">
-        <div class="session-summary"><div class="session-title-line"><strong class="session-title" title="${esc(session.title)}">${highlight(session.title, query)}</strong>${subagentIndicator(session.subagentCount)}${sessionHealthIndicator(session.health)}${gitIndicator(session.git)}</div>${session.customTitle ? `<span class="session-original-title">${t("originalTitle")}: ${highlight(session.originalTitle, query)}</span>` : ""}${session.preview ? `<span class="session-prompt">${highlight(session.preview, query)}</span>` : ""}</div>
+        <div class="session-summary"><div class="session-title-line"><strong class="session-title" data-inline-title="${session.id}" title="${esc(t("doubleClickEditTitle"))}">${highlight(session.title, query)}</strong><button class="session-project-label" type="button" data-inline-project="${session.id}" title="${esc(t("doubleClickEditProject"))}">${esc(session.project || t("noProject"))}</button>${subagentIndicator(session.subagentCount)}${sessionHealthIndicator(session.health)}${gitIndicator(session.git)}</div>${session.customTitle ? `<span class="session-original-title">${t("originalTitle")}: ${highlight(session.originalTitle, query)}</span>` : ""}${session.preview ? `<span class="session-prompt">${highlight(session.preview, query)}</span>` : ""}</div>
         <div class="session-actions">${utility}<a class="session-details" href="/session/${encodeURIComponent(session.id)}">${t("details")}</a>${restore}${launch}</div>
       </div>
       ${shadowList}
     </div>
   </article>`;
+}
+
+function bindInlineSessionEditing() {
+  document.querySelectorAll("[data-inline-title]").forEach((title) => {
+    title.ondblclick = (event) => {
+      event.preventDefault(); event.stopPropagation();
+      beginInlineTitleEdit(title.dataset.inlineTitle, title);
+    };
+  });
+  document.querySelectorAll("[data-inline-project]").forEach((project) => {
+    project.ondblclick = (event) => {
+      event.preventDefault(); event.stopPropagation();
+      beginInlineProjectEdit(project.dataset.inlineProject, project);
+    };
+  });
+}
+
+function beginInlineTitleEdit(threadId, titleElement) {
+  if (document.querySelector(".session-inline-editor")) return;
+  const session = state.sessions.find((item) => item.id === threadId); if (!session) return;
+  const row = titleElement.closest(".session-row"); row.draggable = false;
+  const input = document.createElement("input");
+  input.className = "session-inline-editor session-inline-title";
+  input.maxLength = 160; input.value = session.title || ""; input.setAttribute("aria-label", t("titlePlaceholder"));
+  titleElement.hidden = true; titleElement.after(input); input.focus(); input.select();
+  let finished = false;
+  const cancel = () => { if (finished) return; finished = true; input.remove(); titleElement.hidden = false; row.draggable = true; };
+  const save = async () => {
+    if (finished) return;
+    const value = input.value.trim();
+    if (value === (session.title || "")) { cancel(); return; }
+    finished = true; input.disabled = true;
+    try {
+      const result = await fetchJson(`/api/session/${encodeURIComponent(session.id)}/title`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: value }) });
+      Object.assign(session, result); renderProjects(); renderSessions();
+    } catch (error) { input.remove(); titleElement.hidden = false; row.draggable = true; showListError(error.message); }
+  };
+  input.onkeydown = (event) => {
+    if (event.key === "Enter") { event.preventDefault(); void save(); }
+    else if (event.key === "Escape") { event.preventDefault(); cancel(); }
+  };
+  input.onblur = () => void save();
+}
+
+function beginInlineProjectEdit(threadId, projectElement) {
+  if (document.querySelector(".session-inline-editor")) return;
+  const session = state.sessions.find((item) => item.id === threadId); if (!session) return;
+  const row = projectElement.closest(".session-row"); row.draggable = false;
+  const select = document.createElement("select");
+  select.className = "session-inline-editor session-inline-project";
+  select.setAttribute("aria-label", t("projectAssignment"));
+  select.innerHTML = [`<option value="">${t("noProject")}</option>`, ...state.projects.map((project) => `<option value="${project.id}" ${session.projectId === project.id ? "selected" : ""}>${esc(project.name)}</option>`)].join("");
+  projectElement.hidden = true; projectElement.after(select); select.focus();
+  let finished = false;
+  const cancel = () => { if (finished) return; finished = true; select.remove(); projectElement.hidden = false; row.draggable = true; };
+  const save = async () => {
+    if (finished) return;
+    const projectId = select.value;
+    if (projectId === (session.projectId || "")) { cancel(); return; }
+    finished = true; select.disabled = true;
+    try {
+      if (projectId) await fetchJson(`/api/projects/${encodeURIComponent(projectId)}/sessions/${encodeURIComponent(session.id)}`, { method: "POST" });
+      else await fetchJson(`/api/projects/sessions/${encodeURIComponent(session.id)}/unassign`, { method: "POST" });
+      const project = state.projects.find((item) => item.id === projectId);
+      session.projectId = project?.id || null; session.project = project?.name || session.baseProject || t("noProject");
+      renderProjects(); renderSessions();
+    } catch (error) { select.remove(); projectElement.hidden = false; row.draggable = true; showListError(error.message); }
+  };
+  select.onchange = () => void save();
+  select.onkeydown = (event) => { if (event.key === "Escape") { event.preventDefault(); cancel(); } };
+  select.onblur = () => window.setTimeout(cancel, 0);
 }
 
 function subagentIndicator(count) {

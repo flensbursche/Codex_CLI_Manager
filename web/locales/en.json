@@ -156,6 +156,8 @@
   "copied": "Copied",
   "copyPathFallback": "Copy path:",
   "editTitle": "Edit session title",
+  "doubleClickEditTitle": "Double-click to edit the title",
+  "doubleClickEditProject": "Double-click to change the project",
   "originalTitle": "Original title",
   "resetTitle": "Restore original title",
   "titlePlaceholder": "Session title",

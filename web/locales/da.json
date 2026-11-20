@@ -156,6 +156,8 @@
   "copied": "Kopieret",
   "copyPathFallback": "Kopiér sti:",
   "editTitle": "Rediger sessionstitel",
+  "doubleClickEditTitle": "Dobbeltklik for at redigere titlen",
+  "doubleClickEditProject": "Dobbeltklik for at ændre projektet",
   "originalTitle": "Original titel",
   "resetTitle": "Gendan original titel",
   "titlePlaceholder": "Sessionstitel",

@@ -156,6 +156,8 @@
   "copied": "Kopiert",
   "copyPathFallback": "Pfad kopieren:",
   "editTitle": "Session-Titel bearbeiten",
+  "doubleClickEditTitle": "Doppelklick zum Bearbeiten des Titels",
+  "doubleClickEditProject": "Doppelklick zum Ändern des Projekts",
   "originalTitle": "Originaltitel",
   "resetTitle": "Originaltitel wiederherstellen",
   "titlePlaceholder": "Session-Titel",
